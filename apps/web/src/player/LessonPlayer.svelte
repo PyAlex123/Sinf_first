@@ -105,7 +105,7 @@
         {:else if screen.kind === 'type'}
           <TypeWord
             {screen}
-            done={allDone.has(index)}
+            done={allDone.has(index) && !win}
             onWin={(s: number) => handleWin({ stars: s })}
           />
         {:else}
@@ -114,7 +114,7 @@
             {pics}
             abc={course.abc}
             abcColors={course.abcColors}
-            done={allDone.has(index)}
+            done={allDone.has(index) && !win}
             onWin={handleWin}
           />
         {/if}

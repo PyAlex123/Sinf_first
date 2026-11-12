@@ -96,5 +96,17 @@
   "player.speak": "Прочитать вслух",
   "player.before": "перед",
   "player.after": "после",
-  "player.restTitle": "Отвернулись от экранов!"
+  "player.restTitle": "Отвернулись от экранов!",
+  "screen.slide": "Слайд",
+  "screen.step": "Шаг Paint",
+  "screen.type": "Напечатай слово",
+  "screen.game": "Тренажёр",
+  "session.lockText": "Текст на экранах",
+  "session.online": "в сети",
+  "session.screenShort": "экран {index}",
+  "join.classes.none": "Классов пока нет",
+  "student.fullscreenHint": "Выйти из полного экрана — Esc",
+  "present.open": "Открыть проектор",
+  "teacher.demo.hint": "Ученики заходят на сайт, нажимают «Я ученик» и выбирают класс.",
+  "session.of": "из {count}"
 }

@@ -96,5 +96,17 @@
   "player.speak": "Ovoz chiqarib o‘qish",
   "player.before": "oldin",
   "player.after": "keyin",
-  "player.restTitle": "Ekrandan yuz o‘giring!"
+  "player.restTitle": "Ekrandan yuz o‘giring!",
+  "screen.slide": "Slayd",
+  "screen.step": "Paint qadami",
+  "screen.type": "So‘zni yoz",
+  "screen.game": "Mashq",
+  "session.lockText": "Ekranlardagi matn",
+  "session.online": "tarmoqda",
+  "session.screenShort": "{index}-ekran",
+  "join.classes.none": "Hozircha sinflar yo‘q",
+  "student.fullscreenHint": "To‘liq ekrandan chiqish — Esc",
+  "present.open": "Proyektorni ochish",
+  "teacher.demo.hint": "O‘quvchilar saytga kirib, «Men o‘quvchiman»ni bosadi va sinfni tanlaydi.",
+  "session.of": "{count} dan"
 }

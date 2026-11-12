@@ -72,11 +72,13 @@ export class SessionStore {
   // ---------- commands
 
   setScreen(index: number): void {
-    this.socket?.send(
-      this.role === 'teacher'
-        ? { type: 'teacher.screen.set', index }
-        : { type: 'student.screen.set', index },
-    );
+    if (this.role === 'teacher') {
+      // Optimistic: quick repeated presses must count from the new screen, not wait for the echo.
+      if (this.state) this.state = { ...this.state, screenIndex: index };
+      this.socket?.send({ type: 'teacher.screen.set', index });
+    } else {
+      this.socket?.send({ type: 'student.screen.set', index });
+    }
   }
 
   setMode(mode: 'presentation' | 'free'): void {
