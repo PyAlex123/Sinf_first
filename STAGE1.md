@@ -161,7 +161,7 @@
     - `docs/decisions/004-stage1-demo.md`.
   - **Готово, когда:** `pnpm install && pnpm lint && pnpm test && pnpm build` проходят, а команды записаны в CLAUDE.md §10.
 
-- [ ] **S1.2 Импорт уроков из HTML-формата автора**
+- [x] **S1.2 Импорт уроков из HTML-формата автора**
   - **Задачи:**
     - zod-схемы урока в `packages/shared`:
       - Lesson: id, group (`gos` / `krujok`), num, title, sub, icon, stages, screens, teacherScenario;
@@ -343,3 +343,4 @@
 | Дата | Шаг | Что сделано | Что проверить автору |
 |---|---|---|---|
 | 2026-11-12 | S1.1 | pnpm workspaces (`apps/server`, `apps/web`, `packages/shared`, `packages/checkers`), TypeScript 6.0 strict, ESLint с проверкой типов + Prettier, Vitest (projects), скрипты корня (`dev`, `build`, `start`, `test`, `lint`, `typecheck`, `seed`, `import:html`; `seed` и `import:html` — заглушки до S1.3/S1.2), `.env.example`, `.gitignore`, `.editorconfig`, README, ADR-004, команды в CLAUDE.md §10. `pnpm install && pnpm lint && pnpm test && pnpm build` проходят в облаке. | На своём ПК (Windows) с Node.js 22: `corepack enable`, `pnpm install && pnpm lint && pnpm test && pnpm build`, `pnpm dev`. Положить исходники урока в `content-src/1-klass-2-chetvert/` перед S1.2. |
+| 2026-11-12 | S1.2 | zod-схемы урока в `packages/shared` (Lesson, Stage, Screen: slide / step / type / game, 6 типов уровней, Course). Импорт `pnpm import:html` в `apps/server/src/import/`: JSON без `eval`, parse5, очистка HTML, 78 + 161 JPEG → 225 WebP (до 150 КБ, имя — хэш, дубли один раз), хронометраж из сценариев, этапы экранов. Результат в `content/1-klass-2-chetvert/`: 14 уроков, 419 экранов (315 слайдов, из них 101 шаг Paint; 43 «напечатай слово»; 61 уровень), хронометраж у всех 14, 7 МБ вместо 20. Повторный импорт побайтово тот же. Решения — ADR-005. 46 тестов. | Открыть `content/1-klass-2-chetvert/scenarios/k10.html` через `pnpm dev` после S1.3 (или любым локальным веб-сервером из корня репозитория) и сверить с оригиналом. Проверить правило этапов: «Напечатай слово» и титульный слайд берут этап следующего экрана (ADR-005). |

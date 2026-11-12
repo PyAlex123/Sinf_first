@@ -482,7 +482,13 @@ Windows 10/11 x64 Pro · 4 ГБ ОЗУ · старый двухъядерный 
 | `pnpm format` | отформатировать код Prettier |
 | `pnpm typecheck` | `tsc --noEmit` во всех пакетах |
 | `pnpm seed` | демо-данные в базу (реализуется в S1.3) |
-| `pnpm import:html <файл детей> <файл учителя> <папка вывода>` | импорт уроков из HTML автора (реализуется в S1.2) |
+| `pnpm import:html <файл детей> <файл учителя> <папка вывода>` | импорт уроков из HTML автора в `content/` (ADR-005); пути — от корня репозитория |
+
+Импорт уроков 1 класса, II четверть (после изменения `content-src/` — перезапустить и закоммитить `content/`):
+
+```bash
+pnpm import:html content-src/1-klass-2-chetvert/1_klass_2_chetvert.html content-src/1-klass-2-chetvert/1_klass_2_chetvert_uchitel.html content/1-klass-2-chetvert
+```
 
 Проверка перед PR: `pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
 

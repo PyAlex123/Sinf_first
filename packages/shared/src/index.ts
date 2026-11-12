@@ -15,3 +15,5 @@ export const PROTOCOL_VERSION = 1;
 export function isLocale(value: unknown): value is Locale {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);
 }
+
+export * from './lesson.js';
