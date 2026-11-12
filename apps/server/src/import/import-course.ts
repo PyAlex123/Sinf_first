@@ -19,6 +19,7 @@ import { find, findAll, getAttr, hasClass, removeNode, textContent } from './dom
 import { collectImageSources, linkImages, takeImageDefs, type ImageDef } from './images.js';
 import { MediaStore } from './media.js';
 import { hasActiveContent, isSafeCss, sanitizeTree } from './sanitize.js';
+import { scopeCss } from './scope-css.js';
 import { readKidsFile, readTeacherFile, type RawApp, type RawScreen } from './sources.js';
 import { fillMissingStages, parseTimeline, screenStageKey } from './stages.js';
 
@@ -48,6 +49,9 @@ export interface ImportReport {
   totalBytes: number;
   perLesson: LessonReport[];
 }
+
+/** Root class of the lesson player; the author's stylesheet is scoped under it. */
+export const LESSON_ROOT_CLASS = '.lesson-root';
 
 /** Files and folders the import owns inside the output folder; they are recreated on every run. */
 const MANAGED = [
@@ -193,7 +197,8 @@ export async function importCourse(options: ImportOptions): Promise<ImportReport
   const files = new Map<string, string | Buffer>();
   files.set('course.json', json(course));
   files.set('pics.json', json(pics));
-  files.set('lesson.css', kids.css.trim() + '\n');
+  // The author's CSS is global (body, #stage, .bar…); the player loads it scoped under `.lesson-root`.
+  files.set('lesson.css', scopeCss(kids.css, LESSON_ROOT_CLASS));
   for (const lesson of lessons) files.set(`lessons/${lesson.id}.json`, json(lesson));
   for (const [id, html] of scenarios) files.set(`scenarios/${id}.html`, html);
   for (const file of media.files()) files.set(`media/${file.name}`, file.bytes);

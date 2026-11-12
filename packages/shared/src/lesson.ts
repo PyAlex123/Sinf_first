@@ -154,6 +154,13 @@ export const GroupsLevelSchema = z.strictObject({
     .min(2),
 });
 
+export type StoryLevel = z.infer<typeof StoryLevelSchema>;
+export type PickLevel = z.infer<typeof PickLevelSchema>;
+export type TrainLevel = z.infer<typeof TrainLevelSchema>;
+export type NbrLevel = z.infer<typeof NbrLevelSchema>;
+export type WordLevel = z.infer<typeof WordLevelSchema>;
+export type GroupsLevel = z.infer<typeof GroupsLevelSchema>;
+
 export const GAME_TYPES = ['story', 'pick', 'train', 'nbr', 'word', 'groups'] as const;
 export type GameType = (typeof GAME_TYPES)[number];
 

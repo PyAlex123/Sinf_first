@@ -47,8 +47,8 @@ export default tseslint.config(
       },
     },
     rules: {
-      // Svelte 5 runes: `$state` in class fields and modules
-      'svelte/no-unused-svelte-ignore': 'error',
+      // Lesson HTML is sanitized once at import time (ADR-005); the player renders it with {@html}.
+      'svelte/no-at-html-tags': 'off',
     },
   },
   {
