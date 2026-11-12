@@ -113,3 +113,26 @@ export const JoinSessionResponseSchema = z.strictObject({
   status: z.enum(['active', 'ended']),
 });
 export type JoinSessionResponse = z.infer<typeof JoinSessionResponseSchema>;
+
+// ---------- class and student codes (teacher)
+
+export const StudentSchema = z.strictObject({
+  id,
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  sortOrder: z.number().int().positive(),
+  isActive: z.boolean(),
+  codeKind: z.enum(['pics', 'digits']),
+  /** Public code: PICS keys in order for `pics`, single digits for `digits`. Stage 1 only (ADR-004). */
+  code: z.array(z.string().min(1)).min(1),
+});
+export type Student = z.infer<typeof StudentSchema>;
+
+export const ClassDetailsResponseSchema = z.strictObject({
+  class: ClassSummarySchema,
+  students: z.array(StudentSchema),
+});
+export type ClassDetailsResponse = z.infer<typeof ClassDetailsResponseSchema>;
+
+export const StudentCodeResponseSchema = z.strictObject({ student: StudentSchema });
+export type StudentCodeResponse = z.infer<typeof StudentCodeResponseSchema>;

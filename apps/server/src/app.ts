@@ -11,6 +11,7 @@ import { errorHandler } from './errors.js';
 import { SessionStore } from './realtime/session-store.js';
 import { realtimePlugin } from './realtime/ws.js';
 import { authRoutes } from './routes/auth.js';
+import { classRoutes } from './routes/classes.js';
 import { contentRoutes } from './routes/content.js';
 import { demoRoutes } from './routes/demo.js';
 import { healthRoutes } from './routes/health.js';
@@ -73,6 +74,7 @@ export async function buildApp(
   await app.register(authRoutes, { prefix: '/api' });
   await app.register(contentRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api' });
+  await app.register(classRoutes, { prefix: '/api' });
   await app.register(sessionRoutes, { prefix: '/api', store });
   await app.register(joinRoutes, { prefix: '/api', store });
   await app.register(realtimePlugin, { store });

@@ -1,6 +1,7 @@
 import type { ZodType } from 'zod';
 import {
   ApiErrorSchema,
+  ClassDetailsResponseSchema,
   CourseListResponseSchema,
   JoinClassesResponseSchema,
   JoinSessionResponseSchema,
@@ -9,6 +10,7 @@ import {
   PicsSchema,
   SessionResponseSchema,
   SessionStateSchema,
+  StudentCodeResponseSchema,
   TeacherSchema,
   type CreateSession,
   type TeacherLogin,
@@ -69,6 +71,14 @@ export const api = {
     request('GET', `/api/sessions/${encodeURIComponent(id)}`, SessionWithStateSchema),
   endSession: (id: string) =>
     request('POST', `/api/sessions/${encodeURIComponent(id)}/end`, SessionResponseSchema),
+  classDetails: (id: string) =>
+    request('GET', `/api/classes/${encodeURIComponent(id)}`, ClassDetailsResponseSchema),
+  reissueCode: (studentId: string) =>
+    request(
+      'POST',
+      `/api/students/${encodeURIComponent(studentId)}/code`,
+      StudentCodeResponseSchema,
+    ),
   joinClasses: () => request('GET', '/api/join/classes', JoinClassesResponseSchema),
   joinSession: (id: string) =>
     request('GET', `/api/join/session/${encodeURIComponent(id)}`, JoinSessionResponseSchema),

@@ -1,20 +1,32 @@
 <script lang="ts">
-  import type { ClassSummary, Course, JoinClass, LessonSummary, Teacher } from '@sinf/shared';
+  import type {
+    ClassSummary,
+    Course,
+    JoinClass,
+    LessonSummary,
+    Pics,
+    Student,
+    Teacher,
+  } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
-  import { loadCourses } from '../../lib/content.js';
+  import { loadCourses, loadPics } from '../../lib/content.js';
   import { t } from '../../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../../lib/router.svelte.js';
   import Button from '../../lib/ui/Button.svelte';
   import Card from '../../lib/ui/Card.svelte';
   import Header from '../../lib/ui/Header.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
+  import StudentList from '../../lib/ui/StudentList.svelte';
 
   let { params: _params }: PageProps = $props();
   let teacher = $state<Teacher | null>(null);
   let classes = $state<ClassSummary[]>([]);
   let courses = $state<Course[]>([]);
   let joinInfo = $state<JoinClass[]>([]);
+  let students = $state<Student[]>([]);
+  let pics = $state<Pics>({});
+  let showStudents = $state(false);
   let error = $state<string | null>(null);
   let busy = $state<string | null>(null);
 
@@ -41,9 +53,12 @@
       const me = await api.me();
       teacher = me.teacher;
       classes = me.classes;
-      const [c, j] = await Promise.all([loadCourses(), api.joinClasses()]);
+      const [c, j, p] = await Promise.all([loadCourses(), api.joinClasses(), loadPics()]);
       courses = c;
       joinInfo = j.classes;
+      pics = p;
+      const first = me.classes[0];
+      if (first) students = (await api.classDetails(first.id)).students;
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         router.navigate('/teacher/login', { replace: true });
@@ -92,6 +107,15 @@
           <h1>{t('teacher.class', { name: cls.name })}</h1>
           <p class="muted">{t('teacher.students', { count: cls.studentCount })}</p>
           <p class="muted">{t('teacher.demo.hint')}</p>
+          <div class="actions">
+            <Button variant="secondary" href={`/teacher/class/${cls.id}/cards`}
+              >{t('teacher.cards')}</Button
+            >
+            <Button variant="ghost" onclick={() => (showStudents = !showStudents)}>
+              {t('teacher.students.title')}
+              {showStudents ? '▴' : '▾'}
+            </Button>
+          </div>
         </Card>
         {#if active}
           <Card accent>
@@ -105,6 +129,16 @@
             </div>
           </Card>
         {/if}
+      </section>
+    {/if}
+
+    {#if showStudents}
+      <section class="students">
+        <StudentList
+          {students}
+          {pics}
+          onChange={(u: Student) => (students = students.map((s) => (s.id === u.id ? u : s)))}
+        />
       </section>
     {/if}
 
@@ -172,6 +206,9 @@
     display: flex;
     gap: var(--space-3);
     flex-wrap: wrap;
+  }
+  .students {
+    margin-bottom: var(--space-5);
   }
   .ktp {
     display: flex;

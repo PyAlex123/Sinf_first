@@ -45,6 +45,19 @@ export async function loadLessonBundle(lessonId: string): Promise<LessonBundle> 
   return { course, lesson, pics: loadedPics };
 }
 
+/** Trainer pictures of the first course (used for picture codes on cards and the class list). */
+export async function loadPics(): Promise<Pics> {
+  const courses = await loadCourses();
+  const course = courses[0];
+  if (!course) return {};
+  let pics = picsByUrl.get(course.pics);
+  if (!pics) {
+    pics = api.pics(course.pics);
+    picsByUrl.set(course.pics, pics);
+  }
+  return pics;
+}
+
 export function ensureStylesheet(href: string): void {
   if (styles.has(href)) return;
   styles.add(href);

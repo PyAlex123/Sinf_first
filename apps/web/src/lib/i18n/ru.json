@@ -108,5 +108,16 @@
   "student.fullscreenHint": "Выйти из полного экрана — Esc",
   "present.open": "Открыть проектор",
   "teacher.demo.hint": "Ученики заходят на сайт, нажимают «Я ученик» и выбирают класс.",
-  "session.of": "из {count}"
+  "session.of": "из {count}",
+  "teacher.students.title": "Ученики",
+  "teacher.cards": "Карточки для печати",
+  "teacher.code": "Код",
+  "teacher.code.reissue": "Новый код",
+  "teacher.code.confirm": "Выдать {name} новый код? Старая карточка перестанет работать.",
+  "teacher.code.order": "по порядку",
+  "cards.title": "Карточки с кодами",
+  "cards.print": "Печать",
+  "cards.hint": "Нажми картинки по порядку",
+  "cards.site": "Сайт",
+  "cards.perPage": "8 карточек на листе A4. Печать: Ctrl+P, без полей."
 }

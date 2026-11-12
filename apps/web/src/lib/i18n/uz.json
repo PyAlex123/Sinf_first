@@ -108,5 +108,16 @@
   "student.fullscreenHint": "To‘liq ekrandan chiqish — Esc",
   "present.open": "Proyektorni ochish",
   "teacher.demo.hint": "O‘quvchilar saytga kirib, «Men o‘quvchiman»ni bosadi va sinfni tanlaydi.",
-  "session.of": "{count} dan"
+  "session.of": "{count} dan",
+  "teacher.students.title": "O‘quvchilar",
+  "teacher.cards": "Chop etish uchun kartochkalar",
+  "teacher.code": "Kod",
+  "teacher.code.reissue": "Yangi kod",
+  "teacher.code.confirm": "{name} uchun yangi kod berilsinmi? Eski kartochka ishlamay qoladi.",
+  "teacher.code.order": "tartib bilan",
+  "cards.title": "Kodli kartochkalar",
+  "cards.print": "Chop etish",
+  "cards.hint": "Rasmlarni tartib bilan bos",
+  "cards.site": "Sayt",
+  "cards.perPage": "A4 varaqda 8 ta kartochka. Chop etish: Ctrl+P, hoshiyasiz."
 }
