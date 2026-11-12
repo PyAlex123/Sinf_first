@@ -191,7 +191,10 @@ describe('static content', () => {
     expect(media.headers['content-type']).toBe('image/webp');
     expect(media.headers['cache-control']).toBe('public, max-age=31536000, immutable');
 
+    // path traversal must not reach files outside content/
     const outside = await t.app.inject({ method: 'GET', url: '/content/../package.json' });
-    expect(outside.statusCode).not.toBe(200);
+    expect(outside.body).not.toContain('"name"');
+    const encoded = await t.app.inject({ method: 'GET', url: '/content/..%2Fpackage.json' });
+    expect(encoded.body).not.toContain('"name"');
   });
 });

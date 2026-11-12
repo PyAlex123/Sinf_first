@@ -2,7 +2,14 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "customConditions": ["@sinf/source"]
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["svelte", "vite/client", "node"],
+    "customConditions": ["@sinf/source"],
+    "allowJs": true,
+    "checkJs": true
   },
-  "include": ["src", "test", "vitest.config.ts"]
+  "include": ["src", "test", "scripts", "vite.config.ts", "vitest.config.ts", "svelte.config.js"]
 }

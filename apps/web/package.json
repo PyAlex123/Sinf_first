@@ -3,15 +3,17 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Svelte 5 + Vite web client (browser and, later, desktop WebView2). Svelte arrives in step S1.4.",
+  "description": "Svelte 5 + Vite web client (browser; later the desktop WebView2 loads the same build)",
   "scripts": {
-    "dev": "tsc -p tsconfig.json --noEmit --watch --preserveWatchOutput",
-    "build": "tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "dev": "vite",
+    "build": "vite build && node scripts/check-bundle.mjs",
+    "preview": "vite preview",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
   },
   "dependencies": {
     "@sinf/shared": "workspace:*",
-    "svelte": "^5.57.3"
+    "svelte": "^5.57.3",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

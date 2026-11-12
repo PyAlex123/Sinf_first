@@ -17,6 +17,8 @@ export function testConfig(overrides: Partial<Record<string, string>> = {}): Con
       DEMO_TEACHER_PASSWORD: TEACHER_PASSWORD,
       SESSION_SECRET: 'test-secret-at-least-16-chars',
       CONTENT_DIR: resolve(REPO_ROOT, 'content'),
+      // API tests must not depend on a built web client; the SPA test passes its own folder.
+      WEB_DIR: resolve(REPO_ROOT, 'apps/web/__no_dist__'),
       ...overrides,
     },
     REPO_ROOT,
