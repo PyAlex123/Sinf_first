@@ -1,0 +1,44 @@
+# Cloud server with a domain: the app behind Caddy (automatic HTTPS, WebSocket passes through).
+# Usage (from the repository root):
+#   cp .env.example .env            # set DEMO_TEACHER_PASSWORD and SESSION_SECRET
+#   export SINF_DOMAIN=lesson.example.uz
+#   docker compose -f deploy/docker-compose.yml up -d --build
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      # Paths inside the container; values from .env for these are ignored on purpose.
+      DATA_DIR: /data
+      DATABASE_PATH: /data/sinf.db
+      CONTENT_DIR: /app/content
+      WEB_DIR: /app/web
+      HOST: 0.0.0.0
+      PORT: '3000'
+    volumes:
+      - sinf-data:/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      # Domain pointed at this server (A record). Without it Caddy serves plain HTTP on port 80.
+      SINF_DOMAIN: ${SINF_DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  sinf-data:
+  caddy-data:
+  caddy-config:

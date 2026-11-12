@@ -14,6 +14,9 @@ data/
 .env.*
 !.env.example
 
+# Browser automation output
+.playwright-mcp/
+
 # Logs and OS files
 *.log
 .DS_Store

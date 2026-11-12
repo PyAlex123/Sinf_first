@@ -474,9 +474,9 @@ Windows 10/11 x64 Pro · 4 ГБ ОЗУ · старый двухъядерный 
 |---|---|
 | `pnpm install` | установить зависимости всех пакетов |
 | `cp .env.example .env` | создать локальный конфиг (секреты только в `.env`) |
-| `pnpm dev` | сервер (`tsx watch`) и веб параллельно |
+| `pnpm dev` | сервер (`tsx watch`, :3000) и веб (Vite, http://localhost:5173 с прокси `/api`, `/content`, `/ws`) параллельно |
 | `pnpm build` | собрать все пакеты в `dist/` по порядку зависимостей |
-| `pnpm start` | запустить собранный сервер (`apps/server/dist/index.js`) |
+| `pnpm start` | запустить собранный сервер (`apps/server/dist/index.js`); он же раздаёт собранный веб из `apps/web/dist` — один порт :3000 |
 | `pnpm test` | Vitest во всех пакетах (`pnpm test:watch` — в режиме наблюдения) |
 | `pnpm lint` | ESLint (с проверкой типов) и `prettier --check` |
 | `pnpm format` | отформатировать код Prettier |
@@ -492,6 +492,8 @@ pnpm import:html content-src/1-klass-2-chetvert/1_klass_2_chetvert.html content-
 ```
 
 Сервер: `pnpm dev` → http://localhost:3000/health. База — `data/sinf.db`; при пустой базе демо-данные создаются сами. Демо-учитель `demo@sinf.local`, пароль — `DEMO_TEACHER_PASSWORD` из `.env`. Сброс демо — `pnpm seed --reset` или `POST /api/demo/reset` с cookie учителя.
+
+Запуск для урока — `docs/deploy.md`: ноутбук в локальной сети (`pnpm build && pnpm start`, адрес `http://192.168.x.x:3000`) или сервер с доменом (`docker compose -f deploy/docker-compose.yml up -d --build`, Caddy даёт HTTPS).
 
 Проверка перед PR: `pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
 

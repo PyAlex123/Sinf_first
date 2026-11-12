@@ -1,0 +1,6 @@
+# Caddy in front of the app. {$SINF_DOMAIN} comes from docker-compose; a domain gets automatic HTTPS
+# (Let's Encrypt), ":80" serves plain HTTP. WebSocket upgrades are proxied as is.
+{$SINF_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}

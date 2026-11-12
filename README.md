@@ -23,7 +23,9 @@ cp .env.example .env
 pnpm dev
 ```
 
-> Сейчас готовы каркас (S1.1), импорт уроков (S1.2) и сервер с базой (S1.3): после `pnpm dev` откройте http://localhost:3000/health. Веб-интерфейс появится в S1.4. Демо-учитель: `demo@sinf.local`, пароль — `DEMO_TEACHER_PASSWORD` из `.env`. База SQLite создаётся в `data/` и при первом запуске заполняется демо-данными.
+> После `pnpm dev` откройте http://localhost:5173 (в режиме разработки веб отдаёт Vite, сервер работает на :3000). Для урока в классе — `pnpm build && pnpm start` и адрес ноутбука в локальной сети, подробно в [`docs/deploy.md`](docs/deploy.md) (там же вариант с облачным сервером и доменом).
+>
+> Демо-учитель: `demo@sinf.local`, пароль — `DEMO_TEACHER_PASSWORD` из `.env`. База SQLite создаётся в `data/` и при первом запуске заполняется демо-данными. Ученики нажимают «Я ученик» и выбирают класс; имён и кодов пока нет (ADR-007).
 
 ## Команды
 
@@ -44,7 +46,8 @@ pnpm dev
 
 ```
 apps/server         Node.js + TypeScript: API, WebSocket, раздача веба (один процесс)
-apps/web            веб-клиент (Svelte 5 + Vite с шага S1.4)
+apps/web            веб-клиент: Svelte 5 + Vite, проигрыватель уроков, страницы учителя и ученика
+deploy/             Dockerfile, docker-compose с Caddy (HTTPS) для сервера с доменом
 packages/shared     общие zod-схемы и типы
 packages/checkers   проверщики файлов практики (на этапе 1 почти пустой)
 docs/decisions      архитектурные решения (ADR)

@@ -196,4 +196,15 @@
     font-weight: 800;
     line-height: 1.2;
   }
+  @media (max-width: 480px) {
+    .hud {
+      bottom: 84px;
+      right: var(--space-2);
+    }
+    .hand {
+      min-height: 44px;
+      padding: 0 var(--space-3);
+      font-size: var(--text-sm);
+    }
+  }
 </style>
