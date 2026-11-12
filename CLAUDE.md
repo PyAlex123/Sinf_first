@@ -481,7 +481,8 @@ Windows 10/11 x64 Pro · 4 ГБ ОЗУ · старый двухъядерный 
 | `pnpm lint` | ESLint (с проверкой типов) и `prettier --check` |
 | `pnpm format` | отформатировать код Prettier |
 | `pnpm typecheck` | `tsc --noEmit` во всех пакетах |
-| `pnpm seed` | демо-данные в базу (реализуется в S1.3) |
+| `pnpm seed` | демо-данные в пустую базу; `pnpm seed --reset` — стереть всё и засеять заново |
+| `pnpm --filter @sinf/server db:generate` | SQL-миграция после изменения `apps/server/src/db/schema.ts` (папка `apps/server/drizzle/`, коммитится) |
 | `pnpm import:html <файл детей> <файл учителя> <папка вывода>` | импорт уроков из HTML автора в `content/` (ADR-005); пути — от корня репозитория |
 
 Импорт уроков 1 класса, II четверть (после изменения `content-src/` — перезапустить и закоммитить `content/`):
@@ -489,6 +490,8 @@ Windows 10/11 x64 Pro · 4 ГБ ОЗУ · старый двухъядерный 
 ```bash
 pnpm import:html content-src/1-klass-2-chetvert/1_klass_2_chetvert.html content-src/1-klass-2-chetvert/1_klass_2_chetvert_uchitel.html content/1-klass-2-chetvert
 ```
+
+Сервер: `pnpm dev` → http://localhost:3000/health. База — `data/sinf.db`; при пустой базе демо-данные создаются сами. Демо-учитель `demo@sinf.local`, пароль — `DEMO_TEACHER_PASSWORD` из `.env`. Сброс демо — `pnpm seed --reset` или `POST /api/demo/reset` с cookie учителя.
 
 Проверка перед PR: `pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
 
