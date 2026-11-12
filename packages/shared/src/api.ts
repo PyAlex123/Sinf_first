@@ -71,3 +71,45 @@ export const DemoResetResponseSchema = z.strictObject({
   students: z.number().int().nonnegative(),
 });
 export type DemoResetResponse = z.infer<typeof DemoResetResponseSchema>;
+
+// ---------- sessions (teacher) and joining (public)
+
+export const CreateSessionSchema = z.strictObject({
+  classId: id,
+  lessonId: id,
+});
+export type CreateSession = z.infer<typeof CreateSessionSchema>;
+
+export const SessionSummarySchema = z.strictObject({
+  id,
+  classId: id,
+  lessonId: id,
+  lessonTitle: z.string().min(1),
+  joinCode: z.string().regex(/^\d{4}$/),
+  status: z.enum(['active', 'ended']),
+  startedAt: z.string().min(1),
+  endedAt: z.string().nullable(),
+});
+export type SessionSummary = z.infer<typeof SessionSummarySchema>;
+
+export const SessionResponseSchema = z.strictObject({ session: SessionSummarySchema });
+export type SessionResponse = z.infer<typeof SessionResponseSchema>;
+
+/** Classes a student can pick on /join, each with its running lesson if any. */
+export const JoinClassSchema = z.strictObject({
+  id,
+  name: z.string().min(1),
+  grade: z.number().int().min(1).max(11),
+  activeSession: z.strictObject({ id, lessonId: id, lessonTitle: z.string().min(1) }).nullable(),
+});
+export type JoinClass = z.infer<typeof JoinClassSchema>;
+
+export const JoinClassesResponseSchema = z.strictObject({ classes: z.array(JoinClassSchema) });
+export type JoinClassesResponse = z.infer<typeof JoinClassesResponseSchema>;
+
+export const JoinSessionResponseSchema = z.strictObject({
+  id,
+  lessonId: id,
+  status: z.enum(['active', 'ended']),
+});
+export type JoinSessionResponse = z.infer<typeof JoinSessionResponseSchema>;

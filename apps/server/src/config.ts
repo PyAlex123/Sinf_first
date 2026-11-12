@@ -13,6 +13,7 @@ const EnvSchema = z.object({
   DATA_DIR: z.string().min(1).default('data'),
   DATABASE_PATH: z.string().min(1).default('data/sinf.db'),
   CONTENT_DIR: z.string().min(1).default('content'),
+  WEB_DIR: z.string().min(1).default('apps/web/dist'),
   DEMO_TEACHER_PASSWORD: z.string().min(6, 'DEMO_TEACHER_PASSWORD must be at least 6 characters'),
   SESSION_SECRET: z.string().min(16, 'SESSION_SECRET must be at least 16 characters'),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
@@ -26,6 +27,8 @@ export interface Config {
   dataDir: string;
   databasePath: string;
   contentDir: string;
+  /** Built web client (served when the folder exists; in development Vite serves it). */
+  webDir: string;
   demoTeacherPassword: string;
   sessionSecret: string;
   logLevel: (typeof LOG_LEVELS)[number];
@@ -60,6 +63,7 @@ export function loadConfig(
     dataDir: abs(e.DATA_DIR),
     databasePath: abs(e.DATABASE_PATH),
     contentDir: abs(e.CONTENT_DIR),
+    webDir: abs(e.WEB_DIR),
     demoTeacherPassword: e.DEMO_TEACHER_PASSWORD,
     sessionSecret: e.SESSION_SECRET,
     logLevel: e.LOG_LEVEL,

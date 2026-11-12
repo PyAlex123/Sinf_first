@@ -1,11 +1,10 @@
 /**
- * Shared contracts between server and web: locales, lesson content format, API schemas.
- * Realtime protocol schemas are added in step S1.7.
+ * Shared contracts between server and web: locales, lesson content format, API schemas,
+ * realtime protocol and the pure session engine.
  */
-
-/** Version of the realtime protocol; every message carries it in the `v` field (CLAUDE.md §5.6). */
-export const PROTOCOL_VERSION = 1;
 
 export * from './locale.js';
 export * from './lesson.js';
 export * from './api.js';
+export * from './protocol.js';
+export * from './session-state.js';
