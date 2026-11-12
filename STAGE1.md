@@ -151,7 +151,7 @@
 
 ## 7. Шаги
 
-- [ ] **S1.1 Каркас монорепозитория**
+- [x] **S1.1 Каркас монорепозитория**
   - **Задачи:**
     - pnpm workspaces: `apps/server`, `apps/web`, `packages/shared`, `packages/checkers`;
     - TypeScript strict; ESLint и Prettier; Vitest;
@@ -342,4 +342,4 @@
 
 | Дата | Шаг | Что сделано | Что проверить автору |
 |---|---|---|---|
-| | | | |
+| 2026-11-12 | S1.1 | pnpm workspaces (`apps/server`, `apps/web`, `packages/shared`, `packages/checkers`), TypeScript 6.0 strict, ESLint с проверкой типов + Prettier, Vitest (projects), скрипты корня (`dev`, `build`, `start`, `test`, `lint`, `typecheck`, `seed`, `import:html`; `seed` и `import:html` — заглушки до S1.3/S1.2), `.env.example`, `.gitignore`, `.editorconfig`, README, ADR-004, команды в CLAUDE.md §10. `pnpm install && pnpm lint && pnpm test && pnpm build` проходят в облаке. | На своём ПК (Windows) с Node.js 22: `corepack enable`, `pnpm install && pnpm lint && pnpm test && pnpm build`, `pnpm dev`. Положить исходники урока в `content-src/1-klass-2-chetvert/` перед S1.2. |

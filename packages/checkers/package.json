@@ -1,0 +1,21 @@
+{
+  "name": "@sinf/checkers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Practice file checkers (docx, xlsx, pptx, html, txt) — ADR-003. Mostly empty in stage 1 (needed for D3).",
+  "exports": {
+    ".": {
+      "@sinf/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

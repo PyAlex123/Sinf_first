@@ -1,0 +1,15 @@
+{
+  "name": "@sinf/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Svelte 5 + Vite web client (browser and, later, desktop WebView2). Svelte arrives in step S1.4.",
+  "scripts": {
+    "dev": "tsc -p tsconfig.json --noEmit --watch --preserveWatchOutput",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@sinf/shared": "workspace:*"
+  }
+}

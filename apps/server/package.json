@@ -1,0 +1,17 @@
+{
+  "name": "@sinf/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "API, WebSocket and static web in one Node process (ADR-004)",
+  "scripts": {
+    "dev": "tsx watch --conditions=@sinf/source src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "seed": "tsx --conditions=@sinf/source src/cli/seed.ts",
+    "import:html": "tsx --conditions=@sinf/source src/cli/import-html.ts"
+  },
+  "dependencies": {
+    "@sinf/shared": "workspace:*"
+  }
+}
