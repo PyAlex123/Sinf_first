@@ -62,6 +62,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
       .where(eq(schema.classes.id, student.classId))
       .get();
     if (!cls) throw notFound('Class not found');
+    // Codes of the other students, plus this student's current code: "new code" must really change it.
     const taken = new Set(
       db
         .select({ code: schema.students.codePublic })
@@ -70,6 +71,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
         .all()
         .map((r) => r.code),
     );
+    taken.add(student.codePublic);
     const code =
       student.codeKind === 'pics'
         ? randomPictureCode(cls.settings.codePics, taken)

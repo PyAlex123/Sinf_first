@@ -8,6 +8,7 @@ export class ApiHttpError extends Error {
     readonly statusCode: number,
     readonly code: string,
     message: string,
+    readonly details?: ApiError['details'],
   ) {
     super(message);
     this.name = 'ApiHttpError';
@@ -25,6 +26,7 @@ export function errorHandler(
 ): void {
   if (error instanceof ApiHttpError) {
     const body: ApiError = { error: error.code, message: error.message };
+    if (error.details) body.details = error.details;
     void reply.status(error.statusCode).send(body);
     return;
   }

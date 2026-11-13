@@ -3,8 +3,8 @@ import { z } from 'zod';
 /**
  * Realtime protocol between the server and the lesson clients (teacher, student, projector) — ADR-006,
  * docs/stage1-architecture.md §5. Every message carries `v`; unknown messages are ignored by both sides.
- * This is the subset needed for synchronous presentation, locks and participant presence; stage timer and
- * quiz messages arrive with S1.8 / S1.12.
+ * Synchronous presentation, locks, participant presence and student login (S1.7); stage timer and quiz
+ * messages arrive with S1.8 / S1.12.
  */
 
 /** Version of the realtime protocol (CLAUDE.md §5.6). */
@@ -40,6 +40,8 @@ export const ParticipantSchema = z.strictObject({
   id,
   number: z.number().int().positive(),
   studentId: id.nullable(),
+  /** "Фамилия Имя" for a logged-in student; null for anonymous participants. */
+  name: z.string().nullable(),
   online: z.boolean(),
   screenIndex,
   stars: z.number().int().nonnegative(),
@@ -123,6 +125,8 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({ v, type: z.literal('lock.changed'), lock: LockStateSchema }),
   z.strictObject({ v, type: z.literal('participant.updated'), participant: ParticipantSchema }),
   z.strictObject({ v, type: z.literal('session.ended') }),
+  /** The same student logged in from another device; this connection is closed. */
+  z.strictObject({ v, type: z.literal('session.kicked') }),
   z.strictObject({ v, type: z.literal('error'), code: z.string(), message: z.string() }),
 ]);
 export type ServerMessage = z.infer<typeof ServerMessageSchema>;

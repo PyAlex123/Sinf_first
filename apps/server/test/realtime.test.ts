@@ -1,12 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import {
+  JoinClassesResponseSchema,
+  JoinResponseSchema,
   parseServerMessage,
   SessionResponseSchema,
-  JoinClassesResponseSchema,
   type ClientMessage,
   type ServerMessage,
 } from '@sinf/shared';
+import { schema as schemaRef } from '../src/db/index.js';
 import { rawDataToString } from '../src/realtime/ws.js';
 import { loginTeacher, testApp, type TestApp } from './helpers.js';
 
@@ -49,6 +51,17 @@ class Client {
     });
   }
 
+  /** Waits for an update of one participant, skipping other messages. */
+  async untilParticipant(
+    id: string,
+  ): Promise<Extract<ServerMessage, { type: 'participant.updated' }>> {
+    for (let i = 0; i < 30; i++) {
+      const m = await this.next();
+      if (m.type === 'participant.updated' && m.participant.id === id) return m;
+    }
+    throw new Error(`no participant.updated for ${id}`);
+  }
+
   /** Waits for a message of the given type, skipping others. */
   async until<T extends ServerMessage['type']>(
     type: T,
@@ -71,6 +84,23 @@ class Client {
 
 const wsUrl = (session: string, role: string, participant?: string): string =>
   `${baseUrl.replace('http', 'ws')}/ws?session=${session}&role=${role}${participant ? `&participant=${participant}` : ''}`;
+
+/** Logs a student in with their seeded picture code and returns the participant token. */
+async function joinStudent(sessionId: string, studentId: string): Promise<string> {
+  const row = t.database.db
+    .select()
+    .from(schemaRef.students)
+    .all()
+    .find((s) => s.id === studentId);
+  if (!row) throw new Error('no such student');
+  const res = await t.app.inject({
+    method: 'POST',
+    url: '/api/join',
+    payload: { sessionId, studentId, code: row.codePublic.split('+') },
+  });
+  if (res.statusCode !== 200) throw new Error(`join failed: ${res.statusCode} ${res.body}`);
+  return JoinResponseSchema.parse(res.json()).token;
+}
 
 beforeAll(async () => {
   t = await testApp();
@@ -143,23 +173,27 @@ describe('websocket room', () => {
     expect(snapshot.you).toEqual({ role: 'teacher', participantId: null, participantToken: null });
     expect(snapshot.state).toMatchObject({ mode: 'presentation', screenIndex: 0, screenCount: 28 });
 
-    const s1 = new Client(wsUrl(sessionId, 'student'));
+    const token1 = await joinStudent(sessionId, 'student-01');
+    const s1 = new Client(wsUrl(sessionId, 'student', token1));
     const s1snap = await s1.until('state.snapshot');
     const p1 = s1snap.you.participantId;
-    const token1 = s1snap.you.participantToken;
-    expect(p1).toBeTruthy();
-    expect(token1).toBeTruthy();
-    expect((await teacher.until('participant.updated')).participant).toMatchObject({
-      id: p1,
+    expect(p1).toBe('student-01');
+    expect((await teacher.untilParticipant('student-01')).participant).toMatchObject({
       number: 1,
       online: true,
+      name: 'Алиев Тимур',
+      studentId: 'student-01',
     });
 
-    const s2 = new Client(wsUrl(sessionId, 'student'));
+    const token2 = await joinStudent(sessionId, 'student-02');
+    const s2 = new Client(wsUrl(sessionId, 'student', token2));
     const s2snap = await s2.until('state.snapshot');
     expect(Object.keys(s2snap.state.participants)).toHaveLength(2);
     expect(s2snap.state.participants[s2snap.you.participantId ?? '']?.number).toBe(2);
-    expect((await teacher.until('participant.updated')).participant).toMatchObject({ number: 2 });
+    expect((await teacher.untilParticipant('student-02')).participant).toMatchObject({
+      number: 2,
+      name: 'Каримова Мадина',
+    });
 
     // teacher flips the screen — both students hear it within a second
     const started = Date.now();
@@ -174,12 +208,11 @@ describe('websocket room', () => {
 
     // stars and hands reach the teacher
     s1.send({ v: 1, type: 'student.screen.done', index: 5, stars: 3 });
-    expect((await teacher.until('participant.updated')).participant).toMatchObject({
-      id: p1,
-      stars: 3,
-    });
+    expect((await teacher.untilParticipant('student-01')).participant).toMatchObject({ stars: 3 });
     s2.send({ v: 1, type: 'student.hand', up: true });
-    expect((await teacher.until('participant.updated')).participant).toMatchObject({ hand: true });
+    expect((await teacher.untilParticipant('student-02')).participant).toMatchObject({
+      hand: true,
+    });
 
     // lock everybody
     teacher.send({ v: 1, type: 'teacher.lock', targets: 'all', text: 'Смотрите на учителя' });
@@ -187,11 +220,10 @@ describe('websocket room', () => {
 
     // student 1 reconnects with the token: same participant, same number, stars kept
     s1.close();
-    expect((await teacher.until('participant.updated')).participant).toMatchObject({
-      id: p1,
+    expect((await teacher.untilParticipant('student-01')).participant).toMatchObject({
       online: false,
     });
-    const s1b = new Client(wsUrl(sessionId, 'student', token1 ?? undefined));
+    const s1b = new Client(wsUrl(sessionId, 'student', token1));
     const again = await s1b.until('state.snapshot');
     expect(again.you.participantId).toBe(p1);
     expect(again.state.participants[p1 ?? '']).toMatchObject({ number: 1, stars: 3, online: true });
@@ -213,7 +245,7 @@ describe('websocket room', () => {
     expect(await s1b.closed).toBe(1000);
     expect(await teacher.closed).toBe(1000);
 
-    const late = new Client(wsUrl(sessionId, 'student'));
+    const late = new Client(wsUrl(sessionId, 'student', token1));
     expect(await late.until('error')).toMatchObject({ code: 'not_found' });
   });
 

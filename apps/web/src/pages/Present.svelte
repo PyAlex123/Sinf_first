@@ -7,6 +7,7 @@
   import { SessionStore } from '../lib/stores/session.svelte.js';
   import Button from '../lib/ui/Button.svelte';
   import Notice from '../lib/ui/Notice.svelte';
+  import QrCode from '../lib/ui/QrCode.svelte';
   import LessonPlayer from '../player/LessonPlayer.svelte';
 
   let { params }: PageProps = $props();
@@ -15,12 +16,20 @@
   let bundle = $state<LessonBundle | null>(null);
   let error = $state<string | null>(null);
   let endedBefore = $state(false);
+  let joinCode = $state('');
+  let classSize = $state(0);
   let store = $state<SessionStore | null>(null);
   let index = $state(0);
 
   const session = $derived(store?.state ?? null);
   const ended = $derived(endedBefore || session?.status === 'ended' || store?.status === 'ended');
-  const online = $derived((store?.participants ?? []).filter((p) => p.online).length);
+  const participants = $derived(store?.participants ?? []);
+  const online = $derived(participants.filter((p) => p.online).length);
+  const joinUrl = $derived(
+    typeof location === 'undefined' ? '' : `${location.origin}/join?code=${joinCode}`,
+  );
+  /** Before anybody joined the projector shows the code and the QR; then the lesson screen. */
+  const showCode = $derived(participants.length === 0);
 
   $effect(() => {
     if (session) index = session.screenIndex;
@@ -45,7 +54,10 @@
           endedBefore = true;
           return;
         }
+        joinCode = info.joinCode;
         bundle = await loadLessonBundle(info.lessonId);
+        const roster = await api.joinLookup(info.joinCode).catch(() => null);
+        classSize = roster?.students.length ?? 0;
         s.connect();
       } catch (e) {
         error =
@@ -63,6 +75,19 @@
     <main class="center"><h1>{t('present.ended')}</h1></main>
   {:else if !bundle || !session}
     <main class="center" aria-busy="true">{t('common.loading')}</main>
+  {:else if showCode}
+    <main class="codescreen">
+      <div class="col">
+        <div class="label">{t('present.code')}</div>
+        <div class="bigcode">{joinCode}</div>
+        <div class="lesson">{bundle.lesson.title}</div>
+      </div>
+      <div class="col">
+        <QrCode value={joinUrl} size={300} />
+        <div class="scan">{t('present.scan')}</div>
+        <div class="url">{joinUrl.replace(/^https?:\/\//, '')}</div>
+      </div>
+    </main>
   {:else}
     <LessonPlayer
       lesson={bundle.lesson}
@@ -73,7 +98,12 @@
       header={false}
     />
     <div class="hud">
-      <span>{t('present.participants', { count: online })}</span>
+      <span>
+        {classSize > 0
+          ? t('present.joined', { count: online, total: classSize })
+          : t('present.participants', { count: online })}
+      </span>
+      <span class="code">{t('present.code')}: <b>{joinCode}</b></span>
       <Button variant="secondary" size="md" onclick={toggleFullscreen}>⛶</Button>
     </div>
   {/if}
@@ -89,6 +119,50 @@
     align-items: center;
     justify-content: center;
     text-align: center;
+  }
+  .codescreen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6vw;
+    flex-wrap: wrap;
+    padding: var(--space-5);
+    text-align: center;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .label {
+    font-size: var(--text-xl);
+    color: var(--c-muted);
+  }
+  .bigcode {
+    font-size: clamp(80px, 18vw, 220px);
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    color: var(--c-dark);
+    line-height: 1;
+  }
+  .lesson {
+    font-size: var(--text-xl);
+    color: var(--c-accent);
+    font-weight: 700;
+  }
+  .scan {
+    font-size: var(--text-lg);
+    color: var(--c-muted);
+  }
+  .url {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--c-dark);
+  }
+  .hud .code b {
+    color: var(--c-dark);
   }
   .hud {
     position: fixed;

@@ -3,8 +3,8 @@
   import { api, ApiError } from '../lib/api.js';
   import { loadLessonBundle, type LessonBundle } from '../lib/content.js';
   import { t } from '../lib/i18n/index.svelte.js';
-  import type { PageProps } from '../lib/router.svelte.js';
-  import { SessionStore } from '../lib/stores/session.svelte.js';
+  import { router, type PageProps } from '../lib/router.svelte.js';
+  import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
   import Button from '../lib/ui/Button.svelte';
   import Notice from '../lib/ui/Notice.svelte';
   import LessonPlayer from '../player/LessonPlayer.svelte';
@@ -23,6 +23,7 @@
   const me = $derived(store?.me);
   const lock = $derived(store?.myLock ?? null);
   const ended = $derived(endedBefore || session?.status === 'ended' || store?.status === 'ended');
+  const kicked = $derived(store?.kicked === true);
   const free = $derived(session?.mode === 'free');
 
   // In presentation mode the teacher drives the screen; in free mode the student keeps their own place.
@@ -54,6 +55,13 @@
           endedBefore = true;
           return;
         }
+        if (!readParticipantToken(id)) {
+          // No token in this tab: the student has not entered the personal code yet (S1.7).
+          router.navigate(`/join?code=${encodeURIComponent(info.joinCode ?? '')}`, {
+            replace: true,
+          });
+          return;
+        }
         bundle = await loadLessonBundle(info.lessonId);
       } catch (e) {
         error =
@@ -76,6 +84,11 @@
 <div class="student">
   {#if error}
     <main class="page"><Notice kind="error">{error}</Notice></main>
+  {:else if kicked}
+    <main class="center">
+      <h1>{t('student.kicked')}</h1>
+      <Button href="/join" size="lg">{t('student.loginAgain')}</Button>
+    </main>
   {:else if ended}
     <main class="center">
       <h1>{t('student.ended')}</h1>
@@ -103,7 +116,13 @@
         onScreenDone={(i: number, stars: number) => store?.screenDone(i, stars)}
       />
       <div class="hud">
-        {#if me}<span class="num">{t('student.number', { number: me.number })}</span>{/if}
+        {#if me}
+          <span class="num">
+            {me.name
+              ? t('student.name', { name: me.name })
+              : t('student.number', { number: me.number })}
+          </span>
+        {/if}
         {#if store?.status !== 'open'}<span class="conn">{t('student.reconnecting')}</span>{/if}
         <button
           type="button"

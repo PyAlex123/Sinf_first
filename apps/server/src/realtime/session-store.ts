@@ -1,13 +1,14 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, notInArray } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 import {
   createSessionState,
-  nextParticipantNumber,
+  PROTOCOL_VERSION,
   reduce,
   SessionStateSchema,
   type ActivityRecord,
+  type Participant,
   type Role,
   type ServerMessage,
   type SessionEvent,
@@ -139,7 +140,10 @@ export class SessionStore {
     this.apply(id, session, result, null);
   }
 
-  /** Registers a socket; returns its connection record. Students get a participant (new or by token). */
+  /**
+   * Registers a socket. Students must present a token from `POST /api/join`; the projector and the teacher
+   * (checked by the caller) need none.
+   */
   attach(
     id: string,
     socket: WebSocket,
@@ -152,30 +156,92 @@ export class SessionStore {
       throw new ApiHttpError(410, 'session_ended', 'Session has ended');
     }
     let participantId: string | null = null;
-    let token: string | null = null;
     if (role === 'student') {
       const known = participantToken ? session.tokens.get(participantToken) : undefined;
-      if (known && participantToken) {
-        participantId = known;
-        token = participantToken;
-      } else {
-        participantId = randomUUID();
-        token = randomBytes(24).toString('base64url');
-        session.tokens.set(token, participantId);
+      const participant = known ? session.state.participants[known] : undefined;
+      if (!known || !participant) {
+        throw new ApiHttpError(401, 'unauthorized', 'Join the lesson with your code first');
       }
-      const existing = session.state.participants[participantId];
+      participantId = known;
       const result = reduce(session.state, {
         kind: 'participant.join',
         participantId,
-        number: existing?.number ?? nextParticipantNumber(session.state),
-        studentId: null,
+        number: participant.number,
+        studentId: participant.studentId,
+        name: participant.name,
         now: this.now(),
       });
       this.apply(id, session, result, null);
     }
     const connection: Connection = { role, participantId, alive: true };
     session.sockets.set(socket, connection);
-    return { connection, participantToken: token };
+    return { connection, participantToken: role === 'student' ? participantToken : null };
+  }
+
+  /**
+   * Student login after the code check: creates the participant (id = student id, number = list order),
+   * marks attendance, issues a fresh token and kicks the student's other devices (STAGE1 S1.7).
+   */
+  loginStudent(
+    id: string,
+    student: { id: string; firstName: string; lastName: string; sortOrder: number },
+  ): { token: string; participantId: string } {
+    const session = this.get(id);
+    if (!session) throw notFound('Session not found');
+    if (session.state.status !== 'active') {
+      throw new ApiHttpError(410, 'session_ended', 'Session has ended');
+    }
+    const participantId = student.id;
+    // Other devices of the same student: tell them and close.
+    for (const [socket, connection] of session.sockets) {
+      if (connection.participantId === participantId) {
+        this.send(socket, { v: PROTOCOL_VERSION, type: 'session.kicked' });
+        session.sockets.delete(socket);
+        socket.close(4001, 'kicked');
+      }
+    }
+    for (const [token, pid] of [...session.tokens]) {
+      if (pid === participantId) session.tokens.delete(token);
+    }
+    const token = randomBytes(24).toString('base64url');
+    session.tokens.set(token, participantId);
+
+    const now = this.now();
+    const existing = session.state.participants[participantId];
+    const result = reduce(session.state, {
+      kind: 'participant.join',
+      participantId,
+      number: existing?.number ?? student.sortOrder,
+      studentId: student.id,
+      name: `${student.lastName} ${student.firstName}`,
+      now,
+    });
+    // Presence is reported on the socket; the login itself only makes the participant known.
+    result.state = {
+      ...result.state,
+      participants: {
+        ...result.state.participants,
+        [participantId]: {
+          ...(result.state.participants[participantId] as Participant),
+          online: false,
+        },
+      },
+    };
+    this.apply(id, session, result, null);
+    this.db
+      .insert(schema.attendance)
+      .values({
+        sessionId: id,
+        studentId: student.id,
+        status: 'present',
+        joinedAt: new Date(now).toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: [schema.attendance.sessionId, schema.attendance.studentId],
+        set: { status: 'present' },
+      })
+      .run();
+    return { token, participantId };
   }
 
   detach(id: string, socket: WebSocket): void {
@@ -274,7 +340,7 @@ export class SessionStore {
         for (const message of result.broadcast) this.send(socket, message);
       }
     }
-    this.recordActivity(id, result.activity);
+    this.recordActivity(id, session, result.activity);
     if (result.state.status === 'ended') {
       this.finish(id, session);
     } else if (result.broadcast.length > 0 || result.activity.length > 0) {
@@ -288,16 +354,18 @@ export class SessionStore {
     }
   }
 
-  private recordActivity(id: string, records: ActivityRecord[]): void {
+  private recordActivity(id: string, session: LiveSession, records: ActivityRecord[]): void {
     if (records.length === 0) return;
     const at = new Date(this.now()).toISOString();
+    const studentOf = (participantId: string | null): string | null =>
+      participantId ? (session.state.participants[participantId]?.studentId ?? null) : null;
     this.db
       .insert(schema.activityEvents)
       .values(
         records.map((r) => ({
           id: randomUUID(),
           sessionId: id,
-          studentId: null,
+          studentId: studentOf(r.participantId),
           type: r.type,
           at,
           data: {
@@ -307,6 +375,27 @@ export class SessionStore {
         })),
       )
       .run();
+    // Stars per screen go to screen_results for logged-in students (STAGE1 S1.7).
+    for (const r of records) {
+      const studentId = studentOf(r.participantId);
+      if (r.type !== 'screen_done' || !studentId) continue;
+      const index = Number(r.data?.['index']);
+      const stars = Number(r.data?.['stars']);
+      if (!Number.isInteger(index) || !Number.isInteger(stars)) continue;
+      this.db
+        .insert(schema.screenResults)
+        .values({
+          sessionId: id,
+          studentId,
+          screenIndex: index,
+          stars,
+          attempts: 1,
+          firstAt: at,
+          lastAt: at,
+        })
+        .onConflictDoNothing()
+        .run();
+    }
   }
 
   private scheduleSave(id: string, session: LiveSession): void {
@@ -344,12 +433,37 @@ export class SessionStore {
       })
       .where(eq(schema.sessions.id, id))
       .run();
+    this.markAbsent(id, session.state.classId);
     for (const socket of session.sockets.keys()) {
       socket.close(1000, 'session ended');
     }
     session.sockets.clear();
     this.live.delete(id);
     this.log.info({ sessionId: id }, 'session ended');
+  }
+
+  /** Students of the class who never logged in are marked absent (CLAUDE.md §4.1). */
+  private markAbsent(id: string, classId: string): void {
+    const present = this.db
+      .select({ studentId: schema.attendance.studentId })
+      .from(schema.attendance)
+      .where(eq(schema.attendance.sessionId, id))
+      .all()
+      .map((r) => r.studentId);
+    const missing = this.db
+      .select({ id: schema.students.id })
+      .from(schema.students)
+      .where(
+        present.length > 0
+          ? and(eq(schema.students.classId, classId), notInArray(schema.students.id, present))
+          : eq(schema.students.classId, classId),
+      )
+      .all();
+    if (missing.length === 0) return;
+    this.db
+      .insert(schema.attendance)
+      .values(missing.map((m) => ({ sessionId: id, studentId: m.id, status: 'absent' as const })))
+      .run();
   }
 
   private activeRows(classId: string): { id: string }[] {

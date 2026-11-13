@@ -90,6 +90,18 @@ describe('POST /api/students/:id/code', () => {
       .all()
       .find((s) => s.id === 'student-03');
     if (!before) throw new Error('seed');
+    // Repeat a few times: a new code must never repeat the previous one.
+    let previous = before.codePublic;
+    for (let i = 0; i < 5; i++) {
+      const again = await t.app.inject({
+        method: 'POST',
+        url: '/api/students/student-03/code',
+        headers: { cookie },
+      });
+      const next = StudentCodeResponseSchema.parse(again.json()).student.code.join('+');
+      expect(next).not.toBe(previous);
+      previous = next;
+    }
     const res = await t.app.inject({
       method: 'POST',
       url: '/api/students/student-03/code',
@@ -98,7 +110,7 @@ describe('POST /api/students/:id/code', () => {
     expect(res.statusCode).toBe(200);
     const { student } = StudentCodeResponseSchema.parse(res.json());
     const code = student.code.join('+');
-    expect(code).not.toBe(before.codePublic);
+    expect(code).not.toBe(previous);
     const rows = t.database.db.select().from(schema.students).all();
     const others = rows.filter((s) => s.id !== 'student-03').map((s) => s.codePublic);
     expect(others).not.toContain(code);

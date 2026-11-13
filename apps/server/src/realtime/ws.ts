@@ -3,6 +3,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
 import { z } from 'zod';
 import { parseClientMessage, PROTOCOL_VERSION, RoleSchema, type ServerMessage } from '@sinf/shared';
+import { ApiHttpError } from '../errors.js';
 import type { SessionStore } from './session-store.js';
 
 /**
@@ -40,12 +41,15 @@ export const realtimePlugin: FastifyPluginAsync<{ store: SessionStore }> = async
       closeWithError(socket, 'not_found', 'Session not found or already ended');
       return;
     }
-    const { connection, participantToken } = store.attach(
-      sessionId,
-      socket,
-      role,
-      query.data.participant ?? null,
-    );
+    let attached: ReturnType<typeof store.attach>;
+    try {
+      attached = store.attach(sessionId, socket, role, query.data.participant ?? null);
+    } catch (error) {
+      const code = error instanceof ApiHttpError ? error.code : 'error';
+      closeWithError(socket, code, error instanceof Error ? error.message : 'Cannot join');
+      return;
+    }
+    const { connection, participantToken } = attached;
     const current = store.getState(sessionId) ?? state;
     send(socket, {
       v: PROTOCOL_VERSION,

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@sinf/shared": "workspace:*",
+    "qrcode-generator": "^2.0.4",
     "svelte": "^5.57.3",
     "zod": "^4.6.7"
   },

@@ -1,9 +1,12 @@
 import type { ZodType } from 'zod';
+import type { ApiError as ApiErrorBody } from '@sinf/shared';
 import {
   ApiErrorSchema,
   ClassDetailsResponseSchema,
   CourseListResponseSchema,
   JoinClassesResponseSchema,
+  JoinLookupResponseSchema,
+  JoinResponseSchema,
   JoinSessionResponseSchema,
   LessonSchema,
   MeResponseSchema,
@@ -13,6 +16,7 @@ import {
   StudentCodeResponseSchema,
   TeacherSchema,
   type CreateSession,
+  type JoinRequest,
   type TeacherLogin,
 } from '@sinf/shared';
 import { z } from 'zod';
@@ -24,6 +28,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    /** Extra data from the server, e.g. `attemptsLeft` or `retryAfterSec`. */
+    readonly details?: ApiErrorBody['details'],
   ) {
     super(message);
     this.name = 'ApiError';
@@ -46,7 +52,7 @@ async function request<T>(
   if (!res.ok) {
     const parsed = ApiErrorSchema.safeParse(json);
     throw parsed.success
-      ? new ApiError(res.status, parsed.data.error, parsed.data.message)
+      ? new ApiError(res.status, parsed.data.error, parsed.data.message, parsed.data.details)
       : new ApiError(res.status, 'http', `HTTP ${res.status}`);
   }
   return schema.parse(json);
@@ -80,6 +86,9 @@ export const api = {
       StudentCodeResponseSchema,
     ),
   joinClasses: () => request('GET', '/api/join/classes', JoinClassesResponseSchema),
+  joinLookup: (code: string) =>
+    request('POST', '/api/join/lookup', JoinLookupResponseSchema, { code }),
+  join: (body: JoinRequest) => request('POST', '/api/join', JoinResponseSchema, body),
   joinSession: (id: string) =>
     request('GET', `/api/join/session/${encodeURIComponent(id)}`, JoinSessionResponseSchema),
 };

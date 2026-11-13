@@ -18,7 +18,14 @@ const student = (state: SessionState, participantId: string, message: ClientMess
   reduce(state, { kind: 'command', role: 'student', participantId, message, now });
 
 const joined = (state: SessionState, participantId: string, number: number) =>
-  reduce(state, { kind: 'participant.join', participantId, number, studentId: null, now: 1 });
+  reduce(state, {
+    kind: 'participant.join',
+    participantId,
+    number,
+    studentId: null,
+    name: null,
+    now: 1,
+  });
 
 describe('session reducer', () => {
   it('starts in presentation mode on the first screen', () => {

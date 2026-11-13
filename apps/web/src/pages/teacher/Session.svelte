@@ -101,6 +101,7 @@
 <div class="screen">
   <Header back="/teacher" title={summary?.lessonTitle ?? ''} lang={false}>
     {#if summary && !ended}
+      <span class="joincode">{t('present.code')}: <b>{summary.joinCode}</b></span>
       <a class="proj" href={`/present/${summary.id}`} target="_blank" rel="noopener">
         {t('session.projector')} ↗
       </a>
@@ -226,7 +227,7 @@
               >
                 <div class="tname">
                   <span class="dot" class:on={p.online}></span>
-                  {t('session.participant', { number: p.number })}
+                  {p.name ?? t('session.participant', { number: p.number })}
                 </div>
                 <div class="tmeta">
                   <span>{t('session.screenShort', { index: p.screenIndex + 1 })}</span>
@@ -256,6 +257,15 @@
   .proj {
     font-weight: 600;
     white-space: nowrap;
+  }
+  .joincode {
+    color: var(--c-muted);
+    white-space: nowrap;
+  }
+  .joincode b {
+    color: var(--c-dark);
+    font-size: var(--text-lg);
+    letter-spacing: 0.06em;
   }
   .panel {
     flex: 1;

@@ -13,13 +13,32 @@ import { SessionSocket, type ConnectionStatus } from '../ws.js';
  * Applies snapshot and delta messages; exposes commands.
  */
 
-const TOKEN_KEY = (sessionId: string): string => `sinf.participant.${sessionId}`;
+export const TOKEN_KEY = (sessionId: string): string => `sinf.participant.${sessionId}`;
+
+/** Token saved by the join page; the student screen reads it to open the socket. */
+export function readParticipantToken(sessionId: string): string | null {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY(sessionId));
+  } catch {
+    return null;
+  }
+}
+
+export function saveParticipantToken(sessionId: string, token: string): void {
+  try {
+    sessionStorage.setItem(TOKEN_KEY(sessionId), token);
+  } catch {
+    // private mode: the student will have to log in again after a reload
+  }
+}
 
 export class SessionStore {
   state = $state<SessionState | null>(null);
   you = $state<You | null>(null);
   status = $state<ConnectionStatus>('connecting');
   lastError = $state<{ code: string; message: string } | null>(null);
+  /** The same student logged in from another device (S1.7). */
+  kicked = $state(false);
   private socket: SessionSocket | null = null;
 
   constructor(
@@ -28,14 +47,7 @@ export class SessionStore {
   ) {}
 
   connect(): void {
-    let token: string | null = null;
-    if (this.role === 'student') {
-      try {
-        token = sessionStorage.getItem(TOKEN_KEY(this.sessionId));
-      } catch {
-        token = null;
-      }
-    }
+    const token = this.role === 'student' ? readParticipantToken(this.sessionId) : null;
     this.socket = new SessionSocket({
       sessionId: this.sessionId,
       role: this.role,
@@ -143,6 +155,9 @@ export class SessionStore {
         return;
       case 'session.ended':
         if (this.state) this.state = { ...this.state, status: 'ended' };
+        return;
+      case 'session.kicked':
+        this.kicked = true;
         return;
       case 'error':
         this.lastError = { code: m.code, message: m.message };

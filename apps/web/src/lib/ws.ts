@@ -103,6 +103,10 @@ export class SessionSocket {
       if (message.type === 'state.snapshot' && message.you.participantToken) {
         this.participantToken = message.you.participantToken;
       }
+      if (message.type === 'session.kicked') {
+        this.ended = true;
+        this.options.onStatus?.('ended');
+      }
       if (message.type === 'session.ended') {
         this.ended = true;
         this.options.onStatus?.('ended');

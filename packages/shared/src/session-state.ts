@@ -20,6 +20,7 @@ export type SessionEvent =
       participantId: string;
       number: number;
       studentId: string | null;
+      name: string | null;
       now: number;
     }
   | { kind: 'participant.leave'; participantId: string; now: number }
@@ -109,6 +110,7 @@ function join(
         id: e.participantId,
         number: e.number,
         studentId: e.studentId,
+        name: e.name,
         online: true,
         screenIndex: r.state.mode === 'presentation' ? r.state.screenIndex : 0,
         stars: 0,

@@ -16,6 +16,8 @@ export const ApiErrorSchema = z.strictObject({
   error: z.string(),
   message: z.string(),
   issues: z.array(z.strictObject({ path: z.string(), message: z.string() })).optional(),
+  /** Extra machine-readable data, e.g. `attemptsLeft`, `retryAfterSec` for student login. */
+  details: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])).optional(),
 });
 export type ApiError = z.infer<typeof ApiErrorSchema>;
 
@@ -111,6 +113,8 @@ export const JoinSessionResponseSchema = z.strictObject({
   id,
   lessonId: id,
   status: z.enum(['active', 'ended']),
+  /** Lesson code, so a student without a token can be sent back to /join. */
+  joinCode: z.string(),
 });
 export type JoinSessionResponse = z.infer<typeof JoinSessionResponseSchema>;
 
@@ -136,3 +140,44 @@ export type ClassDetailsResponse = z.infer<typeof ClassDetailsResponseSchema>;
 
 export const StudentCodeResponseSchema = z.strictObject({ student: StudentSchema });
 export type StudentCodeResponse = z.infer<typeof StudentCodeResponseSchema>;
+
+// ---------- student login (S1.7)
+
+export const JoinLookupRequestSchema = z.strictObject({ code: z.string().regex(/^\d{4}$/) });
+export type JoinLookupRequest = z.infer<typeof JoinLookupRequestSchema>;
+
+export const JoinStudentSchema = z.strictObject({
+  id,
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  sortOrder: z.number().int().positive(),
+});
+export type JoinStudent = z.infer<typeof JoinStudentSchema>;
+
+/** What a student sees after entering the lesson code: the class list and how codes look. */
+export const JoinLookupResponseSchema = z.strictObject({
+  session: z.strictObject({ id, lessonId: id, lessonTitle: z.string().min(1) }),
+  class: z.strictObject({ id, name: z.string().min(1), grade: z.number().int() }),
+  codeKind: z.enum(['pics', 'digits']),
+  /** The six pictures of the class (PICS keys) for picture codes. */
+  codePics: z.array(z.string().min(1)),
+  students: z.array(JoinStudentSchema),
+});
+export type JoinLookupResponse = z.infer<typeof JoinLookupResponseSchema>;
+
+export const JoinRequestSchema = z.strictObject({
+  sessionId: id,
+  studentId: id,
+  /** Picture keys in order, or digits. */
+  code: z.array(z.string().min(1)).min(1).max(6),
+});
+export type JoinRequest = z.infer<typeof JoinRequestSchema>;
+
+export const JoinResponseSchema = z.strictObject({
+  /** Secret for the WebSocket; kept in sessionStorage. */
+  token: z.string().min(1),
+  participantId: id,
+  student: JoinStudentSchema,
+  session: z.strictObject({ id, lessonId: id }),
+});
+export type JoinResponse = z.infer<typeof JoinResponseSchema>;
