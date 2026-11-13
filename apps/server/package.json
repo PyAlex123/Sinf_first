@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "description": "API, WebSocket and static web in one Node process (ADR-004)",
+  "files": [
+    "dist",
+    "drizzle"
+  ],
   "scripts": {
     "dev": "tsx watch --conditions=@sinf/source src/index.ts",
     "build": "tsc -p tsconfig.build.json",

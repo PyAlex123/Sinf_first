@@ -497,7 +497,16 @@ pnpm import:html content-src/1-klass-2-chetvert/1_klass_2_chetvert.html content-
 
 Проверка перед PR: `pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
 
-Десктоп и агент (Windows) на этапе 1 не собираются (ADR-004). Команды для них добавим в фазе 6.
+Windows-приложение (`apps/desktop`, своё окно на WebView2, шаг 6.1 раньше срока — ADR-008) собирает GitHub Actions на `windows-latest`: workflow **Windows app**, архив в Artifacts. В Linux-окружении оно не собирается (§9.8). Собрать на своей машине:
+
+```powershell
+pnpm build
+pnpm --filter @sinf/server deploy --legacy --prod out/server
+dotnet publish apps/desktop/Sinf.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+./tools/package-windows.ps1
+```
+
+Агент (служба Windows) на этапе 1 не собирается (ADR-004); команды для него добавим в фазе 6.
 
 ---
 

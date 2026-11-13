@@ -108,6 +108,7 @@
   "student.fullscreenHint": "Выйти из полного экрана — Esc",
   "present.open": "Открыть проектор",
   "teacher.demo.hint": "Ученики заходят на сайт, нажимают «Я ученик» и выбирают класс.",
+  "teacher.demo.hintDesktop": "Ученики открывают на своих устройствах {url}, нажимают «Я ученик» и выбирают класс.",
   "session.of": "из {count}",
   "teacher.students.title": "Ученики",
   "teacher.cards": "Карточки для печати",

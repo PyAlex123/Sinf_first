@@ -1,0 +1,108 @@
+# Builds the portable Windows package: our window (WebView2) + Node + server + web + lessons.
+# Needed because the desktop cannot be built or run in the Linux cloud container (CLAUDE.md §9.8).
+name: Windows app
+
+on:
+  push:
+    branches: ['claude/**']
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'content/**'
+      - 'tools/package-windows.ps1'
+      - '.github/workflows/windows-app.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # better-sqlite3 is native: this is the step that cannot happen on Linux.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Server with production dependencies only
+        run: pnpm --filter @sinf/server deploy --legacy --prod out/server
+
+      - name: Our window (self-contained, .NET not required on the school PC)
+        run: >
+          dotnet publish apps/desktop/Sinf.Desktop.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+
+      - name: Collect the package
+        shell: pwsh
+        run: ./tools/package-windows.ps1
+
+      # Proves the server really runs on Windows, from the packaged folder, before anyone downloads it.
+      - name: Smoke test of the packaged server
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:NODE_ENV = 'production'
+          $env:PORT = '3123'
+          $env:HOST = '127.0.0.1'
+          $env:DATA_DIR = "$PWD/out/smoke"
+          $env:DATABASE_PATH = "$PWD/out/smoke/sinf.db"
+          $env:CONTENT_DIR = "$PWD/out/Sinf/content"
+          $env:WEB_DIR = "$PWD/out/Sinf/web"
+          $env:SESSION_SECRET = 'smoke-test-secret-not-a-real-one'
+          $env:DEMO_TEACHER_PASSWORD = 'smoke-test'
+          New-Item -ItemType Directory -Force -Path out/smoke | Out-Null
+          $server = Start-Process -FilePath 'out/Sinf/server/node.exe' `
+            -ArgumentList 'out/Sinf/server/dist/index.js' `
+            -PassThru -NoNewWindow -RedirectStandardOutput out/smoke/out.log -RedirectStandardError out/smoke/err.log
+          try {
+            $ready = $false
+            foreach ($try in 1..60) {
+              Start-Sleep -Milliseconds 500
+              try {
+                $health = Invoke-RestMethod "http://127.0.0.1:3123/health" -TimeoutSec 2
+                if ($health.status -eq 'ok') { $ready = $true; break }
+              } catch { }
+            }
+            if (-not $ready) {
+              Get-Content out/smoke/out.log, out/smoke/err.log -ErrorAction SilentlyContinue
+              throw 'Сервер не ответил на /health'
+            }
+            $courses = Invoke-RestMethod "http://127.0.0.1:3123/api/courses" -TimeoutSec 5
+            $lessons = ($courses.courses | ForEach-Object { $_.lessons.Count } | Measure-Object -Sum).Sum
+            Write-Host "/health: ok, уроков отдано: $lessons"
+            if ($lessons -lt 1) { throw 'Сервер не отдал ни одного урока' }
+          } finally {
+            if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
+          }
+
+      - name: Package contents
+        shell: pwsh
+        run: Get-ChildItem out/Sinf -Recurse -File | Select-Object -ExpandProperty FullName | Resolve-Path -Relative
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sinf-windows-x64
+          path: out/Sinf
+          if-no-files-found: error
+
+      - name: Server log when something failed
+        if: failure()
+        shell: pwsh
+        run: Get-Content out/smoke/out.log, out/smoke/err.log -ErrorAction SilentlyContinue

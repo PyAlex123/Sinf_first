@@ -108,6 +108,7 @@
   "student.fullscreenHint": "To‘liq ekrandan chiqish — Esc",
   "present.open": "Proyektorni ochish",
   "teacher.demo.hint": "O‘quvchilar saytga kirib, «Men o‘quvchiman»ni bosadi va sinfni tanlaydi.",
+  "teacher.demo.hintDesktop": "O‘quvchilar o‘z qurilmalarida {url} manzilini ochadi, «Men o‘quvchiman» tugmasini bosadi va sinfni tanlaydi.",
   "session.of": "{count} dan",
   "teacher.students.title": "O‘quvchilar",
   "teacher.cards": "Chop etish uchun kartochkalar",

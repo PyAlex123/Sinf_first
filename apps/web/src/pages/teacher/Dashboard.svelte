@@ -12,6 +12,7 @@
   import { api, ApiError } from '../../lib/api.js';
   import { loadCourses, loadPics } from '../../lib/content.js';
   import { t } from '../../lib/i18n/index.svelte.js';
+  import { platform } from '../../lib/platform.js';
   import { router, type PageProps } from '../../lib/router.svelte.js';
   import Button from '../../lib/ui/Button.svelte';
   import Card from '../../lib/ui/Card.svelte';
@@ -106,7 +107,11 @@
         <Card>
           <h1>{t('teacher.class', { name: cls.name })}</h1>
           <p class="muted">{t('teacher.students', { count: cls.studentCount })}</p>
-          <p class="muted">{t('teacher.demo.hint')}</p>
+          <p class="muted">
+            {platform.lanUrl
+              ? t('teacher.demo.hintDesktop', { url: platform.lanUrl })
+              : t('teacher.demo.hint')}
+          </p>
           <div class="actions">
             <Button variant="secondary" href={`/teacher/class/${cls.id}/cards`}
               >{t('teacher.cards')}</Button
