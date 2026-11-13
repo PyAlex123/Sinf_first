@@ -3,11 +3,16 @@ import { and, eq, notInArray } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 import {
+  COUNTDOWN_SEC,
   createSessionState,
+  EMPTY_PLAN,
   PROTOCOL_VERSION,
+  realMsUntilPartChange,
+  realMsUntilStageEnd,
   reduce,
   SessionStateSchema,
   type ActivityRecord,
+  type LessonPlan,
   type Participant,
   type Role,
   type ServerMessage,
@@ -32,6 +37,10 @@ export interface Connection {
 
 interface LiveSession {
   state: SessionState;
+  /** Stages and screen stages of this lesson; the engine needs them for the timer (S1.8). */
+  plan: LessonPlan;
+  /** Next scheduled timer step. */
+  timer: NodeJS.Timeout | null;
   sockets: Map<WebSocket, Connection>;
   /** participantToken → participantId. Anonymous participants reconnect with their token. */
   tokens: Map<string, string>;
@@ -57,7 +66,12 @@ export class SessionStore {
   ) {}
 
   /** Starts a session for a class; the previous active session of the class is ended. */
-  create(input: { classId: string; lessonId: string; teacherId: string }): SessionSummary {
+  create(input: {
+    classId: string;
+    lessonId: string;
+    teacherId: string;
+    demoSpeed?: number | undefined;
+  }): SessionSummary {
     const lesson = this.content.getLesson(input.lessonId);
     if (!lesson) throw notFound(`Lesson "${input.lessonId}" not found`);
     const cls = this.db
@@ -71,12 +85,18 @@ export class SessionStore {
       this.end(previous.id);
     }
     const id = randomUUID();
-    const startedAt = new Date(this.now()).toISOString();
+    const now = this.now();
+    const startedAt = new Date(now).toISOString();
+    const plan = this.planOf(input.lessonId);
+    const demoSpeed = input.demoSpeed ?? 1;
     const state = createSessionState({
       id,
       lessonId: lesson.id,
       classId: input.classId,
       screenCount: lesson.screens.length,
+      now,
+      demoSpeed,
+      plan,
     });
     const joinCode = this.freeJoinCode();
     this.db
@@ -89,11 +109,20 @@ export class SessionStore {
         joinCode,
         status: 'active',
         startedAt,
-        demoSpeed: 1,
+        demoSpeed,
         stateJson: { state, tokens: {} } satisfies PersistedState,
       })
       .run();
-    this.live.set(id, { state, sockets: new Map(), tokens: new Map(), saveTimer: null });
+    const session: LiveSession = {
+      state,
+      plan,
+      timer: null,
+      sockets: new Map(),
+      tokens: new Map(),
+      saveTimer: null,
+    };
+    this.live.set(id, session);
+    this.schedule(id, session);
     this.log.info(
       { sessionId: id, lessonId: lesson.id, classId: input.classId },
       'session started',
@@ -130,13 +159,17 @@ export class SessionStore {
   end(id: string): void {
     const session = this.get(id);
     if (!session) return;
-    const result = reduce(session.state, {
-      kind: 'command',
-      role: 'teacher',
-      participantId: null,
-      message: { v: 1, type: 'teacher.session.end' },
-      now: this.now(),
-    });
+    const result = reduce(
+      session.state,
+      {
+        kind: 'command',
+        role: 'teacher',
+        participantId: null,
+        message: { v: 1, type: 'teacher.session.end' },
+        now: this.now(),
+      },
+      session.plan,
+    );
     this.apply(id, session, result, null);
   }
 
@@ -163,14 +196,18 @@ export class SessionStore {
         throw new ApiHttpError(401, 'unauthorized', 'Join the lesson with your code first');
       }
       participantId = known;
-      const result = reduce(session.state, {
-        kind: 'participant.join',
-        participantId,
-        number: participant.number,
-        studentId: participant.studentId,
-        name: participant.name,
-        now: this.now(),
-      });
+      const result = reduce(
+        session.state,
+        {
+          kind: 'participant.join',
+          participantId,
+          number: participant.number,
+          studentId: participant.studentId,
+          name: participant.name,
+          now: this.now(),
+        },
+        session.plan,
+      );
       this.apply(id, session, result, null);
     }
     const connection: Connection = { role, participantId, alive: true };
@@ -208,14 +245,18 @@ export class SessionStore {
 
     const now = this.now();
     const existing = session.state.participants[participantId];
-    const result = reduce(session.state, {
-      kind: 'participant.join',
-      participantId,
-      number: existing?.number ?? student.sortOrder,
-      studentId: student.id,
-      name: `${student.lastName} ${student.firstName}`,
-      now,
-    });
+    const result = reduce(
+      session.state,
+      {
+        kind: 'participant.join',
+        participantId,
+        number: existing?.number ?? student.sortOrder,
+        studentId: student.id,
+        name: `${student.lastName} ${student.firstName}`,
+        now,
+      },
+      session.plan,
+    );
     // Presence is reported on the socket; the login itself only makes the participant known.
     result.state = {
       ...result.state,
@@ -254,11 +295,11 @@ export class SessionStore {
     for (const other of session.sockets.values()) {
       if (other.participantId === connection.participantId) return;
     }
-    const result = reduce(session.state, {
-      kind: 'participant.leave',
-      participantId: connection.participantId,
-      now: this.now(),
-    });
+    const result = reduce(
+      session.state,
+      { kind: 'participant.leave', participantId: connection.participantId, now: this.now() },
+      session.plan,
+    );
     this.apply(id, session, result, null);
   }
 
@@ -266,7 +307,7 @@ export class SessionStore {
   dispatch(id: string, socket: WebSocket, message: SessionEvent & { kind: 'command' }): void {
     const session = this.live.get(id);
     if (!session) return;
-    const result = reduce(session.state, message);
+    const result = reduce(session.state, message, session.plan);
     this.apply(id, session, result, socket);
   }
 
@@ -315,13 +356,20 @@ export class SessionStore {
       ]),
     );
     const session: LiveSession = {
-      state: { ...parsed.data, participants },
+      // After a restart the lesson is paused: the teacher decides when to go on (ADR-006).
+      state: {
+        ...parsed.data,
+        participants,
+        stage: { ...parsed.data.stage, pausedAt: parsed.data.stage.pausedAt ?? this.now() },
+      },
+      plan: this.planOf(parsed.data.lessonId),
+      timer: null,
       sockets: new Map(),
       tokens: new Map(Object.entries(persisted.tokens ?? {})),
       saveTimer: null,
     };
     this.live.set(id, session);
-    this.log.info({ sessionId: id }, 'session restored from snapshot');
+    this.log.info({ sessionId: id }, 'session restored from snapshot (paused)');
     return session;
   }
 
@@ -343,9 +391,12 @@ export class SessionStore {
     this.recordActivity(id, session, result.activity);
     if (result.state.status === 'ended') {
       this.finish(id, session);
-    } else if (result.broadcast.length > 0 || result.activity.length > 0) {
+      return;
+    }
+    if (result.broadcast.length > 0 || result.activity.length > 0) {
       this.scheduleSave(id, session);
     }
+    this.schedule(id, session);
   }
 
   private send(socket: WebSocket, message: ServerMessage): void {
@@ -398,6 +449,47 @@ export class SessionStore {
     }
   }
 
+  /**
+   * Wakes the engine up when the stage ends, when a rest part starts, or when the countdown should appear —
+   * whichever comes first. One timer per session.
+   */
+  private schedule(id: string, session: LiveSession): void {
+    if (session.timer) {
+      clearTimeout(session.timer);
+      session.timer = null;
+    }
+    if (session.state.status !== 'active') return;
+    const now = this.now();
+    const untilEnd = realMsUntilStageEnd(session.state, session.plan.stages, now);
+    if (untilEnd === null) return; // paused or no stages
+    const untilPart = realMsUntilPartChange(session.state, session.plan.stages, now);
+    const untilCountdown =
+      session.state.stage.countdownUntil === null
+        ? untilEnd - Math.ceil((COUNTDOWN_SEC * 1000) / session.state.demoSpeed)
+        : null;
+    const candidates = [untilEnd, untilPart, untilCountdown].filter(
+      (value): value is number => value !== null && value > 0,
+    );
+    const delay = Math.max(50, Math.min(...candidates, untilEnd));
+    session.timer = setTimeout(() => {
+      session.timer = null;
+      const live = this.live.get(id);
+      if (!live) return;
+      this.apply(id, live, reduce(live.state, { kind: 'tick', now: this.now() }, live.plan), null);
+    }, delay);
+    session.timer.unref();
+  }
+
+  /** Stages and per-screen stages of a lesson, from the imported content (ADR-005). */
+  private planOf(lessonId: string): LessonPlan {
+    const lesson = this.content.getLesson(lessonId);
+    if (!lesson) return EMPTY_PLAN;
+    return {
+      stages: lesson.stages,
+      screenStages: lesson.screens.map((screen) => screen.stage),
+    };
+  }
+
   private scheduleSave(id: string, session: LiveSession): void {
     if (session.saveTimer) return;
     session.saveTimer = setTimeout(() => {
@@ -420,6 +512,10 @@ export class SessionStore {
   }
 
   private finish(id: string, session: LiveSession): void {
+    if (session.timer) {
+      clearTimeout(session.timer);
+      session.timer = null;
+    }
     if (session.saveTimer) {
       clearTimeout(session.saveTimer);
       session.saveTimer = null;

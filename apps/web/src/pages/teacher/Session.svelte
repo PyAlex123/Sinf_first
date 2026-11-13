@@ -9,6 +9,7 @@
   import Button from '../../lib/ui/Button.svelte';
   import Header from '../../lib/ui/Header.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
+  import StageTimer from '../../lib/ui/StageTimer.svelte';
   import LessonPlayer from '../../player/LessonPlayer.svelte';
 
   let { params }: PageProps = $props();
@@ -25,10 +26,10 @@
   const session = $derived(store?.state ?? null);
   const participants = $derived(store?.participants ?? []);
   const count = $derived(bundle?.lesson.screens.length ?? 0);
-  const screen = $derived(bundle?.lesson.screens[session?.screenIndex ?? 0]);
   const next = $derived(bundle?.lesson.screens[(session?.screenIndex ?? 0) + 1]);
-  const stageTitle = $derived(
-    bundle?.lesson.stages.find((s) => s.key === screen?.stage)?.title ?? '',
+  const stages = $derived(bundle?.lesson.stages ?? []);
+  const paused = $derived(
+    session?.stage.pausedAt !== null && session?.stage.pausedAt !== undefined,
   );
   const ended = $derived(session?.status === 'ended' || store?.status === 'ended');
 
@@ -125,10 +126,7 @@
           <Button variant="secondary" disabled={session.screenIndex === 0} onclick={() => go(-1)}
             >←</Button
           >
-          <span class="pos">
-            {t('session.screen', { index: session.screenIndex + 1, count })}
-            {#if stageTitle}· {stageTitle}{/if}
-          </span>
+          <span class="pos">{t('session.screen', { index: session.screenIndex + 1, count })}</span>
           <Button
             variant="secondary"
             disabled={session.screenIndex >= count - 1}
@@ -148,6 +146,37 @@
               onclick={() => store?.setMode('free')}>{t('session.mode.free')}</button
             >
           </div>
+        </div>
+        <div class="stagebar">
+          <StageTimer {session} {stages} now={() => store?.now() ?? Date.now()} />
+          <span class="spacer"></span>
+          <Button variant="secondary" size="md" onclick={() => store?.backStage()}>
+            ⏮ {t('stage.back')}
+          </Button>
+          {#if paused}
+            <Button variant="secondary" size="md" onclick={() => store?.resumeStage()}>
+              ▶ {t('stage.resume')}
+            </Button>
+          {:else}
+            <Button variant="secondary" size="md" onclick={() => store?.pauseStage()}>
+              ⏸ {t('stage.pause')}
+            </Button>
+          {/if}
+          <Button variant="secondary" size="md" onclick={() => store?.extendStage(5)}>
+            {t('stage.extend')}
+          </Button>
+          <Button variant="secondary" size="md" onclick={() => store?.skipStage()}>
+            {t('stage.skip')} ⏭
+          </Button>
+          <button
+            type="button"
+            class="speed"
+            class:on={session.demoSpeed > 1}
+            title={t('stage.demoSpeed')}
+            onclick={() => store?.setDemoSpeed(session.demoSpeed > 1 ? 1 : 10)}
+          >
+            {session.demoSpeed > 1 ? t('stage.demoSpeed.on') : t('stage.demoSpeed.off')}
+          </button>
         </div>
         <div class="preview">
           <LessonPlayer
@@ -311,6 +340,29 @@
   .modes .active {
     background: var(--c-teal);
     color: #fff;
+  }
+  .stagebar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--c-bg-2);
+    border-bottom: 1px solid var(--c-line);
+    flex-wrap: wrap;
+  }
+  .speed {
+    min-height: 36px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    color: var(--c-muted);
+    font-weight: 700;
+  }
+  .speed.on {
+    background: var(--c-teal);
+    color: #fff;
+    border-color: var(--c-teal);
   }
   .preview {
     flex: 1;

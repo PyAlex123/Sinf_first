@@ -9,7 +9,13 @@ import {
 } from '../src/index.js';
 
 const base = (): SessionState =>
-  createSessionState({ id: 's1', lessonId: 'g10', classId: 'class-1a', screenCount: 5 });
+  createSessionState({
+    id: 's1',
+    lessonId: 'g10',
+    classId: 'class-1a',
+    screenCount: 5,
+    now: 1000,
+  });
 
 const teacher = (state: SessionState, message: ClientMessage, now = 1000) =>
   reduce(state, { kind: 'command', role: 'teacher', participantId: null, message, now });

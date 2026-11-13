@@ -55,6 +55,22 @@ export const ParticipantSchema = z.strictObject({
 });
 export type Participant = z.infer<typeof ParticipantSchema>;
 
+/** Where the lesson is in its scenario (STAGE1 S1.8). Times are server milliseconds. */
+export const StageStateSchema = z.strictObject({
+  index: z.number().int().nonnegative(),
+  /** When the current stage started (after "+5 min" and pauses this is a virtual start). */
+  startedAt: serverTime,
+  /** Set while the timer is on hold. */
+  pausedAt: serverTime.nullable(),
+  /** Extra time added with "+5 min", in lesson milliseconds. */
+  extraMs: z.number().nonnegative(),
+  /** Countdown before the automatic switch is running until this moment (server time). */
+  countdownUntil: serverTime.nullable(),
+  /** Part of a split stage: practice is work → rest → work. */
+  part: z.enum(['work', 'rest']).nullable(),
+});
+export type StageState = z.infer<typeof StageStateSchema>;
+
 export const SessionStateSchema = z.strictObject({
   id,
   lessonId: id,
@@ -63,6 +79,9 @@ export const SessionStateSchema = z.strictObject({
   mode: SessionModeSchema,
   /** Teacher's current screen (what everyone sees in `presentation` mode). */
   screenIndex,
+  stage: StageStateSchema,
+  /** 1 = real time; 10 = demo speed, one lesson minute in six seconds. */
+  demoSpeed: z.number().int().positive(),
   screenCount: z.number().int().positive(),
   lock: LockStateSchema,
   participants: z.record(id, ParticipantSchema),
@@ -75,6 +94,25 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({ v, type: z.literal('ping') }),
   z.strictObject({ v, type: z.literal('teacher.screen.set'), index: screenIndex }),
   z.strictObject({ v, type: z.literal('teacher.mode.set'), mode: SessionModeSchema }),
+  z.strictObject({
+    v,
+    type: z.literal('teacher.stage.set'),
+    index: z.number().int().nonnegative(),
+  }),
+  z.strictObject({ v, type: z.literal('teacher.stage.skip') }),
+  z.strictObject({ v, type: z.literal('teacher.stage.back') }),
+  z.strictObject({ v, type: z.literal('teacher.stage.pause') }),
+  z.strictObject({ v, type: z.literal('teacher.stage.resume') }),
+  z.strictObject({
+    v,
+    type: z.literal('teacher.stage.extend'),
+    minutes: z.number().int().positive().max(30),
+  }),
+  z.strictObject({
+    v,
+    type: z.literal('teacher.demoSpeed.set'),
+    speed: z.number().int().positive().max(60),
+  }),
   z.strictObject({
     v,
     type: z.literal('teacher.lock'),
@@ -122,6 +160,14 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({ v, type: z.literal('screen.changed'), index: screenIndex }),
   z.strictObject({ v, type: z.literal('mode.changed'), mode: SessionModeSchema }),
+  /** Stage, timer or countdown changed; carries the whole stage state and the server clock. */
+  z.strictObject({
+    v,
+    type: z.literal('stage.changed'),
+    stage: StageStateSchema,
+    serverNow: serverTime,
+  }),
+  z.strictObject({ v, type: z.literal('demoSpeed.changed'), speed: z.number().int().positive() }),
   z.strictObject({ v, type: z.literal('lock.changed'), lock: LockStateSchema }),
   z.strictObject({ v, type: z.literal('participant.updated'), participant: ParticipantSchema }),
   z.strictObject({ v, type: z.literal('session.ended') }),

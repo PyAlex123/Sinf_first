@@ -7,4 +7,5 @@ export * from './locale.js';
 export * from './lesson.js';
 export * from './api.js';
 export * from './protocol.js';
+export * from './stage-timer.js';
 export * from './session-state.js';

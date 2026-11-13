@@ -7,6 +7,8 @@
   import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
   import Button from '../lib/ui/Button.svelte';
   import Notice from '../lib/ui/Notice.svelte';
+  import RestScreen from '../lib/ui/RestScreen.svelte';
+  import StageTimer from '../lib/ui/StageTimer.svelte';
   import LessonPlayer from '../player/LessonPlayer.svelte';
 
   let { params }: PageProps = $props();
@@ -25,6 +27,8 @@
   const ended = $derived(endedBefore || session?.status === 'ended' || store?.status === 'ended');
   const kicked = $derived(store?.kicked === true);
   const free = $derived(session?.mode === 'free');
+  /** During the rest part of practice the screen is covered (STAGE1 S1.8). */
+  const resting = $derived(session?.stage.part === 'rest');
 
   // In presentation mode the teacher drives the screen; in free mode the student keeps their own place.
   $effect(() => {
@@ -115,7 +119,20 @@
         onNavigate={(i: number) => store?.setScreen(i)}
         onScreenDone={(i: number, stars: number) => store?.screenDone(i, stars)}
       />
+      {#if resting}
+        <RestScreen />
+      {/if}
       <div class="hud">
+        {#if session && bundle}
+          <span class="num">
+            <StageTimer
+              {session}
+              stages={bundle.lesson.stages}
+              now={() => store?.now() ?? Date.now()}
+              compact
+            />
+          </span>
+        {/if}
         {#if me}
           <span class="num">
             {me.name

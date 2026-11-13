@@ -97,6 +97,41 @@ export class SessionStore {
     this.socket?.send({ type: 'teacher.mode.set', mode });
   }
 
+  // ---------- stage controls (S1.8)
+
+  setStage(index: number): void {
+    this.socket?.send({ type: 'teacher.stage.set', index });
+  }
+
+  skipStage(): void {
+    this.socket?.send({ type: 'teacher.stage.skip' });
+  }
+
+  backStage(): void {
+    this.socket?.send({ type: 'teacher.stage.back' });
+  }
+
+  pauseStage(): void {
+    this.socket?.send({ type: 'teacher.stage.pause' });
+  }
+
+  resumeStage(): void {
+    this.socket?.send({ type: 'teacher.stage.resume' });
+  }
+
+  extendStage(minutes: number): void {
+    this.socket?.send({ type: 'teacher.stage.extend', minutes });
+  }
+
+  setDemoSpeed(speed: number): void {
+    this.socket?.send({ type: 'teacher.demoSpeed.set', speed });
+  }
+
+  /** Server time now, by the offset from the last snapshot or pong. */
+  now(): number {
+    return Date.now() + (this.socket?.serverOffset ?? 0);
+  }
+
   lock(targets: 'all' | string[], text?: string): void {
     this.socket?.send({ type: 'teacher.lock', targets, ...(text ? { text } : {}) });
   }
@@ -141,6 +176,12 @@ export class SessionStore {
         return;
       case 'mode.changed':
         if (this.state) this.state = { ...this.state, mode: m.mode };
+        return;
+      case 'stage.changed':
+        if (this.state) this.state = { ...this.state, stage: m.stage };
+        return;
+      case 'demoSpeed.changed':
+        if (this.state) this.state = { ...this.state, demoSpeed: m.speed };
         return;
       case 'lock.changed':
         if (this.state) this.state = { ...this.state, lock: m.lock };

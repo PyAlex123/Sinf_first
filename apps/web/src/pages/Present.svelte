@@ -8,6 +8,8 @@
   import Button from '../lib/ui/Button.svelte';
   import Notice from '../lib/ui/Notice.svelte';
   import QrCode from '../lib/ui/QrCode.svelte';
+  import RestScreen from '../lib/ui/RestScreen.svelte';
+  import StageTimer from '../lib/ui/StageTimer.svelte';
   import LessonPlayer from '../player/LessonPlayer.svelte';
 
   let { params }: PageProps = $props();
@@ -97,7 +99,16 @@
       navigation="locked"
       header={false}
     />
+    {#if session.stage.part === 'rest'}
+      <RestScreen />
+    {/if}
     <div class="hud">
+      <StageTimer
+        {session}
+        stages={bundle.lesson.stages}
+        now={() => store?.now() ?? Date.now()}
+        compact
+      />
       <span>
         {classSize > 0
           ? t('present.joined', { count: online, total: classSize })

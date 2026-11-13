@@ -140,5 +140,21 @@
   "present.code": "Dars kodi",
   "present.scan": "Kamerani qarat yoki och",
   "present.joined": "Kirdi: {total} dan {count}",
-  "present.waitingList": "O‘quvchilarni kutmoqdamiz"
+  "present.waitingList": "O‘quvchilarni kutmoqdamiz",
+  "stage.timer": "Qoldi: {time}",
+  "stage.paused": "Pauza",
+  "stage.pause": "Pauza",
+  "stage.resume": "Davom etish",
+  "stage.skip": "O‘tkazib yuborish",
+  "stage.back": "Orqaga",
+  "stage.extend": "+5 daqiqa",
+  "stage.countdown": "Keyingi bosqich {sec} dan keyin",
+  "stage.of": "{total} dan {n}-bosqich",
+  "stage.rest": "Dam olish",
+  "stage.demoSpeed": "Demo tezlik",
+  "stage.demoSpeed.on": "×10",
+  "stage.demoSpeed.off": "×1",
+  "rest.title": "Ekrandan yuz o‘giring!",
+  "rest.hint": "Ko‘zlarimiz dam oladi. Dars tez orada davom etadi.",
+  "teacher.lesson.startDemo": "Demo tezlikda boshlash"
 }

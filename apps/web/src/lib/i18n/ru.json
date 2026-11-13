@@ -140,5 +140,21 @@
   "present.code": "Код урока",
   "present.scan": "Наведи камеру или открой",
   "present.joined": "Вошли: {count} из {total}",
-  "present.waitingList": "Ждём учеников"
+  "present.waitingList": "Ждём учеников",
+  "stage.timer": "Осталось {time}",
+  "stage.paused": "Пауза",
+  "stage.pause": "Пауза",
+  "stage.resume": "Продолжить",
+  "stage.skip": "Пропустить",
+  "stage.back": "Назад",
+  "stage.extend": "+5 мин",
+  "stage.countdown": "Следующий этап через {sec}",
+  "stage.of": "Этап {n} из {total}",
+  "stage.rest": "Отдых",
+  "stage.demoSpeed": "Демо-скорость",
+  "stage.demoSpeed.on": "×10",
+  "stage.demoSpeed.off": "×1",
+  "rest.title": "Отвернулись от экранов!",
+  "rest.hint": "Отдыхаем глазами. Урок скоро продолжится.",
+  "teacher.lesson.startDemo": "Начать в демо-скорости"
 }

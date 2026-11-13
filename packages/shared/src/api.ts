@@ -79,6 +79,8 @@ export type DemoResetResponse = z.infer<typeof DemoResetResponseSchema>;
 export const CreateSessionSchema = z.strictObject({
   classId: id,
   lessonId: id,
+  /** 1 = real time; 10 = demo speed, one lesson minute in six seconds (STAGE1 S1.8). */
+  demoSpeed: z.number().int().positive().max(60).optional(),
 });
 export type CreateSession = z.infer<typeof CreateSessionSchema>;
 
