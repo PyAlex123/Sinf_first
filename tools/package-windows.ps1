@@ -18,13 +18,15 @@
   Folder `dotnet publish` wrote Sinf.exe to.
 
 .PARAMETER NodeVersion
-  Node version downloaded from nodejs.org for the package.
+  Node version downloaded from nodejs.org for the package. It must be new enough for the prebuilt
+  better-sqlite3 binary: 22.12 crashes on load (0xC0000005), 22.23.4 works. CI passes its own version,
+  the one the smoke test then runs against.
 #>
 [CmdletBinding()]
 param(
     [string]$Out = 'out/Sinf',
     [string]$DesktopPublish = 'apps/desktop/bin/Release/net10.0-windows/win-x64/publish',
-    [string]$NodeVersion = '22.12.0'
+    [string]$NodeVersion = '22.23.4'
 )
 
 $ErrorActionPreference = 'Stop'
