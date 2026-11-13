@@ -115,9 +115,19 @@ jobs:
             if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
           }
 
+      # Top level only: a full listing is thousands of lines of node_modules.
       - name: Package contents
         shell: pwsh
-        run: Get-ChildItem out/Sinf -Recurse -File | Select-Object -ExpandProperty FullName | Resolve-Path -Relative
+        run: |
+          $files = Get-ChildItem out/Sinf -Recurse -File
+          Write-Host ("всего файлов: {0}, размер: {1:N1} МБ" -f $files.Count, (($files | Measure-Object -Property Length -Sum).Sum / 1MB))
+          Get-ChildItem out/Sinf | Select-Object Name, @{ Name = 'МБ'; Expression = {
+            if ($_.PSIsContainer) {
+              '{0:N1}' -f ((Get-ChildItem $_.FullName -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB)
+            } else {
+              '{0:N1}' -f ($_.Length / 1MB)
+            }
+          } } | Format-Table -AutoSize
 
       - uses: actions/upload-artifact@v4
         with:
