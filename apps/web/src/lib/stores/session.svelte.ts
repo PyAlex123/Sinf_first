@@ -140,6 +140,11 @@ export class SessionStore {
     this.socket?.send({ type: 'teacher.unlock', targets });
   }
 
+  /** The teacher answered the child and puts their raised hand down. */
+  clearHand(participantId: string): void {
+    this.socket?.send({ type: 'teacher.hand.clear', participantId });
+  }
+
   end(): void {
     this.socket?.send({ type: 'teacher.session.end' });
   }

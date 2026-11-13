@@ -51,6 +51,12 @@ export const ParticipantSchema = z.strictObject({
   /** Tab hidden or another window focused (`visibilitychange`). */
   hidden: z.boolean(),
   fullscreen: z.boolean(),
+  /**
+   * How many times the student left the lesson during this session (tab hidden or full screen left).
+   * A momentary flag is missed while the teacher looks at the class, so the count stays until the end.
+   * `default` keeps snapshots written before this field readable (`sessions.state_json`).
+   */
+  escapes: z.number().int().nonnegative().default(0),
   lastSeenAt: serverTime,
 });
 export type Participant = z.infer<typeof ParticipantSchema>;
@@ -120,6 +126,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     text: LockTextSchema.optional(),
   }),
   z.strictObject({ v, type: z.literal('teacher.unlock'), targets: LockTargetsSchema }),
+  /** The teacher answered the child and puts the raised hand down. */
+  z.strictObject({ v, type: z.literal('teacher.hand.clear'), participantId: id }),
   z.strictObject({ v, type: z.literal('teacher.session.end') }),
   z.strictObject({ v, type: z.literal('student.screen.set'), index: screenIndex }),
   z.strictObject({

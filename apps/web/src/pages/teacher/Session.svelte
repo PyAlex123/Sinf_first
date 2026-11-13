@@ -64,6 +64,17 @@
     return !!(session?.lock.byParticipant[p.id] ?? session?.lock.all);
   }
 
+  /** While everybody is locked a single student cannot be released: the lock has no exceptions. */
+  const lockedAll = $derived(!!session?.lock.all);
+
+  function toggleLockOne(p: Participant): void {
+    if (!isLocked(p)) {
+      store?.lock([p.id], lockText.trim() || t('session.lock.text'));
+    } else if (!lockedAll) {
+      store?.unlock([p.id]);
+    }
+  }
+
   async function endSession(): Promise<void> {
     if (!confirm(t('teacher.session.confirmEnd'))) return;
     store?.end();
@@ -269,6 +280,13 @@
             >
               {t('session.lock.selected')}
             </Button>
+            <Button
+              variant="secondary"
+              disabled={selected.length === 0}
+              onclick={() => store?.unlock(selected)}
+            >
+              {t('session.unlock.selected')}
+            </Button>
             <Button variant="secondary" onclick={() => store?.unlock('all')}
               >{t('session.unlock.all')}</Button
             >
@@ -301,30 +319,64 @@
           </div>
           <div class="tiles">
             {#each participants as p (p.id)}
-              <button
-                type="button"
+              <div
                 class="tile"
                 class:offline={!p.online}
                 class:selected={selected.includes(p.id)}
                 class:locked={isLocked(p)}
-                aria-pressed={selected.includes(p.id)}
-                onclick={() => toggleSelect(p.id)}
               >
-                <div class="tname">
-                  <span class="dot" class:on={p.online}></span>
-                  {p.name ?? t('session.participant', { number: p.number })}
+                <button
+                  type="button"
+                  class="pick"
+                  aria-pressed={selected.includes(p.id)}
+                  onclick={() => toggleSelect(p.id)}
+                >
+                  <div class="tname">
+                    <span class="dot" class:on={p.online}></span>
+                    {p.name ?? t('session.participant', { number: p.number })}
+                  </div>
+                  <div class="tmeta">
+                    <span>{t('session.screenShort', { index: p.screenIndex + 1 })}</span>
+                    <span class="stars">{t('session.stars', { count: p.stars })}</span>
+                  </div>
+                  <div class="flags">
+                    {#if p.hand}<span class="flag hand">✋ {t('session.hand')}</span>{/if}
+                    {#if p.hidden}<span class="flag away">{t('session.hidden')}</span>{/if}
+                    {#if p.escapes > 0}<span class="flag away"
+                        >{t('session.escapes', { count: p.escapes })}</span
+                      >{/if}
+                    {#if !p.online}<span class="flag">{t('session.offline')}</span>{/if}
+                  </div>
+                </button>
+                <div class="acts">
+                  <button
+                    type="button"
+                    class="act"
+                    class:on={isLocked(p)}
+                    disabled={isLocked(p) && lockedAll}
+                    title={isLocked(p)
+                      ? lockedAll
+                        ? t('session.unlock.blocked')
+                        : t('session.unlock.one')
+                      : t('session.lock.one')}
+                    aria-label={isLocked(p) ? t('session.unlock.one') : t('session.lock.one')}
+                    onclick={() => toggleLockOne(p)}
+                  >
+                    {isLocked(p) ? '🔓' : '🔒'}
+                  </button>
+                  {#if p.hand}
+                    <button
+                      type="button"
+                      class="act hand"
+                      title={t('session.handDown')}
+                      aria-label={t('session.handDown')}
+                      onclick={() => store?.clearHand(p.id)}
+                    >
+                      ✋
+                    </button>
+                  {/if}
                 </div>
-                <div class="tmeta">
-                  <span>{t('session.screenShort', { index: p.screenIndex + 1 })}</span>
-                  <span class="stars">{t('session.stars', { count: p.stars })}</span>
-                </div>
-                <div class="flags">
-                  {#if p.hand}<span class="flag hand">✋ {t('session.hand')}</span>{/if}
-                  {#if p.hidden}<span class="flag away">{t('session.hidden')}</span>{/if}
-                  {#if isLocked(p)}<span class="flag lock">🔒</span>{/if}
-                  {#if !p.online}<span class="flag">{t('session.offline')}</span>{/if}
-                </div>
-              </button>
+              </div>
             {/each}
           </div>
         {/if}
@@ -512,6 +564,8 @@
     border-top: 1px solid var(--c-line);
   }
   .right {
+    /* `min-height: 0`, otherwise the grid item grows with its content and `overflow` never scrolls:
+       with a class of 20 the lower tiles were unreachable (S1.10). */
     overflow: auto;
     padding: var(--space-3);
     background: var(--c-bg-2);
@@ -562,14 +616,51 @@
     gap: var(--space-2);
   }
   .tile {
-    text-align: left;
+    position: relative;
     background: var(--c-surface);
     border: 2px solid var(--c-line);
     border-radius: var(--radius);
-    padding: var(--space-2);
+  }
+  .pick {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: var(--radius);
+    /* Room on the right for the per-student actions. */
+    padding: var(--space-2) 44px var(--space-2) var(--space-2);
     display: flex;
     flex-direction: column;
     gap: 4px;
+  }
+  .acts {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .act {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius);
+    background: var(--c-bg);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .act.on {
+    background: #fdecea;
+    border-color: var(--c-danger);
+  }
+  .act.hand {
+    background: var(--c-accent);
+  }
+  .act:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
   .tile.selected {
     border-color: var(--c-accent);

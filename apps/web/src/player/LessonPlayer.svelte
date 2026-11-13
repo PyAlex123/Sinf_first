@@ -19,6 +19,7 @@
     doneScreens = [],
     stars = 0,
     range,
+    frozen = false,
     onScreenDone,
     onNavigate,
   }: {
@@ -35,6 +36,12 @@
     stars?: number;
     /** Screens the viewer may walk through (the current stage in free mode, S1.9). */
     range?: { from: number; to: number } | null;
+    /**
+     * Something covers the lesson (the teacher's "Attention!" or the rest screen, S1.10). The curtain
+     * stops the mouse by itself, but the keyboard listeners sit on `document`, so they are turned off
+     * here too; otherwise the child pages through the lesson behind the curtain.
+     */
+    frozen?: boolean;
     onScreenDone?: (index: number, stars: number) => void;
     onNavigate?: (index: number) => void;
   } = $props();
@@ -72,7 +79,7 @@
   }
 
   function onKey(event: KeyboardEvent): void {
-    if (navigation !== 'free' || win) return;
+    if (frozen || navigation !== 'free' || win) return;
     if (event.key === 'ArrowRight' || event.key === 'PageDown') go(index + 1);
     if (event.key === 'ArrowLeft' || event.key === 'PageUp') go(index - 1);
   }
@@ -110,6 +117,7 @@
         {:else if screen.kind === 'type'}
           <TypeWord
             {screen}
+            {frozen}
             done={allDone.has(index) && !win}
             onWin={(s: number) => handleWin({ stars: s })}
           />

@@ -125,6 +125,7 @@
         bind:index
         navigation={free ? 'free' : 'locked'}
         {range}
+        frozen={!!lock || resting}
         doneScreens={me?.doneScreens ?? []}
         stars={me?.stars ?? 0}
         onNavigate={(i: number) => store?.setScreen(i)}

@@ -221,6 +221,7 @@ function join(
         hand: false,
         hidden: false,
         fullscreen: false,
+        escapes: 0,
         lastSeenAt: e.now,
       };
   return updateParticipant(r, participant, { type: 'join', participantId: participant.id });
@@ -290,6 +291,19 @@ function command(
       return setLock(r, m.targets, m.text ?? '');
     case 'teacher.unlock':
       return setLock(r, m.targets, null);
+    case 'teacher.hand.clear': {
+      const target = r.state.participants[m.participantId];
+      if (!target || !target.hand) return r;
+      return updateParticipant(
+        r,
+        { ...target, hand: false },
+        {
+          type: 'hand_raise',
+          participantId: target.id,
+          data: { up: false, by: 'teacher' },
+        },
+      );
+    }
     case 'teacher.stage.set':
       return goToStage(r, clampStage(plan, m.index), e.now, plan);
     case 'teacher.stage.skip':
@@ -414,9 +428,11 @@ function studentCommand(
           : !m.fullscreen && p.fullscreen
             ? { type: 'fullscreen_exit', participantId: p.id }
             : undefined;
+      // Leaving counts; coming back does not, so the teacher sees how often the child slipped away.
+      const escapes = activity ? p.escapes + 1 : p.escapes;
       return updateParticipant(
         r,
-        { ...p, hidden: m.hidden, fullscreen: m.fullscreen, lastSeenAt: e.now },
+        { ...p, hidden: m.hidden, fullscreen: m.fullscreen, escapes, lastSeenAt: e.now },
         activity,
       );
     }

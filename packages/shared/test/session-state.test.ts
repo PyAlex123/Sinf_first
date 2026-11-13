@@ -4,6 +4,7 @@ import {
   lockFor,
   nextParticipantNumber,
   reduce,
+  SessionStateSchema,
   type ClientMessage,
   type SessionState,
 } from '../src/index.js';
@@ -135,6 +136,79 @@ describe('session reducer', () => {
       now: 1,
     });
     expect(projector.reply[0]).toMatchObject({ code: 'forbidden' });
+  });
+
+  it('counts how many times a student left the lesson (S1.10)', () => {
+    let r = joined(base(), 'p1', 1);
+    expect(r.state.participants['p1']?.escapes).toBe(0);
+
+    // Tab hidden, then back: one escape.
+    r = student(r.state, 'p1', {
+      v: 1,
+      type: 'student.visibility',
+      hidden: true,
+      fullscreen: true,
+    });
+    expect(r.state.participants['p1']?.escapes).toBe(1);
+    expect(r.activity).toEqual([{ type: 'tab_hidden', participantId: 'p1' }]);
+    r = student(r.state, 'p1', {
+      v: 1,
+      type: 'student.visibility',
+      hidden: false,
+      fullscreen: true,
+    });
+    expect(r.state.participants['p1']?.escapes).toBe(1);
+
+    // Leaving full screen counts too.
+    r = student(r.state, 'p1', {
+      v: 1,
+      type: 'student.visibility',
+      hidden: false,
+      fullscreen: false,
+    });
+    expect(r.state.participants['p1']?.escapes).toBe(2);
+    expect(r.activity).toEqual([{ type: 'fullscreen_exit', participantId: 'p1' }]);
+
+    // The same state reported again changes nothing.
+    r = student(r.state, 'p1', {
+      v: 1,
+      type: 'student.visibility',
+      hidden: false,
+      fullscreen: false,
+    });
+    expect(r.state.participants['p1']?.escapes).toBe(2);
+    expect(r.activity).toEqual([]);
+  });
+
+  it('lets the teacher put a raised hand down (S1.10)', () => {
+    let r = joined(base(), 'p1', 1);
+    r = student(r.state, 'p1', { v: 1, type: 'student.hand', up: true });
+    expect(r.state.participants['p1']?.hand).toBe(true);
+
+    r = teacher(r.state, { v: 1, type: 'teacher.hand.clear', participantId: 'p1' });
+    expect(r.state.participants['p1']?.hand).toBe(false);
+    expect(r.broadcast.at(-1)).toMatchObject({ type: 'participant.updated' });
+    expect(r.activity).toEqual([
+      { type: 'hand_raise', participantId: 'p1', data: { up: false, by: 'teacher' } },
+    ]);
+
+    // Nothing to do when the hand is already down, and an unknown participant is ignored.
+    expect(
+      teacher(r.state, { v: 1, type: 'teacher.hand.clear', participantId: 'p1' }).broadcast,
+    ).toEqual([]);
+    expect(
+      teacher(r.state, { v: 1, type: 'teacher.hand.clear', participantId: 'nobody' }).broadcast,
+    ).toEqual([]);
+  });
+
+  it('reads a snapshot written before `escapes` existed', () => {
+    // Sessions are restored from `sessions.state_json`; an older snapshot must still parse.
+    const s = joined(base(), 'p1', 1).state;
+    const old = JSON.parse(JSON.stringify(s)) as Record<string, unknown>;
+    const participants = old['participants'] as Record<string, Record<string, unknown>>;
+    delete participants['p1']?.['escapes'];
+    const parsed = SessionStateSchema.parse(old);
+    expect(parsed.participants['p1']?.escapes).toBe(0);
   });
 
   it('answers ping and ends the session', () => {

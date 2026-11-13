@@ -11,10 +11,13 @@
   let {
     screen,
     done = false,
+    frozen = false,
     onWin,
   }: {
     screen: Extract<Screen, { kind: 'type' }>;
     done?: boolean;
+    /** The lesson is covered (lock or rest, S1.10): typing must not reach the word. */
+    frozen?: boolean;
     onWin: (stars: number) => void;
   } = $props();
 
@@ -45,7 +48,7 @@
   }
 
   function onKey(event: KeyboardEvent): void {
-    if (solved || event.ctrlKey || event.altKey || event.metaKey) return;
+    if (frozen || solved || event.ctrlKey || event.altKey || event.metaKey) return;
     if (event.key === 'Backspace') {
       typed = typed.slice(0, -1);
       result = null;
