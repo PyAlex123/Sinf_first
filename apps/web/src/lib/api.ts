@@ -18,6 +18,7 @@ import {
   type CreateSession,
   type JoinRequest,
   type TeacherLogin,
+  type TeacherRegister,
 } from '@sinf/shared';
 import { z } from 'zod';
 
@@ -65,6 +66,8 @@ const SessionWithStateSchema = SessionResponseSchema.extend({
 });
 
 export const api = {
+  register: (body: TeacherRegister) =>
+    request('POST', '/api/auth/register', LoginResponseSchema, body),
   login: (body: TeacherLogin) => request('POST', '/api/auth/teacher', LoginResponseSchema, body),
   logout: () => request('DELETE', '/api/auth/teacher', OkSchema),
   me: () => request('GET', '/api/me', MeResponseSchema),

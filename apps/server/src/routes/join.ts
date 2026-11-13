@@ -14,20 +14,25 @@ import { CODE_SEPARATOR } from '../db/seed.js';
 import { schema } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
 import type { SessionStore } from '../realtime/session-store.js';
-import { JoinGuard } from '../services/join-guard.js';
+import { AttemptGuard } from '../services/attempt-guard.js';
 
 const Params = z.object({ id: z.string().min(1) });
 
 /** Student login (S1.7): lesson code → class list → personal code → participant token. Public endpoints. */
-export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: JoinGuard }> = (
+export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: AttemptGuard }> = (
   app,
   opts,
   done,
 ) => {
   const { store } = opts;
-  const guard = opts.guard ?? new JoinGuard();
+  const guard = opts.guard ?? new AttemptGuard();
   const { db } = app.ctx;
 
+  /**
+   * The class list a student sees without a lesson code (the class test of ADR-007). Public, so it shows
+   * only classes with a lesson going on right now — not every class on the platform (ADR-009). It still
+   * crosses schools while two lessons run at once; the device context of S2.4 narrows it to one school.
+   */
   app.get('/join/classes', (): JoinClassesResponse => {
     const classes = db
       .select({ id: schema.classes.id, name: schema.classes.name, grade: schema.classes.grade })
@@ -35,14 +40,19 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: Jo
       .orderBy(schema.classes.grade, schema.classes.name)
       .all();
     return {
-      classes: classes.map((c) => {
+      classes: classes.flatMap((c) => {
         const active = store.activeSessionOfClass(c.id);
-        return {
-          ...c,
-          activeSession: active
-            ? { id: active.id, lessonId: active.lessonId, lessonTitle: active.lessonTitle }
-            : null,
-        };
+        if (!active) return [];
+        return [
+          {
+            ...c,
+            activeSession: {
+              id: active.id,
+              lessonId: active.lessonId,
+              lessonTitle: active.lessonTitle,
+            },
+          },
+        ];
       }),
     };
   });

@@ -27,7 +27,8 @@ export const users = sqliteTable(
   'users',
   {
     id: id(),
-    role: text('role', { enum: ['teacher'] }).notNull(),
+    /** CLAUDE.md §2. A student is not a user: they join a lesson by code (S1.7). */
+    role: text('role', { enum: ['superadmin', 'school_admin', 'teacher'] }).notNull(),
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     fullName: text('full_name').notNull(),
@@ -39,20 +40,60 @@ export const users = sqliteTable(
   (t) => [uniqueIndex('users_email_idx').on(t.email)],
 );
 
+/** Who belongs to a school and in which role (CLAUDE.md §6, SchoolMember). */
+export const schoolMembers = sqliteTable(
+  'school_members',
+  {
+    schoolId: text('school_id')
+      .notNull()
+      .references(() => schools.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    role: text('role', { enum: ['admin', 'teacher'] }).notNull(),
+    createdAt: timestamp('created_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.schoolId, t.userId] }),
+    index('school_members_user_idx').on(t.userId),
+  ],
+);
+
 export const classes = sqliteTable(
   'classes',
   {
     id: id(),
-    schoolId: text('school_id')
+    /** Null for a teacher's personal class; then `ownerId` says whose it is (CLAUDE.md §6). */
+    schoolId: text('school_id').references(() => schools.id),
+    /** Who created the class; for a personal class this is the only teacher. */
+    ownerId: text('owner_id')
       .notNull()
-      .references(() => schools.id),
+      .references(() => users.id),
     name: text('name').notNull(),
     grade: integer('grade').notNull(),
     academicYear: text('academic_year').notNull(),
     settings: text('settings', { mode: 'json' }).$type<ClassSettings>().notNull(),
     createdAt: timestamp('created_at').notNull(),
   },
-  (t) => [index('classes_school_idx').on(t.schoolId)],
+  (t) => [index('classes_school_idx').on(t.schoolId), index('classes_owner_idx').on(t.ownerId)],
+);
+
+/** Teachers of a school class (CLAUDE.md §6, ClassTeacher). A personal class has only its owner. */
+export const classTeachers = sqliteTable(
+  'class_teachers',
+  {
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.classId, t.userId] }),
+    index('class_teachers_user_idx').on(t.userId),
+  ],
 );
 
 export const students = sqliteTable(
@@ -202,7 +243,9 @@ export const TABLES_FOR_RESET = [
   attendance,
   sessions,
   students,
+  classTeachers,
   classes,
+  schoolMembers,
   users,
   schools,
 ] as const;

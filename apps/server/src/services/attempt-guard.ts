@@ -1,6 +1,7 @@
 /**
- * Brute-force guard for student codes (CLAUDE.md §4.1): after N wrong codes the student's login in this session is
- * locked for a while. In memory, per server process; keys are `${sessionId}:${studentId}`.
+ * Brute-force guard: after N failed attempts the key is locked for a while. In memory, per server process.
+ * Used for student codes (`${sessionId}:${studentId}`, CLAUDE.md §4.1) and for teacher logins
+ * (`${email}`, ADR-009).
  */
 export interface GuardStatus {
   locked: boolean;
@@ -14,7 +15,7 @@ interface Entry {
   lockedUntil: number;
 }
 
-export class JoinGuard {
+export class AttemptGuard {
   private readonly entries = new Map<string, Entry>();
 
   constructor(

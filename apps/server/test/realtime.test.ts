@@ -158,10 +158,11 @@ describe('sessions API', () => {
       headers: { cookie },
     });
     expect(end.statusCode).toBe(200);
+    // The public list holds only classes with a lesson going on (ADR-009), so the class drops out.
     const after = JoinClassesResponseSchema.parse(
       (await t.app.inject({ method: 'GET', url: '/api/join/classes' })).json(),
     );
-    expect(after.classes[0]?.activeSession).toBeNull();
+    expect(after.classes).toEqual([]);
   });
 });
 

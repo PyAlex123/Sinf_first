@@ -135,6 +135,13 @@
           </Card>
         {/if}
       </section>
+    {:else}
+      <section class="top">
+        <Card>
+          <h1>{t('teacher.noClasses')}</h1>
+          <p class="muted">{t('teacher.noClasses.hint')}</p>
+        </Card>
+      </section>
     {/if}
 
     {#if showStudents}

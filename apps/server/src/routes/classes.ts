@@ -1,11 +1,11 @@
 import { and, eq, ne } from 'drizzle-orm';
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
-import type { ClassDetailsResponse, Student, StudentCodeResponse } from '@sinf/shared';
+import type { ClassDetailsResponse, Student, StudentCodeResponse, Teacher } from '@sinf/shared';
+import { requireClass, requireStudent } from '../auth/access.js';
 import { hashSecretSync } from '../auth/password.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
-import { notFound } from '../errors.js';
 import { randomDigitCode, randomPictureCode, splitCode } from '../services/codes.js';
 
 const Params = z.object({ id: z.string().min(1) });
@@ -30,8 +30,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
 
   app.get('/classes/:id', { preHandler: requireTeacher }, (request): ClassDetailsResponse => {
     const { id } = Params.parse(request.params);
-    const cls = db.select().from(schema.classes).where(eq(schema.classes.id, id)).get();
-    if (!cls) throw notFound('Class not found');
+    const cls = requireClass(db, request.teacher as Teacher, id);
     const students = db
       .select()
       .from(schema.students)
@@ -54,14 +53,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
   /** Issues a new code; the old card stops working. */
   app.post('/students/:id/code', { preHandler: requireTeacher }, (request): StudentCodeResponse => {
     const { id } = Params.parse(request.params);
-    const student = db.select().from(schema.students).where(eq(schema.students.id, id)).get();
-    if (!student) throw notFound('Student not found');
-    const cls = db
-      .select()
-      .from(schema.classes)
-      .where(eq(schema.classes.id, student.classId))
-      .get();
-    if (!cls) throw notFound('Class not found');
+    const { student, class: cls } = requireStudent(db, request.teacher as Teacher, id);
     // Codes of the other students, plus this student's current code: "new code" must really change it.
     const taken = new Set(
       db

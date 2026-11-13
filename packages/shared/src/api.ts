@@ -29,6 +29,15 @@ export const TeacherLoginSchema = z.strictObject({
 });
 export type TeacherLogin = z.infer<typeof TeacherLoginSchema>;
 
+/** Registration on the public site (ADR-009). The password rule is deliberately simple for teachers. */
+export const TeacherRegisterSchema = z.strictObject({
+  email: z.email(),
+  password: z.string().min(8, 'Пароль не короче 8 символов').max(200),
+  fullName: z.string().trim().min(2).max(120),
+  locale: LocaleSchema.optional(),
+});
+export type TeacherRegister = z.infer<typeof TeacherRegisterSchema>;
+
 export const TeacherSchema = z.strictObject({
   id,
   email: z.email(),

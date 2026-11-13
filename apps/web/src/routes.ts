@@ -4,6 +4,7 @@ import type { RouteDef } from './lib/router.svelte.js';
 export const routes: RouteDef[] = [
   { pattern: '/', load: () => import('./pages/Home.svelte') },
   { pattern: '/teacher/login', load: () => import('./pages/teacher/Login.svelte') },
+  { pattern: '/teacher/register', load: () => import('./pages/teacher/Register.svelte') },
   { pattern: '/teacher', load: () => import('./pages/teacher/Dashboard.svelte') },
   { pattern: '/teacher/lesson/:id', load: () => import('./pages/teacher/Lesson.svelte') },
   { pattern: '/teacher/class/:id/cards', load: () => import('./pages/teacher/Cards.svelte') },

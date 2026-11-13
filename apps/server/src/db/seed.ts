@@ -97,10 +97,20 @@ export function seedDemo(db: Db, options: SeedOptions): SeedResult {
         createdAt: now,
       })
       .run();
+    // The demo teacher belongs to the demo school; the demo class is the school's (ADR-009).
+    tx.insert(schema.schoolMembers)
+      .values({
+        schoolId: DEMO.schoolId,
+        userId: DEMO.teacherId,
+        role: 'admin',
+        createdAt: now,
+      })
+      .run();
     tx.insert(schema.classes)
       .values({
         id: DEMO.classId,
         schoolId: DEMO.schoolId,
+        ownerId: DEMO.teacherId,
         name: DEMO.className,
         grade: DEMO.grade,
         academicYear: DEMO.academicYear,
@@ -126,6 +136,9 @@ export function seedDemo(db: Db, options: SeedOptions): SeedResult {
           };
         }),
       )
+      .run();
+    tx.insert(schema.classTeachers)
+      .values({ classId: DEMO.classId, userId: DEMO.teacherId, createdAt: now })
       .run();
   });
   return { students: DEMO_STUDENTS.length };

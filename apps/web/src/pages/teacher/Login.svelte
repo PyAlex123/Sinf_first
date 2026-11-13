@@ -44,6 +44,10 @@
       {#if error}<Notice kind="error">{error}</Notice>{/if}
       <Button type="submit" size="lg" disabled={busy}>{t('login.submit')}</Button>
     </form>
+    <p class="muted alt">
+      {t('login.noAccount')}
+      <a href="/teacher/register">{t('register.submit')}</a>
+    </p>
   </Card>
 </main>
 
@@ -70,5 +74,8 @@
     border: 1px solid var(--c-line);
     border-radius: var(--radius);
     font-size: var(--text-md);
+  }
+  .alt {
+    margin-top: var(--space-4);
   }
 </style>
