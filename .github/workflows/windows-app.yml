@@ -65,13 +65,19 @@ jobs:
 
           # The native module first: it is the only compiled code in the server, so a silent crash
           # (exit code 0xC0000005) points here before anything else.
+          $check = "const D = require('better-sqlite3'); const db = new D(':memory:'); console.log('ok', db.prepare('select 1 as x').get().x);"
           Push-Location (Join-Path $root 'out/Sinf/server')
           Get-ChildItem 'node_modules/better-sqlite3/prebuilds' -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty Name
-          & $node -e "const D = require('better-sqlite3'); const db = new D(':memory:'); console.log('better-sqlite3:', db.prepare('select 1 as x').get().x);"
-          $sqliteCode = $LASTEXITCODE
+          # Which Node can load the prebuilt binary: the one in the package, or the agent's own.
+          foreach ($candidate in @($node, (Get-Command node).Source)) {
+            $version = & $candidate --version
+            & $candidate -e $check
+            Write-Host "better-sqlite3 под $version : код $LASTEXITCODE"
+            if ($candidate -eq $node) { $sqliteCode = $LASTEXITCODE }
+          }
           Pop-Location
-          if ($sqliteCode -ne 0) { throw "better-sqlite3 не загрузился, код $sqliteCode" }
+          if ($sqliteCode -ne 0) { throw "better-sqlite3 не загрузился в упакованном Node, код $sqliteCode" }
 
           $env:NODE_ENV = 'production'
           $env:PORT = '3123'
