@@ -2,6 +2,9 @@ packages:
   - apps/*
   - packages/*
 
+# Build scripts we allow to run on install (pnpm 10 blocks them by default).
+# better-sqlite3 is deliberately NOT here: the package ships prebuilt binaries for every platform we
+# use (prebuilds/win32-x64.node and so on), and `lib/binding.js` falls back to them when there is no
+# local build. Compiling it would need Visual Studio on the Windows build agent for no gain.
 onlyBuiltDependencies:
-  - better-sqlite3
   - esbuild
