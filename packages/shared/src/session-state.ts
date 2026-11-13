@@ -7,6 +7,7 @@ import {
   MS_PER_MIN,
   partAt,
   remainingMs,
+  stageScreenRange,
   startStage,
 } from './stage-timer.js';
 import {
@@ -175,6 +176,12 @@ function goToStage(r: ReduceResult, index: number, now: number, plan: LessonPlan
   if (screenIndex !== r.state.screenIndex) {
     r.state = { ...r.state, screenIndex };
     r.broadcast.push({ v, type: 'screen.changed', index: screenIndex });
+  }
+  // Nobody stays on a screen of the previous stage (S1.9).
+  for (const participant of Object.values(r.state.participants)) {
+    if (participant.screenIndex !== screenIndex) {
+      r = updateParticipant(r, { ...participant, screenIndex });
+    }
   }
   const mode = modeForStage(stage);
   if (mode !== r.state.mode) {
@@ -348,7 +355,7 @@ function command(
     case 'student.screen.done':
     case 'student.hand':
     case 'student.visibility':
-      return studentCommand(r, e, m);
+      return studentCommand(r, e, m, plan);
   }
 }
 
@@ -356,6 +363,7 @@ function studentCommand(
   r: ReduceResult,
   e: Extract<SessionEvent, { kind: 'command' }>,
   m: Exclude<ClientMessage, { type: `teacher.${string}` | 'ping' }>,
+  plan: LessonPlan,
 ): ReduceResult {
   const p = e.participantId ? r.state.participants[e.participantId] : undefined;
   if (!p) {
@@ -369,7 +377,10 @@ function studentCommand(
   }
   switch (m.type) {
     case 'student.screen.set': {
-      const index = clampScreen(r.state, m.index);
+      // In presentation mode the teacher drives every screen; in free mode a student walks
+      // through the screens of the current stage only (STAGE1 S1.9).
+      if (r.state.mode === 'presentation') return r;
+      const index = clampToStage(r.state, plan, m.index);
       if (index === p.screenIndex) return r;
       return updateParticipant(r, { ...p, screenIndex: index, lastSeenAt: e.now });
     }
@@ -445,6 +456,13 @@ function updateParticipant(
   r.broadcast.push({ v, type: 'participant.updated', participant });
   if (activity) r.activity.push(activity);
   return r;
+}
+
+/** Keeps a screen index inside the current stage, or inside the lesson when the stage has no screens. */
+function clampToStage(state: SessionState, plan: LessonPlan, index: number): number {
+  const range = stageScreenRange(plan.screenStages, plan.stages[state.stage.index]?.key);
+  if (!range) return clampScreen(state, index);
+  return Math.max(range.from, Math.min(range.to, index));
 }
 
 function clampStage(plan: LessonPlan, index: number): number {

@@ -89,6 +89,9 @@ describe('importCourse', () => {
     expect(pics).not.toContain('onload');
 
     const scenario = await readFile(join(outDir, 'scenarios/g10.html'), 'utf8');
+    // Stage headings carry anchors, so the teacher panel can open the scenario at the current stage (S1.9).
+    expect(scenario).toMatch(/<h3[^>]*id="stage-1"/);
+    expect(scenario).toMatch(/<h3[^>]*id="stage-2"/);
     expect(scenario).not.toMatch(/<script|onclick|data:image|id="deck"|top-btns/);
     expect(scenario).toContain('/content/test-course/media/');
     expect(scenario).toContain('<style>h1{color:red}</style>');

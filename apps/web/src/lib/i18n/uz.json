@@ -156,5 +156,10 @@
   "stage.demoSpeed.off": "×1",
   "rest.title": "Ekrandan yuz o‘giring!",
   "rest.hint": "Ko‘zlarimiz dam oladi. Dars tez orada davom etadi.",
-  "teacher.lesson.startDemo": "Demo tezlikda boshlash"
+  "teacher.lesson.startDemo": "Demo tezlikda boshlash",
+  "session.nextPreview": "Keyingi ekran",
+  "session.scenario": "Dars ssenariysi",
+  "session.scenario.open": "Yangi oynada ochish",
+  "session.scenario.show": "Ssenariy",
+  "session.scenario.hide": "Ssenariyni yashirish"
 }

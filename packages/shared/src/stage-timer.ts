@@ -84,6 +84,19 @@ export function modeForStage(stage: Stage | undefined): 'presentation' | 'free' 
   return stage?.place === 'computer' ? 'free' : 'presentation';
 }
 
+/** First and last screen of a stage; `null` when the stage has no screens of its own. */
+export function stageScreenRange(
+  screenStages: readonly string[],
+  stageKey: string | undefined,
+): { from: number; to: number } | null {
+  if (!stageKey) return null;
+  const from = screenStages.indexOf(stageKey);
+  if (from < 0) return null;
+  let to = from;
+  while (to + 1 < screenStages.length && screenStages[to + 1] === stageKey) to++;
+  return { from, to };
+}
+
 /** First screen of a stage, or the current one if the stage has no screens of its own. */
 export function firstScreenOfStage(
   screenStages: readonly string[],

@@ -18,6 +18,7 @@
     header = true,
     doneScreens = [],
     stars = 0,
+    range,
     onScreenDone,
     onNavigate,
   }: {
@@ -32,11 +33,15 @@
     /** Screens already rewarded (stars are given once per screen). */
     doneScreens?: readonly number[];
     stars?: number;
+    /** Screens the viewer may walk through (the current stage in free mode, S1.9). */
+    range?: { from: number; to: number } | null;
     onScreenDone?: (index: number, stars: number) => void;
     onNavigate?: (index: number) => void;
   } = $props();
 
   const count = $derived(lesson.screens.length);
+  const first = $derived(range?.from ?? 0);
+  const last = $derived(range?.to ?? count - 1);
   const screen = $derived(lesson.screens[index]);
   let win = $state<WinInfo | null>(null);
   let localDone = $state<number[]>([]);
@@ -45,7 +50,7 @@
   const totalStars = $derived(stars + localStars);
 
   function go(next: number): void {
-    const clamped = Math.max(0, Math.min(count - 1, next));
+    const clamped = Math.max(first, Math.min(last, next));
     if (clamped === index) return;
     win = null;
     index = clamped;
@@ -124,17 +129,12 @@
 
   {#if navigation === 'free'}
     <footer class="nav">
-      <button class="nb" type="button" disabled={index === 0} onclick={() => go(index - 1)}>
+      <button class="nb" type="button" disabled={index <= first} onclick={() => go(index - 1)}>
         ← {t('common.prev')}
       </button>
       <div class="sp"></div>
-      <button
-        class="nb go2"
-        type="button"
-        disabled={index >= count - 1}
-        onclick={() => go(index + 1)}
-      >
-        {index >= count - 1 ? t('player.done') : `${t('common.next')} →`}
+      <button class="nb go2" type="button" disabled={index >= last} onclick={() => go(index + 1)}>
+        {index >= last ? t('player.done') : `${t('common.next')} →`}
       </button>
     </footer>
   {/if}

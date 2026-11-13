@@ -156,5 +156,10 @@
   "stage.demoSpeed.off": "×1",
   "rest.title": "Отвернулись от экранов!",
   "rest.hint": "Отдыхаем глазами. Урок скоро продолжится.",
-  "teacher.lesson.startDemo": "Начать в демо-скорости"
+  "teacher.lesson.startDemo": "Начать в демо-скорости",
+  "session.nextPreview": "Следующий экран",
+  "session.scenario": "Сценарий урока",
+  "session.scenario.open": "Открыть в новой вкладке",
+  "session.scenario.show": "Сценарий",
+  "session.scenario.hide": "Скрыть сценарий"
 }

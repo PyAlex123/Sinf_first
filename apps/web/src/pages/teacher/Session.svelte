@@ -22,12 +22,19 @@
   let selected = $state<string[]>([]);
   let lockText = $state('');
   let index = $state(0);
+  let nextIndex = $state(1);
+  let scenarioOpen = $state(false);
 
   const session = $derived(store?.state ?? null);
   const participants = $derived(store?.participants ?? []);
   const count = $derived(bundle?.lesson.screens.length ?? 0);
   const next = $derived(bundle?.lesson.screens[(session?.screenIndex ?? 0) + 1]);
   const stages = $derived(bundle?.lesson.stages ?? []);
+  const stageNumber = $derived((session?.stage.index ?? 0) + 1);
+  /** The teacher scenario opens at the heading of the current stage (anchors added by the import, S1.9). */
+  const scenarioUrl = $derived(
+    bundle ? `${bundle.lesson.teacherScenario}#stage-${stageNumber}` : '',
+  );
   const paused = $derived(
     session?.stage.pausedAt !== null && session?.stage.pausedAt !== undefined,
   );
@@ -35,7 +42,9 @@
 
   // The teacher's preview follows the shared screen index.
   $effect(() => {
-    if (session) index = session.screenIndex;
+    if (!session) return;
+    index = session.screenIndex;
+    nextIndex = Math.min(count - 1, session.screenIndex + 1);
   });
 
   function go(delta: number): void {
@@ -170,6 +179,14 @@
           </Button>
           <button
             type="button"
+            class="scenariobtn"
+            class:on={scenarioOpen}
+            onclick={() => (scenarioOpen = !scenarioOpen)}
+          >
+            {scenarioOpen ? t('session.scenario.hide') : t('session.scenario.show')}
+          </button>
+          <button
+            type="button"
             class="speed"
             class:on={session.demoSpeed > 1}
             title={t('stage.demoSpeed')}
@@ -178,16 +195,55 @@
             {session.demoSpeed > 1 ? t('stage.demoSpeed.on') : t('stage.demoSpeed.off')}
           </button>
         </div>
-        <div class="preview">
-          <LessonPlayer
-            lesson={bundle.lesson}
-            course={bundle.course}
-            pics={bundle.pics}
-            bind:index
-            navigation="locked"
-            header={false}
-          />
+        <div class="previews">
+          <div class="preview">
+            <LessonPlayer
+              lesson={bundle.lesson}
+              course={bundle.course}
+              pics={bundle.pics}
+              bind:index
+              navigation="locked"
+              header={false}
+            />
+          </div>
+          {#if next}
+            <button
+              type="button"
+              class="nextpreview"
+              title={t('session.nextPreview')}
+              onclick={() => go(1)}
+            >
+              <span class="caption">
+                {t('session.nextPreview')} · {t(`screen.${next.kind}`)}
+              </span>
+              <div class="shrink">
+                <LessonPlayer
+                  lesson={bundle.lesson}
+                  course={bundle.course}
+                  pics={bundle.pics}
+                  bind:index={nextIndex}
+                  navigation="locked"
+                  header={false}
+                />
+              </div>
+            </button>
+          {/if}
         </div>
+        {#if scenarioOpen}
+          <div class="scenario">
+            <div class="scenariobar">
+              <strong>{t('session.scenario')}</strong>
+              <span class="muted">{stages[session.stage.index]?.title ?? ''}</span>
+              <span class="spacer"></span>
+              <a href={scenarioUrl} target="_blank" rel="noopener">{t('session.scenario.open')} ↗</a
+              >
+              <Button variant="ghost" size="md" onclick={() => (scenarioOpen = false)}>✕</Button>
+            </div>
+            {#key scenarioUrl}
+              <iframe src={scenarioUrl} title={t('session.scenario')}></iframe>
+            {/key}
+          </div>
+        {/if}
         <div class="hint">
           {t('session.keys')}
           {#if next}
@@ -303,6 +359,7 @@
     grid-template-columns: minmax(0, 1fr) 360px;
   }
   .left {
+    position: relative;
     display: flex;
     flex-direction: column;
     min-width: 0;
@@ -364,9 +421,88 @@
     color: #fff;
     border-color: var(--c-teal);
   }
-  .preview {
+  .previews {
     flex: 1;
     min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .preview {
+    min-width: 0;
+    min-height: 0;
+  }
+  .nextpreview {
+    position: relative;
+    border: 0;
+    border-left: 1px solid var(--c-line);
+    background: var(--c-bg-2);
+    padding: 0;
+    overflow: hidden;
+    text-align: left;
+  }
+  .nextpreview .caption {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    padding: 4px var(--space-2);
+    font-size: var(--text-sm);
+    color: #fff;
+    background: rgba(19, 35, 58, 0.75);
+  }
+  /* The next screen is drawn small: the player lays out for a full stage, so it is scaled down. */
+  .shrink {
+    width: 200%;
+    height: 200%;
+    transform: scale(0.5);
+    transform-origin: top left;
+    pointer-events: none;
+  }
+  .scenario {
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 45%;
+    display: flex;
+    flex-direction: column;
+    background: var(--c-surface);
+    border-top: 2px solid var(--c-line);
+    box-shadow: 0 -6px 18px rgba(19, 35, 58, 0.12);
+    z-index: 5;
+  }
+  .scenariobar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border-bottom: 1px solid var(--c-line);
+  }
+  .scenario iframe {
+    flex: 1;
+    border: 0;
+    width: 100%;
+  }
+  .scenariobtn {
+    min-height: 36px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    color: var(--c-muted);
+    font-weight: 600;
+  }
+  .scenariobtn.on {
+    background: var(--c-dark);
+    color: #fff;
+    border-color: var(--c-dark);
+  }
+  @media (max-width: 1200px) {
+    .previews {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .nextpreview {
+      display: none;
+    }
   }
   .hint {
     padding: var(--space-1) var(--space-3);

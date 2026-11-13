@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, ApiError } from '../lib/api.js';
+  import { stageScreenRange } from '@sinf/shared';
   import { loadLessonBundle, type LessonBundle } from '../lib/content.js';
   import { t } from '../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
@@ -29,6 +30,15 @@
   const free = $derived(session?.mode === 'free');
   /** During the rest part of practice the screen is covered (STAGE1 S1.8). */
   const resting = $derived(session?.stage.part === 'rest');
+  /** In free mode a student walks through the screens of the current stage only (S1.9). */
+  const range = $derived.by(() => {
+    if (!session || !bundle || session.mode !== 'free') return null;
+    const key = bundle.lesson.stages[session.stage.index]?.key;
+    return stageScreenRange(
+      bundle.lesson.screens.map((screen) => screen.stage),
+      key,
+    );
+  });
 
   // In presentation mode the teacher drives the screen; in free mode the student keeps their own place.
   $effect(() => {
@@ -114,6 +124,7 @@
         pics={bundle.pics}
         bind:index
         navigation={free ? 'free' : 'locked'}
+        {range}
         doneScreens={me?.doneScreens ?? []}
         stars={me?.stars ?? 0}
         onNavigate={(i: number) => store?.setScreen(i)}

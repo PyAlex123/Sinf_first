@@ -103,6 +103,7 @@
       <RestScreen />
     {/if}
     <div class="hud">
+      <span class="stagename">{bundle.lesson.stages[session.stage.index]?.title ?? ''}</span>
       <StageTimer
         {session}
         stages={bundle.lesson.stages}
@@ -174,6 +175,11 @@
   }
   .hud .code b {
     color: var(--c-dark);
+  }
+  .stagename {
+    color: var(--c-accent);
+    font-weight: 700;
+    text-transform: lowercase;
   }
   .hud {
     position: fixed;

@@ -111,6 +111,11 @@ describe('session reducer', () => {
       fullscreen: false,
     });
     expect(r.activity).toEqual([{ type: 'tab_hidden', participantId: 'p1' }]);
+    // In presentation mode the teacher drives the screen, so a student's request is ignored (S1.9).
+    r = student(r.state, 'p1', { v: 1, type: 'student.screen.set', index: 7 });
+    expect(r.state.participants['p1']?.screenIndex).toBe(0);
+    // In free mode without a lesson plan the screen is clamped to the lesson.
+    r = teacher(r.state, { v: 1, type: 'teacher.mode.set', mode: 'free' });
     r = student(r.state, 'p1', { v: 1, type: 'student.screen.set', index: 7 });
     expect(r.state.participants['p1']?.screenIndex).toBe(4);
   });

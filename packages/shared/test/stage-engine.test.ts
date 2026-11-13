@@ -10,6 +10,7 @@ import {
   realMsUntilStageEnd,
   reduce,
   remainingMs,
+  stageScreenRange,
   type ClientMessage,
   type LessonPlan,
   type SessionState,
@@ -70,6 +71,23 @@ const teacher = (state: SessionState, message: ClientMessage, now: number) =>
   reduce(state, { kind: 'command', role: 'teacher', participantId: null, message, now }, PLAN);
 
 const tick = (state: SessionState, now: number) => reduce(state, { kind: 'tick', now }, PLAN);
+
+const student = (state: SessionState, message: ClientMessage, now = T0) =>
+  reduce(state, { kind: 'command', role: 'student', participantId: 'p1', message, now }, PLAN);
+
+const withStudent = (state: SessionState) =>
+  reduce(
+    state,
+    {
+      kind: 'participant.join',
+      participantId: 'p1',
+      number: 1,
+      studentId: 's1',
+      name: 'Ученик',
+      now: T0,
+    },
+    PLAN,
+  ).state;
 
 /** Runs the timer forward in small steps, as the server does, and returns the stages it passed. */
 function runLesson(state: SessionState, stepMs: number, untilMs: number): string[] {
@@ -224,5 +242,53 @@ describe('teacher controls', () => {
     );
     expect(result.reply[0]).toMatchObject({ code: 'forbidden' });
     expect(result.state.stage.index).toBe(0);
+  });
+});
+
+describe('free mode stays inside the stage (S1.9)', () => {
+  it('knows the screen range of every stage', () => {
+    expect(stageScreenRange(SCREEN_STAGES, 'greeting')).toEqual({ from: 0, to: 1 });
+    expect(stageScreenRange(SCREEN_STAGES, 'theory')).toEqual({ from: 4, to: 5 });
+    expect(stageScreenRange(SCREEN_STAGES, 'summary')).toEqual({ from: 9, to: 9 });
+    expect(stageScreenRange(SCREEN_STAGES, 'quiz')).toBeNull();
+  });
+
+  it('clamps a student to the screens of the current stage', () => {
+    let state = withStudent(start());
+    // practice: screens 6..7, free mode
+    state = teacher(state, { v: 1, type: 'teacher.stage.set', index: 3 }, T0).state;
+    expect(state.mode).toBe('free');
+    expect(state.participants['p1']?.screenIndex).toBe(6);
+
+    const forward = student(state, { v: 1, type: 'student.screen.set', index: 7 });
+    expect(forward.state.participants['p1']?.screenIndex).toBe(7);
+    // beyond the stage: stays on the last screen of the stage
+    const tooFar = student(forward.state, { v: 1, type: 'student.screen.set', index: 9 });
+    expect(tooFar.state.participants['p1']?.screenIndex).toBe(7);
+    // before the stage: stays on the first one
+    const tooEarly = student(forward.state, { v: 1, type: 'student.screen.set', index: 0 });
+    expect(tooEarly.state.participants['p1']?.screenIndex).toBe(6);
+  });
+
+  it('ignores a student moving the screen while the teacher presents', () => {
+    let state = withStudent(start());
+    state = teacher(state, { v: 1, type: 'teacher.stage.set', index: 2 }, T0).state; // theory → presentation
+    expect(state.mode).toBe('presentation');
+    const result = student(state, { v: 1, type: 'student.screen.set', index: 5 });
+    expect(result.state.participants['p1']?.screenIndex).toBe(4);
+    expect(result.broadcast).toEqual([]);
+  });
+
+  it('moves everybody to the first screen of the new stage', () => {
+    let state = withStudent(start());
+    state = teacher(state, { v: 1, type: 'teacher.stage.set', index: 3 }, T0).state;
+    state = student(state, { v: 1, type: 'student.screen.set', index: 7 }).state;
+    expect(state.participants['p1']?.screenIndex).toBe(7);
+
+    const next = teacher(state, { v: 1, type: 'teacher.stage.skip' }, T0 + 1000);
+    expect(next.state.stage.index).toBe(4);
+    expect(next.state.screenIndex).toBe(8);
+    expect(next.state.participants['p1']?.screenIndex).toBe(8);
+    expect(next.broadcast.some((m) => m.type === 'participant.updated')).toBe(true);
   });
 });

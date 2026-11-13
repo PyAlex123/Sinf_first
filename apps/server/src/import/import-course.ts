@@ -96,6 +96,7 @@ export async function importCourse(options: ImportOptions): Promise<ImportReport
     if (!scenarioHtml) throw new Error(`No teacher scenario for lesson ${app.id}`);
     const scenario = parse(scenarioHtml);
     removeDuplicatePresentation(scenario);
+    markScenarioStages(scenario);
     return {
       app,
       screens: app.screens.map((raw) =>
@@ -278,6 +279,25 @@ function cleanMarkup(markup: string): string {
     throw new Error('Markup still has active content after sanitizing');
   }
   return serialize(tree);
+}
+
+/**
+ * Marks the stage headings of a teacher scenario with `id="stage-N"` (N from the heading's own number),
+ * so the teacher panel can open the scenario straight at the current stage (S1.9).
+ */
+function markScenarioStages(doc: T.Document): void {
+  let fallback = 0;
+  for (const heading of findAll(doc, (el) => el.tagName === 'h3' && hasClass(el, 'stage'))) {
+    fallback += 1;
+    const label = find(heading, (el) => hasClass(el, 'st-n'));
+    const number = Number(
+      textContent(label ?? heading)
+        .trim()
+        .split(/\s/)[0],
+    );
+    const index = Number.isInteger(number) && number > 0 ? number : fallback;
+    heading.attrs.push({ name: 'id', value: `stage-${index}` });
+  }
 }
 
 /** The scenario embeds a copy of the children's slides (#deck) and buttons that need scripts. */
