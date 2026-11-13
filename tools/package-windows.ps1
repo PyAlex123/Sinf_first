@@ -7,8 +7,9 @@
   production dependencies, the built web client and the lessons. The result runs from any folder,
   including a flash drive, and needs no administrator rights (ADR-008).
 
-  Run from the repository root AFTER `pnpm build`, `pnpm --filter @sinf/server deploy --legacy --prod out/server`
-  and `dotnet publish apps/desktop`. The CI workflow .github/workflows/windows-app.yml does exactly that.
+  Run from the repository root AFTER `pnpm build` and `dotnet publish apps/desktop`. The server is
+  deployed by this script itself, straight into the package: copying a pnpm node_modules tree with
+  Copy-Item breaks the links between packages, and the server then cannot find its dependencies.
 
 .PARAMETER Out
   Folder the package is written to; it is replaced.
@@ -23,7 +24,6 @@
 param(
     [string]$Out = 'out/Sinf',
     [string]$DesktopPublish = 'apps/desktop/bin/Release/net10.0-windows/win-x64/publish',
-    [string]$ServerDeploy = 'out/server',
     [string]$NodeVersion = '22.12.0'
 )
 
@@ -43,7 +43,13 @@ Write-Host '1/5 our window'
 Copy-Tree $DesktopPublish $Out
 Copy-Item 'apps/desktop/sinf.ico' (Join-Path $Out 'sinf.ico') -Force
 
-Write-Host "2/5 Node $NodeVersion"
+Write-Host '2/5 server with production dependencies'
+# pnpm writes straight into the package: the folder must not exist yet, and nothing is copied afterwards.
+# `server/drizzle` holds the SQL migrations the server runs at startup and comes along through "files".
+pnpm --filter @sinf/server deploy --legacy --prod (Join-Path $Out 'server')
+if ($LASTEXITCODE -ne 0) { throw 'pnpm deploy не справился' }
+
+Write-Host "3/5 Node $NodeVersion"
 $nodeZip = Join-Path ([System.IO.Path]::GetTempPath()) "node-v$NodeVersion-win-x64.zip"
 $nodeDir = Join-Path ([System.IO.Path]::GetTempPath()) "node-v$NodeVersion-win-x64"
 if (-not (Test-Path $nodeZip)) {
@@ -51,12 +57,7 @@ if (-not (Test-Path $nodeZip)) {
 }
 if (Test-Path $nodeDir) { Remove-Item -Recurse -Force $nodeDir }
 Expand-Archive -Path $nodeZip -DestinationPath ([System.IO.Path]::GetTempPath()) -Force
-New-Item -ItemType Directory -Force -Path (Join-Path $Out 'server') | Out-Null
 Copy-Item (Join-Path $nodeDir 'node.exe') (Join-Path $Out 'server/node.exe') -Force
-
-Write-Host '3/5 server'
-# `server/drizzle` holds the SQL migrations the server runs at startup: it must stay.
-Copy-Tree $ServerDeploy (Join-Path $Out 'server')
 
 Write-Host '4/5 web client and lessons'
 Copy-Tree 'apps/web/dist' (Join-Path $Out 'web')

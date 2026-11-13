@@ -168,7 +168,6 @@ sudo systemctl reload caddy
 ```powershell
 pnpm install
 pnpm build
-pnpm --filter @sinf/server deploy --legacy --prod out/server
 dotnet publish apps/desktop/Sinf.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ./tools/package-windows.ps1
 ```

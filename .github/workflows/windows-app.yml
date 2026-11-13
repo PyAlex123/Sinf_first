@@ -40,16 +40,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
-      - name: Server with production dependencies only
-        run: pnpm --filter @sinf/server deploy --legacy --prod out/server
-
       - name: Our window (self-contained, .NET not required on the school PC)
         run: >
           dotnet publish apps/desktop/Sinf.Desktop.csproj
           -c Release -r win-x64 --self-contained true
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 
-      - name: Collect the package
+      - name: Collect the package (server deploy included)
         shell: pwsh
         run: ./tools/package-windows.ps1
 
