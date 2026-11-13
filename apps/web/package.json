@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build && node scripts/check-bundle.mjs",
     "preview": "vite preview",
-    "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "build:demo": "vite build --config vite.demo.config.ts && node scripts/build-demo-content.mjs g10 k10"
   },
   "dependencies": {
     "@sinf/shared": "workspace:*",
