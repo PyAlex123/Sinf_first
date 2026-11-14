@@ -3,16 +3,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PicsSchema } from '@sinf/shared';
 import { verifySecret } from '../src/auth/password.js';
+import { CODE_SEPARATOR } from '../src/services/codes.js';
 import { REPO_ROOT } from '../src/config.js';
 import { schema } from '../src/db/index.js';
-import {
-  CODE_SEPARATOR,
-  DEMO,
-  DEMO_STUDENTS,
-  isDatabaseEmpty,
-  pictureCode,
-  seedDemo,
-} from '../src/db/seed.js';
+import { DEMO, DEMO_STUDENTS, isDatabaseEmpty, pictureCode, seedDemo } from '../src/db/seed.js';
 import { TEACHER_PASSWORD, testDatabase } from './helpers.js';
 
 describe('demo seed', () => {

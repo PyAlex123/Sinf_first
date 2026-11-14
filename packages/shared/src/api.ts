@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CourseSchema } from './lesson.js';
 import { LocaleSchema } from './locale.js';
+import { MAX_STUDENTS_PER_CLASS } from './roster.js';
 
 /** HTTP API contracts (`/api/…`). The server validates requests with these schemas; the web client uses the types. */
 
@@ -61,7 +62,24 @@ export const ClassSummarySchema = z.strictObject({
   academicYear: z.string().min(1),
   studentCount: z.number().int().nonnegative(),
   settings: ClassSettingsSchema,
+  /** Null for a teacher's personal class (ADR-009). */
+  schoolId: id.nullable(),
+  schoolName: z.string().min(1).nullable(),
 });
+
+/** Creating a class (S2.2). `schoolId` is only needed when the teacher belongs to several schools. */
+export const CreateClassSchema = z.strictObject({
+  name: z.string().trim().min(1).max(20),
+  grade: z.number().int().min(1).max(11),
+  /** "2025/2026"; the server fills in the current one when it is missing. */
+  academicYear: z
+    .string()
+    .trim()
+    .regex(/^\d{4}\/\d{4}$/)
+    .optional(),
+  schoolId: id.optional(),
+});
+export type CreateClass = z.infer<typeof CreateClassSchema>;
 export type ClassSummary = z.infer<typeof ClassSummarySchema>;
 
 export const MeResponseSchema = z.strictObject({
@@ -151,6 +169,29 @@ export type ClassDetailsResponse = z.infer<typeof ClassDetailsResponseSchema>;
 
 export const StudentCodeResponseSchema = z.strictObject({ student: StudentSchema });
 export type StudentCodeResponse = z.infer<typeof StudentCodeResponseSchema>;
+
+const studentName = z.string().trim().min(1).max(60);
+
+/** Adding a pasted roster (S2.2); the text itself is read by `parseRoster` before this. */
+export const AddStudentsSchema = z.strictObject({
+  students: z
+    .array(z.strictObject({ lastName: studentName, firstName: studentName }))
+    .min(1)
+    .max(MAX_STUDENTS_PER_CLASS),
+});
+export type AddStudents = z.infer<typeof AddStudentsSchema>;
+
+export const UpdateStudentSchema = z
+  .strictObject({ lastName: studentName.optional(), firstName: studentName.optional() })
+  .refine((v) => v.lastName !== undefined || v.firstName !== undefined, 'Nothing to change');
+export type UpdateStudent = z.infer<typeof UpdateStudentSchema>;
+
+/** Class details plus what the paste did: names already in the class are skipped, not duplicated. */
+export const AddStudentsResponseSchema = ClassDetailsResponseSchema.extend({
+  added: z.number().int().nonnegative(),
+  skipped: z.array(z.string().min(1)),
+});
+export type AddStudentsResponse = z.infer<typeof AddStudentsResponseSchema>;
 
 // ---------- student login (S1.7)
 

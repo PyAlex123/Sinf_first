@@ -92,12 +92,15 @@ export const authRoutes: FastifyPluginCallback<{ loginGuard?: AttemptGuard }> = 
         academicYear: schema.classes.academicYear,
         settings: schema.classes.settings,
         studentCount: count(schema.students.id),
+        schoolId: schema.classes.schoolId,
+        schoolName: schema.schools.name,
       })
       .from(schema.classes)
       .leftJoin(schema.students, eq(schema.students.classId, schema.classes.id))
+      .leftJoin(schema.schools, eq(schema.schools.id, schema.classes.schoolId))
       .where(visibleClassWhere(db, teacher.id))
       .groupBy(schema.classes.id)
-      .orderBy(schema.classes.name)
+      .orderBy(schema.classes.grade, schema.classes.name)
       .all();
     return { teacher, classes };
   });

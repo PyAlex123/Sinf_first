@@ -31,7 +31,40 @@
   let error = $state<string | null>(null);
   let busy = $state<string | null>(null);
 
-  const cls = $derived(classes[0]);
+  let selectedId = $state<string | null>(null);
+  /** The class the teacher is working with; the first one until they pick another (S2.2). */
+  const cls = $derived(classes.find((c) => c.id === selectedId) ?? classes[0]);
+
+  let creating = $state(false);
+  let newName = $state('');
+  let newGrade = $state(1);
+  let newSchoolId = $state<string | null>(null);
+  /** Schools seen among the teacher's classes; the picker only shows up when there are several. */
+  const schools = $derived(
+    classes
+      .filter((c) => c.schoolId && c.schoolName)
+      .map((c) => ({ id: c.schoolId as string, name: c.schoolName as string }))
+      .filter((school, i, all) => all.findIndex((s) => s.id === school.id) === i),
+  );
+
+  async function createClass(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (!newName.trim()) return;
+    busy = 'class';
+    error = null;
+    try {
+      const { class: created } = await api.createClass({
+        name: newName.trim(),
+        grade: newGrade,
+        ...(newSchoolId ? { schoolId: newSchoolId } : {}),
+      });
+      router.navigate(`/teacher/class/${created.id}`);
+    } catch (e) {
+      error = e instanceof Error ? e.message : t('common.error');
+    } finally {
+      busy = null;
+    }
+  }
   const active = $derived(joinInfo.find((j) => j.id === cls?.id)?.activeSession ?? null);
 
   /** Lesson rows as in the author's KTP grid: lesson number → government programme lesson / club lesson. */
@@ -102,17 +135,39 @@
   {:else if !teacher}
     <p aria-busy="true">{t('common.loading')}</p>
   {:else}
+    {#if classes.length > 1}
+      <div class="picker">
+        {#each classes as c (c.id)}
+          <button
+            type="button"
+            class="chip"
+            class:on={c.id === cls?.id}
+            aria-pressed={c.id === cls?.id}
+            onclick={() => (selectedId = c.id)}
+          >
+            {c.name}
+          </button>
+        {/each}
+      </div>
+    {/if}
+
     {#if cls}
       <section class="top">
         <Card>
           <h1>{t('teacher.class', { name: cls.name })}</h1>
-          <p class="muted">{t('teacher.students', { count: cls.studentCount })}</p>
+          <p class="muted">
+            {t('teacher.students', { count: cls.studentCount })}
+            {#if cls.schoolName}· {cls.schoolName}{/if}
+          </p>
           <p class="muted">
             {platform.lanUrl
               ? t('teacher.demo.hintDesktop', { url: platform.lanUrl })
               : t('teacher.demo.hint')}
           </p>
           <div class="actions">
+            <Button variant="secondary" href={`/teacher/class/${cls.id}`}
+              >{t('class.manage')}</Button
+            >
             <Button variant="secondary" href={`/teacher/class/${cls.id}/cards`}
               >{t('teacher.cards')}</Button
             >
@@ -143,6 +198,48 @@
         </Card>
       </section>
     {/if}
+
+    <section class="create">
+      {#if creating}
+        <Card>
+          <h2>{t('class.create.title')}</h2>
+          <form onsubmit={createClass}>
+            <label>
+              <span>{t('class.create.name')}</span>
+              <input bind:value={newName} required maxlength="20" placeholder="5Б" />
+            </label>
+            <label>
+              <span>{t('class.create.grade')}</span>
+              <select bind:value={newGrade}>
+                {#each Array.from({ length: 11 }, (_, i) => i + 1) as g (g)}
+                  <option value={g}>{g}</option>
+                {/each}
+              </select>
+            </label>
+            {#if schools.length > 1}
+              <label>
+                <span>{t('class.create.school')}</span>
+                <select bind:value={newSchoolId}>
+                  {#each schools as school (school.id)}
+                    <option value={school.id}>{school.name}</option>
+                  {/each}
+                </select>
+              </label>
+            {/if}
+            <div class="actions">
+              <Button type="submit" disabled={busy === 'class'}>{t('class.create.submit')}</Button>
+              <Button variant="ghost" onclick={() => (creating = false)}
+                >{t('common.cancel')}</Button
+              >
+            </div>
+          </form>
+        </Card>
+      {:else}
+        <Button variant="secondary" onclick={() => (creating = true)}>
+          {t('class.create.open')}
+        </Button>
+      {/if}
+    </section>
 
     {#if showStudents}
       <section class="students">
@@ -202,6 +299,51 @@
 </main>
 
 <style>
+  .picker {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-3);
+  }
+  .chip {
+    min-height: 40px;
+    padding: 0 var(--space-4);
+    border: 2px solid var(--c-line);
+    border-radius: 999px;
+    background: var(--c-surface);
+    font-weight: 700;
+    color: var(--c-dark);
+    cursor: pointer;
+  }
+  .chip.on {
+    border-color: var(--c-accent);
+    background: var(--c-bg-2);
+  }
+  .create {
+    margin: var(--space-4) 0 var(--space-5);
+  }
+  .create form {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-top: var(--space-3);
+  }
+  .create label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-weight: 600;
+    color: var(--c-dark);
+  }
+  .create input,
+  .create select {
+    min-height: 44px;
+    padding: 0 var(--space-3);
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius);
+    font-size: var(--text-md);
+  }
   .who {
     color: var(--c-muted);
   }

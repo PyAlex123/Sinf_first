@@ -1,6 +1,7 @@
 import { count } from 'drizzle-orm';
 import type { ClassSettings } from '@sinf/shared';
 import { hashSecretSync } from '../auth/password.js';
+import { CODE_SEPARATOR, DEFAULT_CODE_PICS } from '../services/codes.js';
 import { schema, type Db } from './index.js';
 
 /**
@@ -19,7 +20,7 @@ export const DEMO = {
   grade: 1,
   academicYear: '2025/2026',
   /** PICS keys (content/…/pics.json) used for picture codes; the seed test checks they exist. */
-  codePics: ['sun', 'ball', 'tree', 'apple', 'star', 'house'],
+  codePics: DEFAULT_CODE_PICS,
 } as const;
 
 /** 20 fictional first graders: Uzbek and Russian names, no real children (STAGE1.md §1). */
@@ -45,8 +46,6 @@ export const DEMO_STUDENTS: readonly { lastName: string; firstName: string }[] =
   { lastName: 'Назарова', firstName: 'Лола' },
   { lastName: 'Фёдоров', firstName: 'Илья' },
 ];
-
-export const CODE_SEPARATOR = '+';
 
 /**
  * Picture code of the n-th student: an ordered pair of two different pictures out of six (30 pairs).

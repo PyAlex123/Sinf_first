@@ -10,7 +10,7 @@ import {
   type JoinSessionResponse,
 } from '@sinf/shared';
 import { verifySecret } from '../auth/password.js';
-import { CODE_SEPARATOR } from '../db/seed.js';
+import { CODE_SEPARATOR } from '../services/codes.js';
 import { schema } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
 import type { SessionStore } from '../realtime/session-store.js';

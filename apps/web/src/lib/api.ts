@@ -17,7 +17,12 @@ import {
   TeacherSchema,
   type CreateSession,
   type JoinRequest,
+  AddStudentsResponseSchema,
+  ClassSummarySchema,
+  type AddStudents,
+  type CreateClass,
   type TeacherLogin,
+  type UpdateStudent,
   type TeacherRegister,
 } from '@sinf/shared';
 import { z } from 'zod';
@@ -38,7 +43,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(
-  method: 'GET' | 'POST' | 'DELETE',
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   url: string,
   schema: ZodType<T>,
   body?: unknown,
@@ -82,6 +87,24 @@ export const api = {
     request('POST', `/api/sessions/${encodeURIComponent(id)}/end`, SessionResponseSchema),
   classDetails: (id: string) =>
     request('GET', `/api/classes/${encodeURIComponent(id)}`, ClassDetailsResponseSchema),
+  createClass: (body: CreateClass) =>
+    request('POST', '/api/classes', z.strictObject({ class: ClassSummarySchema }), body),
+  addStudents: (classId: string, body: AddStudents) =>
+    request(
+      'POST',
+      `/api/classes/${encodeURIComponent(classId)}/students`,
+      AddStudentsResponseSchema,
+      body,
+    ),
+  updateStudent: (studentId: string, body: UpdateStudent) =>
+    request(
+      'PATCH',
+      `/api/students/${encodeURIComponent(studentId)}`,
+      ClassDetailsResponseSchema,
+      body,
+    ),
+  removeStudent: (studentId: string) =>
+    request('DELETE', `/api/students/${encodeURIComponent(studentId)}`, ClassDetailsResponseSchema),
   reissueCode: (studentId: string) =>
     request(
       'POST',

@@ -8,6 +8,7 @@ export const routes: RouteDef[] = [
   { pattern: '/teacher', load: () => import('./pages/teacher/Dashboard.svelte') },
   { pattern: '/teacher/lesson/:id', load: () => import('./pages/teacher/Lesson.svelte') },
   { pattern: '/teacher/class/:id/cards', load: () => import('./pages/teacher/Cards.svelte') },
+  { pattern: '/teacher/class/:id', load: () => import('./pages/teacher/Class.svelte') },
   { pattern: '/teacher/session/:id', load: () => import('./pages/teacher/Session.svelte') },
   { pattern: '/present/:id', load: () => import('./pages/Present.svelte') },
   { pattern: '/join', load: () => import('./pages/Join.svelte') },

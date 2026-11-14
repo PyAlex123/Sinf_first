@@ -1,11 +1,18 @@
-import { CODE_SEPARATOR } from '../db/seed.js';
-
 /**
  * Student codes (STAGE1.md §5, architecture §9): for grades 1–2 an ordered pair of two different pictures out of
  * the six pictures of the class; for grade 3+ four digits. Codes are unique inside a class.
  */
 
 export type Rng = () => number;
+
+/** Separates the two picture keys of a code: `sun+ball`. */
+export const CODE_SEPARATOR = '+';
+
+/**
+ * The six pictures a class gets by default for picture codes. Simple, far apart in meaning and present
+ * in every course's `pics.json` (the seed test checks that). A school will be able to pick its own later.
+ */
+export const DEFAULT_CODE_PICS = ['sun', 'ball', 'tree', 'apple', 'star', 'house'] as const;
 
 /** All ordered pairs of distinct pictures, joined with the separator. */
 export function allPictureCodes(pics: readonly string[]): string[] {
