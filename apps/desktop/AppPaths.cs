@@ -63,10 +63,15 @@ internal sealed class AppPaths
 }
 
 /// <summary>
-/// Settings kept between runs. Both values are generated on the first start: the session secret signs
-/// cookies, the teacher password is shown in the window, because the demo account needs one to log in.
+/// Settings kept between runs. The first two values are generated on the first start: the session secret
+/// signs cookies, the teacher password is shown in the window, because the demo account needs one to log
+/// in. The last two appear when the school pairs this computer with the platform (S2.4).
 /// </summary>
-internal sealed record HostConfig(string SessionSecret, string TeacherPassword)
+internal sealed record HostConfig(
+    string SessionSecret,
+    string TeacherPassword,
+    string? PlatformUrl = null,
+    string? DeviceToken = null)
 {
     private static readonly JsonSerializerOptions Format = new() { WriteIndented = true };
 
@@ -92,9 +97,17 @@ internal sealed record HostConfig(string SessionSecret, string TeacherPassword)
         }
 
         var created = new HostConfig(RandomSecret(48), RandomPassword(8));
-        File.WriteAllText(paths.ConfigFile, JsonSerializer.Serialize(created, Format));
+        Save(paths, created);
         return created;
     }
+
+    public static void Save(AppPaths paths, HostConfig config)
+    {
+        File.WriteAllText(paths.ConfigFile, JsonSerializer.Serialize(config, Format));
+    }
+
+    /// <summary>Is this computer attached to a school on the platform?</summary>
+    public bool IsPaired => !string.IsNullOrWhiteSpace(PlatformUrl) && !string.IsNullOrWhiteSpace(DeviceToken);
 
     private static string RandomSecret(int length)
     {

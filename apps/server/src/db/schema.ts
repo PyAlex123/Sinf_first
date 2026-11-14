@@ -68,6 +68,39 @@ export const schoolMembers = sqliteTable(
   ],
 );
 
+/**
+ * A school computer running our Windows app (S2.4, PLAN.md 6.2). The administrator adds the machine in
+ * the cabinet and gets a pairing code; the app trades that code for its own token, which it then uses
+ * to report in. `CLAUDE.md` §6 keeps the room as its own entity — here it is a plain field until rooms
+ * earn a page of their own.
+ */
+export const devices = sqliteTable(
+  'devices',
+  {
+    id: id(),
+    schoolId: text('school_id')
+      .notNull()
+      .references(() => schools.id),
+    /** What the administrator calls this machine: "ПК-05". */
+    name: text('name').notNull(),
+    room: text('room'),
+    role: text('role', { enum: ['teacher', 'student'] }).notNull(),
+    /** Shown until the machine pairs; then cleared, so one code is good for one computer. */
+    pairingCode: text('pairing_code'),
+    pairingExpiresAt: timestamp('pairing_expires_at'),
+    /** Hash of the token the app keeps; null while the machine has not paired yet. */
+    tokenHash: text('token_hash'),
+    appVersion: text('app_version'),
+    platform: text('platform'),
+    lastSeenAt: timestamp('last_seen_at'),
+    createdAt: timestamp('created_at').notNull(),
+  },
+  (t) => [
+    index('devices_school_idx').on(t.schoolId),
+    uniqueIndex('devices_pairing_code_idx').on(t.pairingCode),
+  ],
+);
+
 /** A teacher asks to join a school; its administrator decides (S2.3). */
 export const schoolJoinRequests = sqliteTable(
   'school_join_requests',
@@ -277,6 +310,7 @@ export const TABLES_FOR_RESET = [
   students,
   classTeachers,
   classes,
+  devices,
   schoolJoinRequests,
   schoolMembers,
   users,

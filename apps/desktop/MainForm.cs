@@ -23,6 +23,7 @@ internal sealed class MainForm : Form
     private readonly Button copyButton = new() { Text = "Копировать адрес", AutoSize = true };
     private readonly Button fullScreenButton = new() { Text = "Во весь экран", AutoSize = true };
     private readonly Button reloadButton = new() { Text = "Обновить", AutoSize = true };
+    private readonly Button schoolButton = new() { Text = "Школа", AutoSize = true };
     private readonly Label splash = new()
     {
         Dock = DockStyle.Fill,
@@ -31,7 +32,8 @@ internal sealed class MainForm : Form
         ForeColor = BarColor,
     };
 
-    private readonly HostConfig config;
+    private HostConfig config;
+    private readonly Platform platform;
     private ServerProcess? server;
     private FormWindowState beforeFullScreen = FormWindowState.Maximized;
     private bool fullScreen;
@@ -39,6 +41,7 @@ internal sealed class MainForm : Form
     public MainForm()
     {
         config = HostConfig.Load(paths);
+        platform = new Platform(message => BeginInvoke(() => accountLabel.Text = message));
 
         Text = "Sinf";
         WindowState = FormWindowState.Maximized;
@@ -85,7 +88,7 @@ internal sealed class MainForm : Form
             Padding = new Padding(8, 10, 12, 10),
             WrapContents = false,
         };
-        foreach (var button in new[] { reloadButton, fullScreenButton, copyButton })
+        foreach (var button in new[] { reloadButton, fullScreenButton, schoolButton, copyButton })
         {
             button.FlatStyle = FlatStyle.Flat;
             button.BackColor = Color.White;
@@ -97,6 +100,7 @@ internal sealed class MainForm : Form
         copyButton.Click += (_, _) => CopyAddress();
         reloadButton.Click += (_, _) => view.CoreWebView2?.Reload();
         fullScreenButton.Click += (_, _) => ToggleFullScreen();
+        schoolButton.Click += (_, _) => PairWithSchool();
 
         bar.Controls.Add(left);
         bar.Controls.Add(right);
@@ -152,6 +156,38 @@ internal sealed class MainForm : Form
         splash.Visible = false;
         view.Visible = true;
         bar.Visible = true;
+        ShowSchool();
+        platform.StartHeartbeat(config);
+    }
+
+    /// <summary>Says which school this computer belongs to, or offers to attach it (S2.4).</summary>
+    private void ShowSchool()
+    {
+        schoolButton.Text = config.IsPaired ? "Школа: привязан" : "Привязать к школе";
+    }
+
+    private void PairWithSchool()
+    {
+        using var dialog = new PairDialog(platform, config.PlatformUrl);
+        if (dialog.ShowDialog(this) != DialogResult.OK || dialog.Result is null)
+        {
+            return;
+        }
+
+        config = config with
+        {
+            PlatformUrl = Platform.Normalize(dialog.PlatformUrl),
+            DeviceToken = dialog.Result.DeviceToken,
+        };
+        HostConfig.Save(paths, config);
+        ShowSchool();
+        platform.StartHeartbeat(config);
+        MessageBox.Show(
+            this,
+            $"Компьютер «{dialog.Result.Name}» привязан к школе «{dialog.Result.School.Name}».",
+            "Sinf",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
     }
 
     private async Task OpenPanelAsync(string? lanUrl)
@@ -298,6 +334,7 @@ internal sealed class MainForm : Form
         view.Visible = false;
         splash.Text = "Завершаем урок…";
         splash.Visible = true;
+        platform.Dispose();
         await stopping.DisposeAsync().ConfigureAwait(true);
         Close();
     }

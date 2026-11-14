@@ -20,6 +20,9 @@ import {
   AddStudentsResponseSchema,
   AdminSchoolListResponseSchema,
   ClassSummarySchema,
+  DeviceListResponseSchema,
+  DeviceSchema,
+  type CreateDevice,
   SchoolBriefSchema,
   SchoolDetailsResponseSchema,
   SchoolListResponseSchema,
@@ -144,6 +147,27 @@ export const api = {
     ),
   updateSchool: (id: string, body: UpdateSchool) =>
     request('PATCH', `/api/schools/${encodeURIComponent(id)}`, SchoolDetailsResponseSchema, body),
+  devices: (schoolId: string) =>
+    request(
+      'GET',
+      `/api/schools/${encodeURIComponent(schoolId)}/devices`,
+      DeviceListResponseSchema,
+    ),
+  addDevice: (schoolId: string, body: CreateDevice) =>
+    request(
+      'POST',
+      `/api/schools/${encodeURIComponent(schoolId)}/devices`,
+      z.strictObject({ device: DeviceSchema }),
+      body,
+    ),
+  newDeviceCode: (deviceId: string) =>
+    request(
+      'POST',
+      `/api/devices/${encodeURIComponent(deviceId)}/code`,
+      z.strictObject({ device: DeviceSchema }),
+    ),
+  removeDevice: (deviceId: string) =>
+    request('DELETE', `/api/devices/${encodeURIComponent(deviceId)}`, DeviceListResponseSchema),
   adminSchools: () => request('GET', '/api/admin/schools', AdminSchoolListResponseSchema),
   createSchool: (body: CreateSchool) =>
     request('POST', '/api/admin/schools', z.strictObject({ school: SchoolBriefSchema }), body),

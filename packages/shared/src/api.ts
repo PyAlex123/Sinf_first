@@ -187,6 +187,82 @@ export type AdminSchoolListResponse = z.infer<typeof AdminSchoolListResponseSche
 export const AssignSchoolAdminSchema = z.strictObject({ email: z.email() });
 export type AssignSchoolAdmin = z.infer<typeof AssignSchoolAdminSchema>;
 
+// ---------- school computers (S2.4)
+
+export const DeviceRoleSchema = z.enum(['teacher', 'student']);
+export type DeviceRole = z.infer<typeof DeviceRoleSchema>;
+
+export const DeviceSchema = z.strictObject({
+  id,
+  name: z.string().min(1),
+  room: z.string().min(1).nullable(),
+  role: DeviceRoleSchema,
+  /** Shown to the administrator until the machine pairs; null afterwards and for a plain teacher. */
+  pairingCode: z.string().min(1).nullable(),
+  pairingExpiresAt: z.string().min(1).nullable(),
+  paired: z.boolean(),
+  appVersion: z.string().min(1).nullable(),
+  lastSeenAt: z.string().min(1).nullable(),
+});
+export type Device = z.infer<typeof DeviceSchema>;
+
+export const DeviceListResponseSchema = z.strictObject({ devices: z.array(DeviceSchema) });
+export type DeviceListResponse = z.infer<typeof DeviceListResponseSchema>;
+
+export const CreateDeviceSchema = z.strictObject({
+  name: z.string().trim().min(1).max(40),
+  room: z.string().trim().max(40).optional(),
+  role: DeviceRoleSchema.default('teacher'),
+});
+export type CreateDevice = z.infer<typeof CreateDeviceSchema>;
+
+export const UpdateDeviceSchema = z
+  .strictObject({
+    name: z.string().trim().min(1).max(40).optional(),
+    room: z.string().trim().max(40).nullable().optional(),
+    role: DeviceRoleSchema.optional(),
+  })
+  .refine(
+    (v) => v.name !== undefined || v.room !== undefined || v.role !== undefined,
+    'Nothing to change',
+  );
+export type UpdateDevice = z.infer<typeof UpdateDeviceSchema>;
+
+/** What the app sends when it trades a pairing code for its own token. */
+export const PairDeviceSchema = z.strictObject({
+  code: z.string().trim().min(4).max(16),
+  appVersion: z.string().trim().min(1).max(40).optional(),
+  platform: z.string().trim().min(1).max(60).optional(),
+});
+export type PairDevice = z.infer<typeof PairDeviceSchema>;
+
+export const PairDeviceResponseSchema = z.strictObject({
+  deviceId: id,
+  /** Kept by the app; the server stores only its hash. */
+  deviceToken: z.string().min(1),
+  name: z.string().min(1),
+  room: z.string().min(1).nullable(),
+  role: DeviceRoleSchema,
+  school: z.strictObject({ id, name: z.string().min(1) }),
+});
+export type PairDeviceResponse = z.infer<typeof PairDeviceResponseSchema>;
+
+export const DeviceHeartbeatSchema = z.strictObject({
+  appVersion: z.string().trim().min(1).max(40).optional(),
+});
+export type DeviceHeartbeat = z.infer<typeof DeviceHeartbeatSchema>;
+
+/** The answer to a heartbeat: the app shows the school and the machine name in its window. */
+export const DeviceStateResponseSchema = z.strictObject({
+  deviceId: id,
+  name: z.string().min(1),
+  room: z.string().min(1).nullable(),
+  role: DeviceRoleSchema,
+  school: z.strictObject({ id, name: z.string().min(1) }),
+  serverNow: z.string().min(1),
+});
+export type DeviceStateResponse = z.infer<typeof DeviceStateResponseSchema>;
+
 // ---------- content
 
 export const CourseListResponseSchema = z.strictObject({ courses: z.array(CourseSchema) });

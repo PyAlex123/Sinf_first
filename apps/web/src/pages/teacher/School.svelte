@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SchoolDetailsResponse } from '@sinf/shared';
+  import type { Device, SchoolDetailsResponse } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { t } from '../../lib/i18n/index.svelte.js';
@@ -15,6 +15,9 @@
   const schoolId = $derived(params['id'] ?? '');
 
   let data = $state<SchoolDetailsResponse | null>(null);
+  let devices = $state<Device[]>([]);
+  let deviceName = $state('');
+  let deviceRoom = $state('');
   let error = $state<string | null>(null);
   let busy = $state<string | null>(null);
   let editing = $state(false);
@@ -28,6 +31,7 @@
       data = await api.school(schoolId);
       name = data.school.name;
       city = data.school.city ?? '';
+      devices = (await api.devices(schoolId)).devices;
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
         router.navigate('/teacher/login', { replace: true });
@@ -56,6 +60,61 @@
     event.preventDefault();
     await run('school', () => api.updateSchool(schoolId, { name, city: city.trim() || null }));
     editing = false;
+  }
+
+  /** "на связи" while the machine reported in during the last few minutes. */
+  function seen(device: Device): string {
+    if (!device.paired) return t('devices.waiting');
+    if (!device.lastSeenAt) return t('devices.never');
+    const minutes = Math.round((Date.now() - Date.parse(device.lastSeenAt)) / 60000);
+    if (minutes < 3) return t('devices.online');
+    if (minutes < 60) return t('devices.minutesAgo', { count: minutes });
+    const hours = Math.round(minutes / 60);
+    return hours < 24
+      ? t('devices.hoursAgo', { count: hours })
+      : t('devices.daysAgo', { count: Math.round(hours / 24) });
+  }
+
+  async function addDevice(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (!deviceName.trim()) return;
+    busy = 'device';
+    error = null;
+    try {
+      const { device } = await api.addDevice(schoolId, {
+        name: deviceName.trim(),
+        role: 'teacher',
+        ...(deviceRoom.trim() ? { room: deviceRoom.trim() } : {}),
+      });
+      devices = [...devices, device];
+      deviceName = '';
+      deviceRoom = '';
+    } catch {
+      error = t('common.error');
+    } finally {
+      busy = null;
+    }
+  }
+
+  async function newCode(device: Device): Promise<void> {
+    if (device.paired && !confirm(t('devices.recodeConfirm', { name: device.name }))) return;
+    busy = device.id;
+    try {
+      const res = await api.newDeviceCode(device.id);
+      devices = devices.map((d) => (d.id === device.id ? res.device : d));
+    } finally {
+      busy = null;
+    }
+  }
+
+  async function removeDevice(device: Device): Promise<void> {
+    if (!confirm(t('devices.removeConfirm', { name: device.name }))) return;
+    busy = device.id;
+    try {
+      devices = (await api.removeDevice(device.id)).devices;
+    } finally {
+      busy = null;
+    }
   }
 
   onMount(() => void load());
@@ -168,6 +227,61 @@
       {/each}
     </ul>
 
+    {#if isAdmin}
+      <h2>{t('devices.title')}</h2>
+      <p class="muted">{t('devices.hint')}</p>
+      <form class="inline" onsubmit={addDevice}>
+        <label>
+          <span>{t('devices.name')}</span>
+          <input bind:value={deviceName} maxlength="40" placeholder="ПК-05" />
+        </label>
+        <label>
+          <span>{t('devices.room')}</span>
+          <input bind:value={deviceRoom} maxlength="40" placeholder="Кабинет 204" />
+        </label>
+        <Button type="submit" disabled={busy === 'device'}>{t('devices.add')}</Button>
+      </form>
+      {#if devices.length === 0}
+        <p class="muted">{t('devices.none')}</p>
+      {:else}
+        <ul class="rows">
+          {#each devices as d (d.id)}
+            <li>
+              <span class="who">
+                <b>{d.name}</b>
+                {#if d.room}<small class="muted">{d.room}</small>{/if}
+                <small class="muted">
+                  {seen(d)}
+                  {#if d.appVersion}· {d.appVersion}{/if}
+                </small>
+              </span>
+              <span class="row-actions">
+                {#if d.pairingCode}
+                  <code class="pair">{d.pairingCode}</code>
+                {/if}
+                <Button
+                  variant="ghost"
+                  size="md"
+                  disabled={busy === d.id}
+                  onclick={() => newCode(d)}
+                >
+                  {d.paired ? t('devices.recode') : t('devices.newCode')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  disabled={busy === d.id}
+                  onclick={() => removeDevice(d)}
+                >
+                  {t('school.remove')}
+                </Button>
+              </span>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/if}
+
     <h2>{t('school.classes.title')}</h2>
     {#if data.classes.length === 0}
       <p class="muted">{t('school.noClasses')}</p>
@@ -230,6 +344,22 @@
     display: flex;
     gap: var(--space-1);
     flex-wrap: wrap;
+  }
+  .inline {
+    display: flex;
+    gap: var(--space-3);
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: var(--space-3);
+  }
+  .pair {
+    padding: 4px var(--space-2);
+    border-radius: var(--radius);
+    background: var(--c-bg-2);
+    font-size: var(--text-md);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--c-dark);
   }
   form {
     display: flex;
