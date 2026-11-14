@@ -20,6 +20,15 @@ const id = (name = 'id') => text(name).primaryKey();
 export const schools = sqliteTable('schools', {
   id: id(),
   name: text('name').notNull(),
+  city: text('city'),
+  /**
+   * CLAUDE.md §6: quotas, how long work is kept, how much of the KTP may change. All of it belongs to
+   * features that do not exist yet, so the column starts empty and only the name and city are editable.
+   */
+  settings: text('settings', { mode: 'json' })
+    .$type<Record<string, unknown>>()
+    .notNull()
+    .default({}),
   createdAt: timestamp('created_at').notNull(),
 });
 
@@ -56,6 +65,29 @@ export const schoolMembers = sqliteTable(
   (t) => [
     primaryKey({ columns: [t.schoolId, t.userId] }),
     index('school_members_user_idx').on(t.userId),
+  ],
+);
+
+/** A teacher asks to join a school; its administrator decides (S2.3). */
+export const schoolJoinRequests = sqliteTable(
+  'school_join_requests',
+  {
+    id: id(),
+    schoolId: text('school_id')
+      .notNull()
+      .references(() => schools.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    status: text('status', { enum: ['pending', 'approved', 'rejected'] }).notNull(),
+    createdAt: timestamp('created_at').notNull(),
+    decidedAt: timestamp('decided_at'),
+    decidedBy: text('decided_by').references(() => users.id),
+  },
+  (t) => [
+    // One row per pair, so a teacher cannot queue twice; a rejected row is reused on a new request.
+    uniqueIndex('school_join_requests_pair_idx').on(t.schoolId, t.userId),
+    index('school_join_requests_school_idx').on(t.schoolId),
   ],
 );
 
@@ -245,6 +277,7 @@ export const TABLES_FOR_RESET = [
   students,
   classTeachers,
   classes,
+  schoolJoinRequests,
   schoolMembers,
   users,
   schools,

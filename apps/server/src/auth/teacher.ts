@@ -4,7 +4,7 @@ import type { Teacher } from '@sinf/shared';
 import { schema, type Db } from '../db/index.js';
 import { ApiHttpError } from '../errors.js';
 
-/** Teacher login state: a signed httpOnly cookie with the user id (stage 1, ADR-004: demo account only). */
+/** Login state: a signed httpOnly cookie with the user id. Rights are checked in auth/access.ts. */
 
 export const TEACHER_COOKIE = 'sinf_teacher';
 const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
@@ -41,7 +41,9 @@ export function readTeacher(request: FastifyRequest, db: Db): Teacher | null {
     return null;
   }
   const user = db.select().from(schema.users).where(eq(schema.users.id, unsigned.value)).get();
-  if (!user || user.role !== 'teacher') {
+  // Any of our roles may hold this cookie: a school administrator and the superadmin are teachers
+  // of the site too, and what each of them may do is decided in auth/access.ts (ADR-009).
+  if (!user) {
     return null;
   }
   return { id: user.id, email: user.email, fullName: user.fullName, locale: user.locale };

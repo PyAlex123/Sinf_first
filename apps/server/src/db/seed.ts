@@ -1,4 +1,5 @@
-import { count } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { count, eq } from 'drizzle-orm';
 import type { ClassSettings } from '@sinf/shared';
 import { hashSecretSync } from '../auth/password.js';
 import { CODE_SEPARATOR, DEFAULT_CODE_PICS } from '../services/codes.js';
@@ -83,7 +84,13 @@ export function seedDemo(db: Db, options: SeedOptions): SeedResult {
   const settings: ClassSettings = { starsToGrade: false, codePics: [...DEMO.codePics] };
   db.transaction((tx) => {
     tx.insert(schema.schools)
-      .values({ id: DEMO.schoolId, name: DEMO.schoolName, createdAt: now })
+      .values({
+        id: DEMO.schoolId,
+        name: DEMO.schoolName,
+        city: null,
+        settings: {},
+        createdAt: now,
+      })
       .run();
     tx.insert(schema.users)
       .values({
@@ -141,6 +148,43 @@ export function seedDemo(db: Db, options: SeedOptions): SeedResult {
       .run();
   });
   return { students: DEMO_STUDENTS.length };
+}
+
+/**
+ * Our own account, taken from `.env` (S2.3). Only it creates schools, so it is not part of the demo
+ * data: without the variables there is no superadmin at all. Runs on every start and is cheap:
+ * when the account already exists nothing happens, the password is not touched.
+ */
+export function ensureSuperadmin(
+  db: Db,
+  credentials: { email: string; password: string },
+  now = new Date(),
+): { created: boolean } {
+  const email = credentials.email.trim().toLowerCase();
+  const existing = db.select().from(schema.users).where(eq(schema.users.email, email)).get();
+  if (existing) {
+    // Someone registered with this address as a teacher before the variable appeared: raise them.
+    if (existing.role !== 'superadmin') {
+      db.update(schema.users)
+        .set({ role: 'superadmin' })
+        .where(eq(schema.users.id, existing.id))
+        .run();
+      return { created: true };
+    }
+    return { created: false };
+  }
+  db.insert(schema.users)
+    .values({
+      id: randomUUID(),
+      role: 'superadmin',
+      email,
+      passwordHash: hashSecretSync(credentials.password),
+      fullName: 'Sinf',
+      locale: 'ru',
+      createdAt: now.toISOString(),
+    })
+    .run();
+  return { created: true };
 }
 
 /** Deletes everything and seeds again (POST /api/demo/reset, `pnpm seed --reset`). */

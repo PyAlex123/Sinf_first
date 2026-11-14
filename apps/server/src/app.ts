@@ -15,6 +15,7 @@ import { classRoutes } from './routes/classes.js';
 import { contentRoutes } from './routes/content.js';
 import { demoRoutes } from './routes/demo.js';
 import { healthRoutes } from './routes/health.js';
+import { schoolRoutes } from './routes/schools.js';
 import { joinRoutes } from './routes/join.js';
 import { sessionRoutes } from './routes/sessions.js';
 
@@ -75,6 +76,7 @@ export async function buildApp(
   await app.register(contentRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api' });
   await app.register(classRoutes, { prefix: '/api' });
+  await app.register(schoolRoutes, { prefix: '/api' });
   await app.register(sessionRoutes, { prefix: '/api', store });
   await app.register(joinRoutes, { prefix: '/api', store });
   await app.register(realtimePlugin, { store });

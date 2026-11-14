@@ -1,6 +1,8 @@
 <script lang="ts">
   import type {
     ClassSummary,
+    MySchool,
+    SchoolBrief,
     Course,
     JoinClass,
     LessonSummary,
@@ -23,6 +25,9 @@
   let { params: _params }: PageProps = $props();
   let teacher = $state<Teacher | null>(null);
   let classes = $state<ClassSummary[]>([]);
+  let schoolsOfMine = $state<MySchool[]>([]);
+  let pendingSchool = $state<SchoolBrief | null>(null);
+  let isSuperadmin = $state(false);
   let courses = $state<Course[]>([]);
   let joinInfo = $state<JoinClass[]>([]);
   let students = $state<Student[]>([]);
@@ -87,6 +92,9 @@
       const me = await api.me();
       teacher = me.teacher;
       classes = me.classes;
+      schoolsOfMine = me.schools;
+      pendingSchool = me.pendingSchool;
+      isSuperadmin = me.isSuperadmin;
       const [c, j, p] = await Promise.all([loadCourses(), api.joinClasses(), loadPics()]);
       courses = c;
       joinInfo = j.classes;
@@ -135,6 +143,24 @@
   {:else if !teacher}
     <p aria-busy="true">{t('common.loading')}</p>
   {:else}
+    <section class="school">
+      {#if isSuperadmin}
+        <Button variant="secondary" href="/admin">{t('admin.open')}</Button>
+      {/if}
+      {#each schoolsOfMine as school (school.id)}
+        <Button variant="secondary" href={`/school/${school.id}`}>
+          {t('teacher.school')}: {school.name}
+        </Button>
+      {/each}
+      {#if schoolsOfMine.length === 0}
+        {#if pendingSchool}
+          <span class="muted">{t('schools.pending', { name: pendingSchool.name })}</span>
+        {:else}
+          <Button variant="secondary" href="/teacher/schools">{t('teacher.school.find')}</Button>
+        {/if}
+      {/if}
+    </section>
+
     {#if classes.length > 1}
       <div class="picker">
         {#each classes as c (c.id)}
@@ -299,6 +325,13 @@
 </main>
 
 <style>
+  .school {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: var(--space-3);
+  }
   .picker {
     display: flex;
     gap: var(--space-2);

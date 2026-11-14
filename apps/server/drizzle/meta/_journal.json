@@ -15,6 +15,13 @@
       "when": 1794611142008,
       "tag": "0001_massive_elektra",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794661099071,
+      "tag": "0002_dashing_susan_delgado",
+      "breakpoints": true
     }
   ]
 }

@@ -82,11 +82,110 @@ export const CreateClassSchema = z.strictObject({
 export type CreateClass = z.infer<typeof CreateClassSchema>;
 export type ClassSummary = z.infer<typeof ClassSummarySchema>;
 
+export const SchoolRoleSchema = z.enum(['admin', 'teacher']);
+export type SchoolRole = z.infer<typeof SchoolRoleSchema>;
+
+/** A school as the teacher sees it from outside: enough to find their own and ask to join (S2.3). */
+export const SchoolBriefSchema = z.strictObject({
+  id,
+  name: z.string().min(1),
+  city: z.string().min(1).nullable(),
+});
+export type SchoolBrief = z.infer<typeof SchoolBriefSchema>;
+
+export const SchoolListResponseSchema = z.strictObject({ schools: z.array(SchoolBriefSchema) });
+export type SchoolListResponse = z.infer<typeof SchoolListResponseSchema>;
+
+export const MySchoolSchema = SchoolBriefSchema.extend({ role: SchoolRoleSchema });
+export type MySchool = z.infer<typeof MySchoolSchema>;
+
 export const MeResponseSchema = z.strictObject({
   teacher: TeacherSchema,
   classes: z.array(ClassSummarySchema),
+  /** Schools the teacher belongs to (S2.3). */
+  schools: z.array(MySchoolSchema),
+  /** The school they asked to join and are waiting for, if any. */
+  pendingSchool: SchoolBriefSchema.nullable(),
+  /** Only we see the superadmin area. */
+  isSuperadmin: z.boolean(),
 });
 export type MeResponse = z.infer<typeof MeResponseSchema>;
+
+// ---------- schools (S2.3)
+
+export const SchoolMemberSchema = z.strictObject({
+  userId: id,
+  fullName: z.string().min(1),
+  /** Only the administrator sees the addresses of their colleagues. */
+  email: z.email().nullable(),
+  role: SchoolRoleSchema,
+});
+export type SchoolMember = z.infer<typeof SchoolMemberSchema>;
+
+export const SchoolClassSchema = z.strictObject({
+  id,
+  name: z.string().min(1),
+  grade: z.number().int().min(1).max(11),
+  studentCount: z.number().int().nonnegative(),
+  teachers: z.array(z.string().min(1)),
+});
+export type SchoolClass = z.infer<typeof SchoolClassSchema>;
+
+export const SchoolJoinRequestSchema = z.strictObject({
+  userId: id,
+  fullName: z.string().min(1),
+  email: z.email(),
+  createdAt: z.string().min(1),
+});
+export type SchoolJoinRequest = z.infer<typeof SchoolJoinRequestSchema>;
+
+export const SchoolDetailsResponseSchema = z.strictObject({
+  school: SchoolBriefSchema,
+  role: SchoolRoleSchema,
+  members: z.array(SchoolMemberSchema),
+  classes: z.array(SchoolClassSchema),
+  /** Empty for a plain teacher: requests are the administrator's business. */
+  requests: z.array(SchoolJoinRequestSchema),
+});
+export type SchoolDetailsResponse = z.infer<typeof SchoolDetailsResponseSchema>;
+
+export const CreateSchoolSchema = z.strictObject({
+  name: z.string().trim().min(2).max(120),
+  city: z.string().trim().min(2).max(60).optional(),
+});
+export type CreateSchool = z.infer<typeof CreateSchoolSchema>;
+
+export const UpdateSchoolSchema = z
+  .strictObject({
+    name: z.string().trim().min(2).max(120).optional(),
+    city: z.string().trim().max(60).nullable().optional(),
+  })
+  .refine((v) => v.name !== undefined || v.city !== undefined, 'Nothing to change');
+export type UpdateSchool = z.infer<typeof UpdateSchoolSchema>;
+
+export const SchoolDecisionSchema = z.strictObject({
+  decision: z.enum(['approve', 'reject']),
+});
+export type SchoolDecision = z.infer<typeof SchoolDecisionSchema>;
+
+export const SetSchoolRoleSchema = z.strictObject({ role: SchoolRoleSchema });
+export type SetSchoolRole = z.infer<typeof SetSchoolRoleSchema>;
+
+/** The superadmin list: the same brief plus how big the school already is. */
+export const AdminSchoolSchema = SchoolBriefSchema.extend({
+  teachers: z.number().int().nonnegative(),
+  classes: z.number().int().nonnegative(),
+  admins: z.array(z.string().min(1)),
+});
+export type AdminSchool = z.infer<typeof AdminSchoolSchema>;
+
+export const AdminSchoolListResponseSchema = z.strictObject({
+  schools: z.array(AdminSchoolSchema),
+});
+export type AdminSchoolListResponse = z.infer<typeof AdminSchoolListResponseSchema>;
+
+export const AssignSchoolAdminSchema = z.strictObject({ email: z.email() });
+export type AssignSchoolAdmin = z.infer<typeof AssignSchoolAdminSchema>;
 
 // ---------- content
 

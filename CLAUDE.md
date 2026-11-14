@@ -493,6 +493,8 @@ pnpm import:html content-src/1-klass-2-chetvert/1_klass_2_chetvert.html content-
 
 Сервер: `pnpm dev` → http://localhost:3000/health. База — `data/sinf.db`; при пустой базе демо-данные создаются сами. Демо-учитель `demo@sinf.local`, пароль — `DEMO_TEACHER_PASSWORD` из `.env`. Сброс демо — `pnpm seed --reset` или `POST /api/demo/reset` с cookie учителя.
 
+Школы заводит суперадмин (ADR-009): задайте `SUPERADMIN_EMAIL` и `SUPERADMIN_PASSWORD` в `.env`, и учётка создастся при старте сервера; раздел — `/admin`. Без этих переменных суперадмина нет, а раздел отвечает 404.
+
 Запуск для урока — `docs/deploy.md`: ноутбук в локальной сети (`pnpm build && pnpm start`, адрес `http://192.168.x.x:3000`) или сервер с доменом (`docker compose -f deploy/docker-compose.yml up -d --build`, Caddy даёт HTTPS).
 
 Проверка перед PR: `pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm build`.

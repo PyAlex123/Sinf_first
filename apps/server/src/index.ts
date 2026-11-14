@@ -4,7 +4,7 @@ import { loadConfig, loadDotEnv } from './config.js';
 import { loadContent } from './content/index.js';
 import { openDatabase } from './db/index.js';
 import { runMigrations } from './db/migrate.js';
-import { isDatabaseEmpty, seedDemo } from './db/seed.js';
+import { ensureSuperadmin, isDatabaseEmpty, seedDemo } from './db/seed.js';
 
 async function main(): Promise<void> {
   const envFile = loadDotEnv();
@@ -22,6 +22,7 @@ async function main(): Promise<void> {
   const seeded = isDatabaseEmpty(database.db)
     ? seedDemo(database.db, { teacherPassword: config.demoTeacherPassword })
     : null;
+  const superadmin = config.superadmin ? ensureSuperadmin(database.db, config.superadmin) : null;
   const content = loadContent(config.contentDir);
 
   const app = await buildApp({ config, db: database.db, content }, { logger });
@@ -32,6 +33,7 @@ async function main(): Promise<void> {
       content: config.contentDir,
       lessons: content.courses.reduce((n, c) => n + c.lessons.length, 0),
       seeded: seeded ? `${seeded.students} students` : false,
+      superadmin: config.superadmin ? (superadmin?.created ? 'created' : 'present') : 'off',
     },
     'starting',
   );

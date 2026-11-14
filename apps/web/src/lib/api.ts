@@ -18,7 +18,13 @@ import {
   type CreateSession,
   type JoinRequest,
   AddStudentsResponseSchema,
+  AdminSchoolListResponseSchema,
   ClassSummarySchema,
+  SchoolBriefSchema,
+  SchoolDetailsResponseSchema,
+  SchoolListResponseSchema,
+  type CreateSchool,
+  type UpdateSchool,
   type AddStudents,
   type CreateClass,
   type TeacherLogin,
@@ -111,6 +117,38 @@ export const api = {
       `/api/students/${encodeURIComponent(studentId)}/code`,
       StudentCodeResponseSchema,
     ),
+  schools: () => request('GET', '/api/schools', SchoolListResponseSchema),
+  school: (id: string) =>
+    request('GET', `/api/schools/${encodeURIComponent(id)}`, SchoolDetailsResponseSchema),
+  requestSchool: (id: string) =>
+    request('POST', `/api/schools/${encodeURIComponent(id)}/requests`, OkSchema),
+  decideRequest: (schoolId: string, userId: string, decision: 'approve' | 'reject') =>
+    request(
+      'POST',
+      `/api/schools/${encodeURIComponent(schoolId)}/requests/${encodeURIComponent(userId)}`,
+      SchoolDetailsResponseSchema,
+      { decision },
+    ),
+  setSchoolRole: (schoolId: string, userId: string, role: 'admin' | 'teacher') =>
+    request(
+      'POST',
+      `/api/schools/${encodeURIComponent(schoolId)}/members/${encodeURIComponent(userId)}/role`,
+      SchoolDetailsResponseSchema,
+      { role },
+    ),
+  removeMember: (schoolId: string, userId: string) =>
+    request(
+      'DELETE',
+      `/api/schools/${encodeURIComponent(schoolId)}/members/${encodeURIComponent(userId)}`,
+      SchoolDetailsResponseSchema,
+    ),
+  updateSchool: (id: string, body: UpdateSchool) =>
+    request('PATCH', `/api/schools/${encodeURIComponent(id)}`, SchoolDetailsResponseSchema, body),
+  adminSchools: () => request('GET', '/api/admin/schools', AdminSchoolListResponseSchema),
+  createSchool: (body: CreateSchool) =>
+    request('POST', '/api/admin/schools', z.strictObject({ school: SchoolBriefSchema }), body),
+  assignSchoolAdmin: (id: string, email: string) =>
+    request('POST', `/api/admin/schools/${encodeURIComponent(id)}/admins`, OkSchema, { email }),
   joinClasses: () => request('GET', '/api/join/classes', JoinClassesResponseSchema),
   joinLookup: (code: string) =>
     request('POST', '/api/join/lookup', JoinLookupResponseSchema, { code }),

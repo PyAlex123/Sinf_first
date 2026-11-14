@@ -15,6 +15,9 @@ const EnvSchema = z.object({
   CONTENT_DIR: z.string().min(1).default('content'),
   WEB_DIR: z.string().min(1).default('apps/web/dist'),
   DEMO_TEACHER_PASSWORD: z.string().min(6, 'DEMO_TEACHER_PASSWORD must be at least 6 characters'),
+  /** Our own account (S2.3): only it creates schools. Both empty — no superadmin exists at all. */
+  SUPERADMIN_EMAIL: z.string().optional(),
+  SUPERADMIN_PASSWORD: z.string().optional(),
   SESSION_SECRET: z.string().min(16, 'SESSION_SECRET must be at least 16 characters'),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
 });
@@ -30,6 +33,7 @@ export interface Config {
   /** Built web client (served when the folder exists; in development Vite serves it). */
   webDir: string;
   demoTeacherPassword: string;
+  superadmin: { email: string; password: string } | null;
   sessionSecret: string;
   logLevel: (typeof LOG_LEVELS)[number];
 }
@@ -65,6 +69,10 @@ export function loadConfig(
     contentDir: abs(e.CONTENT_DIR),
     webDir: abs(e.WEB_DIR),
     demoTeacherPassword: e.DEMO_TEACHER_PASSWORD,
+    superadmin:
+      e.SUPERADMIN_EMAIL && e.SUPERADMIN_PASSWORD
+        ? { email: e.SUPERADMIN_EMAIL.trim().toLowerCase(), password: e.SUPERADMIN_PASSWORD }
+        : null,
     sessionSecret: e.SESSION_SECRET,
     logLevel: e.LOG_LEVEL,
   };

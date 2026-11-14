@@ -14,9 +14,44 @@ import { ApiHttpError } from '../errors.js';
  */
 
 export type ClassRow = typeof schema.classes.$inferSelect;
+export type SchoolRow = typeof schema.schools.$inferSelect;
+export type SchoolRole = 'admin' | 'teacher';
 
 function notFound(what: string): ApiHttpError {
   return new ApiHttpError(404, 'not_found', `${what} not found`);
+}
+
+/** Only we run this part; a teacher must not even learn that it exists, hence 404. */
+export function requireSuperadmin(db: Db, teacher: Teacher): void {
+  const user = db.select().from(schema.users).where(eq(schema.users.id, teacher.id)).get();
+  if (user?.role !== 'superadmin') throw notFound('Page');
+}
+
+/** The school and the user's role in it, or 404 when they do not belong to it. */
+export function requireSchoolMember(
+  db: Db,
+  teacher: Teacher,
+  schoolId: string,
+): { school: SchoolRow; role: SchoolRole } {
+  const row = db
+    .select()
+    .from(schema.schoolMembers)
+    .where(
+      and(eq(schema.schoolMembers.schoolId, schoolId), eq(schema.schoolMembers.userId, teacher.id)),
+    )
+    .get();
+  const school = row
+    ? db.select().from(schema.schools).where(eq(schema.schools.id, schoolId)).get()
+    : undefined;
+  if (!row || !school) throw notFound('School');
+  return { school, role: row.role };
+}
+
+/** Same, but only for the administrator of the school. */
+export function requireSchoolAdmin(db: Db, teacher: Teacher, schoolId: string): SchoolRow {
+  const { school, role } = requireSchoolMember(db, teacher, schoolId);
+  if (role !== 'admin') throw notFound('School');
+  return school;
 }
 
 /** Ids of the schools the user belongs to. */

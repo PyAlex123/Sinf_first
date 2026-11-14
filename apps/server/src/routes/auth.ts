@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { count, eq } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 import type { FastifyPluginCallback } from 'fastify';
 import {
   TeacherLoginSchema,
@@ -102,7 +102,41 @@ export const authRoutes: FastifyPluginCallback<{ loginGuard?: AttemptGuard }> = 
       .groupBy(schema.classes.id)
       .orderBy(schema.classes.grade, schema.classes.name)
       .all();
-    return { teacher, classes };
+    const schools = db
+      .select({
+        id: schema.schools.id,
+        name: schema.schools.name,
+        city: schema.schools.city,
+        role: schema.schoolMembers.role,
+      })
+      .from(schema.schoolMembers)
+      .innerJoin(schema.schools, eq(schema.schools.id, schema.schoolMembers.schoolId))
+      .where(eq(schema.schoolMembers.userId, teacher.id))
+      .orderBy(schema.schools.name)
+      .all();
+    const waiting = db
+      .select({
+        id: schema.schools.id,
+        name: schema.schools.name,
+        city: schema.schools.city,
+      })
+      .from(schema.schoolJoinRequests)
+      .innerJoin(schema.schools, eq(schema.schools.id, schema.schoolJoinRequests.schoolId))
+      .where(
+        and(
+          eq(schema.schoolJoinRequests.userId, teacher.id),
+          eq(schema.schoolJoinRequests.status, 'pending'),
+        ),
+      )
+      .get();
+    const me = db.select().from(schema.users).where(eq(schema.users.id, teacher.id)).get();
+    return {
+      teacher,
+      classes,
+      schools,
+      pendingSchool: waiting ?? null,
+      isSuperadmin: me?.role === 'superadmin',
+    };
   });
   done();
 };
