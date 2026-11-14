@@ -1,0 +1,483 @@
+{
+  "id": "g11",
+  "group": "gos",
+  "num": 11,
+  "title": "До — после",
+  "sub": "Числа, буквы и времена года",
+  "icon": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#9ccc65\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#aed581\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"80\" cy=\"44\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"104\" cy=\"32\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"124\" cy=\"52\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"70\" cy=\"70\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"96\" cy=\"60\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"130\" cy=\"76\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"110\" cy=\"80\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"30\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"50\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"150\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"172\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle></svg>",
+  "stages": [
+    {
+      "key": "greeting",
+      "title": "приветствие",
+      "startMin": 0,
+      "endMin": 2,
+      "place": null
+    },
+    {
+      "key": "goal",
+      "title": "цель",
+      "startMin": 2,
+      "endMin": 5,
+      "place": null
+    },
+    {
+      "key": "theory",
+      "title": "теория",
+      "startMin": 5,
+      "endMin": 15,
+      "place": "projector"
+    },
+    {
+      "key": "practice",
+      "title": "практика",
+      "startMin": 15,
+      "endMin": 37,
+      "place": "computer",
+      "parts": [
+        {
+          "kind": "work",
+          "minutes": 9
+        },
+        {
+          "kind": "rest",
+          "minutes": 4
+        },
+        {
+          "kind": "work",
+          "minutes": 9
+        }
+      ]
+    },
+    {
+      "key": "reflection",
+      "title": "рефлексия",
+      "startMin": 37,
+      "endMin": 42,
+      "place": null
+    },
+    {
+      "key": "summary",
+      "title": "итог",
+      "startMin": 42,
+      "endMin": 45,
+      "place": null
+    }
+  ],
+  "screens": [
+    {
+      "kind": "slide",
+      "stage": "greeting",
+      "layout": "title",
+      "html": "<div class=\"s-title\"><div class=\"s-kicker\">1 класс · Урок 11</div><h1>До — после</h1><p>Что стоит до, а что после</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 680 230\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><text x=\"50\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">1</text><text x=\"140\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">2</text><text x=\"230\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">3</text><text x=\"320\" y=\"110\" font-size=\"84\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">4</text><text x=\"410\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">5</text><text x=\"500\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">6</text><text x=\"590\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">7</text><path d=\"M20 130 Q20 150 40 150 L126.0 150 Q140.0 150 140.0 168 Q140.0 150 154.0 150 L240 150 Q260 150 260 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"140.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#43a047\" text-anchor=\"middle\">до</text><path d=\"M380 130 Q380 150 400 150 L486.0 150 Q500.0 150 500.0 168 Q500.0 150 514.0 150 L600 150 Q620 150 620 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"500.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#8e44ad\" text-anchor=\"middle\">после</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "greeting",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Приветствие</div><div class=\"s-num\">Здравствуйте!</div><h2>Здравствуйте, детективы порядка!</h2><p class=\"s-big\">Мышку берём только по команде «Детективы, за работу!»</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 300\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><g transform=\"translate(60 40) scale(3.4)\"><path d=\"M30 4 C12 4 2 16 2 30 C2 46 16 56 30 56 C36 56 38 52 36 48 C34 44 36 40 42 40 L48 40 C55 40 58 35 58 28 C58 14 46 4 30 4 Z\" fill=\"#f6e2bd\" stroke=\"#a57a3e\" stroke-width=\"2\"></path><circle cx=\"18\" cy=\"22\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"30\" cy=\"14\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"43\" cy=\"20\" r=\"5\" fill=\"#1e63d6\"></circle><circle cx=\"16\" cy=\"38\" r=\"5\" fill=\"#43a047\"></circle><circle cx=\"28\" cy=\"44\" r=\"4\" fill=\"#fff\" stroke=\"#a57a3e\" stroke-width=\"1.5\"></circle></g><g transform=\"translate(430 40)\"><rect x=\"0\" y=\"0\" width=\"70\" height=\"110\" rx=\"35\" fill=\"#fff\" stroke=\"#6b7480\" stroke-width=\"2.5\"></rect><path d=\"M35 0 L35 44 L0 44 L0 35 A35 35 0 0 1 35 0 Z\" fill=\"#e9edf2\" stroke=\"#6b7480\" stroke-width=\"2.5\"></path><line x1=\"35\" y1=\"0\" x2=\"35\" y2=\"44\" stroke=\"#6b7480\" stroke-width=\"2.5\"></line><text x=\"35\" y=\"150\" font-size=\"20\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">только по команде</text></g></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "goal",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Постановка цели</div><div class=\"s-num\">Загадка</div><h2>Кто спрятался?</h2><p class=\"s-big\">Какое число стоит между 3 и 5?</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 680 230\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><text x=\"50\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">1</text><text x=\"140\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">2</text><text x=\"230\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">3</text><text x=\"320\" y=\"110\" font-size=\"84\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">?</text><text x=\"410\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">5</text><text x=\"500\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">6</text><text x=\"590\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">7</text><path d=\"M20 130 Q20 150 40 150 L126.0 150 Q140.0 150 140.0 168 Q140.0 150 154.0 150 L240 150 Q260 150 260 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"140.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#43a047\" text-anchor=\"middle\">до</text><path d=\"M380 130 Q380 150 400 150 L486.0 150 Q500.0 150 500.0 168 Q500.0 150 514.0 150 L600 150 Q620 150 620 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"500.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#8e44ad\" text-anchor=\"middle\">после</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "goal",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Постановка цели</div><div class=\"s-num\">Цель урока</div><h2>Сегодня мы научимся</h2><ul class=\"s-list\"><li>говорить, что до, а что после</li><li>называть соседей числа</li><li>находить буквы до и после</li><li>помнить порядок времён года</li></ul></div><div class=\"s-fig\"><svg viewBox=\"0 0 1020 230.0\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><svg x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#9ccc65\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#aed581\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"80\" cy=\"44\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"104\" cy=\"32\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"124\" cy=\"52\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"70\" cy=\"70\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"96\" cy=\"60\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"130\" cy=\"76\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"110\" cy=\"80\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"30\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"50\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"150\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"172\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle></svg><rect x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M230 95.0 L264 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M258 84.0 L272 95.0 L258 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"120.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">весна</text><svg x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#43a047\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#2e7d32\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#2e7d32\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#2e7d32\"></circle><line x1=\"190.0\" y1=\"26.0\" x2=\"202.0\" y2=\"26.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"187.3\" y1=\"36.0\" x2=\"197.7\" y2=\"42.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"180.0\" y1=\"43.3\" x2=\"186.0\" y2=\"53.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"170.0\" y1=\"46.0\" x2=\"170.0\" y2=\"58.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"160.0\" y1=\"43.3\" x2=\"154.0\" y2=\"53.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"152.7\" y1=\"36.0\" x2=\"142.3\" y2=\"42.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"150.0\" y1=\"26.0\" x2=\"138.0\" y2=\"26.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"152.7\" y1=\"16.0\" x2=\"142.3\" y2=\"10.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"160.0\" y1=\"8.7\" x2=\"154.0\" y2=\"-1.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"170.0\" y1=\"6.0\" x2=\"170.0\" y2=\"-6.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"180.0\" y1=\"8.7\" x2=\"186.0\" y2=\"-1.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"187.3\" y1=\"16.0\" x2=\"197.7\" y2=\"10.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><circle cx=\"170\" cy=\"26\" r=\"14\" fill=\"#fdd835\" stroke=\"#f2a516\" stroke-width=\"4\"></circle></svg><rect x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M490 95.0 L524 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M518 84.0 L532 95.0 L518 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"380.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">лето</text><svg x=\"540\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff3e0\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#d7a35a\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#fb8c00\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#fb8c00\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#fb8c00\"></circle><circle cx=\"84\" cy=\"52\" r=\"14\" fill=\"#fdd835\"></circle><circle cx=\"118\" cy=\"66\" r=\"12\" fill=\"#e53935\"></circle><circle cx=\"40\" cy=\"96\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"160\" cy=\"100\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"150\" cy=\"130\" r=\"5\" fill=\"#fb8c00\"></circle><circle cx=\"30\" cy=\"132\" r=\"5\" fill=\"#e53935\"></circle></svg><rect x=\"540\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M750 95.0 L784 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M778 84.0 L792 95.0 L778 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"640.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">осень</text><svg x=\"800\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#cfe3f5\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#eef4fa\"></rect><path d=\"M0 118 Q60 110 120 118 Q160 124 200 116\" fill=\"none\" stroke=\"#b0c4d6\" stroke-width=\"3\"></path><rect x=\"94\" y=\"64\" width=\"12\" height=\"56\" fill=\"#6d4c41\"></rect><path d=\"M100 80 L72 54 M100 72 L128 48 M100 92 L130 76 M100 98 L70 82 M100 66 L100 34\" stroke=\"#6d4c41\" stroke-width=\"6\" stroke-linecap=\"round\"></path><text x=\"30\" y=\"30\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"60\" y=\"64\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"160\" y=\"30\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"176\" y=\"80\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"40\" y=\"104\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text></svg><rect x=\"800\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><text x=\"900.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">зима</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Игра</div><h2>Живая линейка</h2><p class=\"s-big\">Числа до четырёх — присели. Числа после — машут!</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 936 300\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><g transform=\"translate(20 40)\"><g transform=\"scale(0.9)\"><g transform=\"translate(0 0)\" stroke=\"#222\" stroke-width=\"5\" stroke-linecap=\"round\" fill=\"none\"><circle cx=\"60\" cy=\"85\" r=\"16\"></circle><line x1=\"60\" y1=\"101\" x2=\"60\" y2=\"140\"></line><line x1=\"60\" y1=\"112\" x2=\"30\" y2=\"120\"></line><line x1=\"60\" y1=\"112\" x2=\"90\" y2=\"120\"></line><polyline points=\"60,140 35,150 45,175\"></polyline><polyline points=\"60,140 85,150 75,175\"></polyline></g></g><rect x=\"22\" y=\"86\" width=\"64\" height=\"50\" rx=\"8\" fill=\"#e53935\" stroke=\"#fff\" stroke-width=\"3\"></rect><text x=\"54\" y=\"122\" font-size=\"32\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text></g><g transform=\"translate(148 40)\"><g transform=\"scale(0.9)\"><g transform=\"translate(0 0)\" stroke=\"#222\" stroke-width=\"5\" stroke-linecap=\"round\" fill=\"none\"><circle cx=\"60\" cy=\"85\" r=\"16\"></circle><line x1=\"60\" y1=\"101\" x2=\"60\" y2=\"140\"></line><line x1=\"60\" y1=\"112\" x2=\"30\" y2=\"120\"></line><line x1=\"60\" y1=\"112\" x2=\"90\" y2=\"120\"></line><polyline points=\"60,140 35,150 45,175\"></polyline><polyline points=\"60,140 85,150 75,175\"></polyline></g></g><rect x=\"22\" y=\"86\" width=\"64\" height=\"50\" rx=\"8\" fill=\"#1e63d6\" stroke=\"#fff\" stroke-width=\"3\"></rect><text x=\"54\" y=\"122\" font-size=\"32\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></g><g transform=\"translate(276 40)\"><g transform=\"scale(0.9)\"><g transform=\"translate(0 0)\" stroke=\"#222\" stroke-width=\"5\" stroke-linecap=\"round\" fill=\"none\"><circle cx=\"60\" cy=\"85\" r=\"16\"></circle><line x1=\"60\" y1=\"101\" x2=\"60\" y2=\"140\"></line><line x1=\"60\" y1=\"112\" x2=\"30\" y2=\"120\"></line><line x1=\"60\" y1=\"112\" x2=\"90\" y2=\"120\"></line><polyline points=\"60,140 35,150 45,175\"></polyline><polyline points=\"60,140 85,150 75,175\"></polyline></g></g><rect x=\"22\" y=\"86\" width=\"64\" height=\"50\" rx=\"8\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"3\"></rect><text x=\"54\" y=\"122\" font-size=\"32\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">3</text></g><g transform=\"translate(404 40)\"><g transform=\"scale(0.9)\"><g transform=\"translate(0 0)\" stroke=\"#222\" stroke-width=\"5\" stroke-linecap=\"round\" fill=\"none\"><circle cx=\"60\" cy=\"40\" r=\"16\"></circle><line x1=\"60\" y1=\"56\" x2=\"60\" y2=\"120\"></line><line x1=\"60\" y1=\"70\" x2=\"35\" y2=\"25\"></line><line x1=\"60\" y1=\"70\" x2=\"85\" y2=\"25\"></line><line x1=\"60\" y1=\"120\" x2=\"42\" y2=\"175\"></line><line x1=\"60\" y1=\"120\" x2=\"78\" y2=\"175\"></line></g></g><rect x=\"22\" y=\"86\" width=\"64\" height=\"50\" rx=\"8\" fill=\"#43a047\" stroke=\"#fff\" stroke-width=\"3\"></rect><text x=\"54\" y=\"122\" font-size=\"32\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">4</text></g><g transform=\"translate(532 40)\"><g transform=\"scale(0.9)\"><g transform=\"translate(0 0)\" stroke=\"#222\" stroke-width=\"5\" stroke-linecap=\"round\" fill=\"none\"><circle cx=\"60\" cy=\"40\" r=\"16\"></circle><line x1=\"60\" y1=\"56\" x2=\"60\" y2=\"120\"></line><line x1=\"60\" y1=\"70\" x2=\"38\" y2=\"105\"></line><line x1=\"60\" y1=\"70\" x2=\"82\" y2=\"105\"></line><line x1=\"60\" y1=\"120\" x2=\"42\" y2=\"175\"></line><line x1=\"60\" y1=\"120\" x2=\"78\" y2=\"175\"></line></g></g><rect x=\"22\" y=\"86\" width=\"64\" height=\"50\" rx=\"8\" fill=\"#8e44ad\" stroke=\"#fff\" stroke-width=\"3\"></rect><text x=\"54\" y=\"122\" font-size=\"32\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">5</text></g><g transform=\"translate(660 40)\"><g transform=\"scale(0.9)\"><g transform=\"translate(0 0)\" stroke=\"#222\" stroke-width=\"5\" stroke-linecap=\"round\" fill=\"none\"><circle cx=\"60\" cy=\"40\" r=\"16\"></circle><line x1=\"60\" y1=\"56\" x2=\"60\" y2=\"120\"></line><line x1=\"60\" y1=\"70\" x2=\"38\" y2=\"105\"></line><line x1=\"60\" y1=\"70\" x2=\"82\" y2=\"105\"></line><line x1=\"60\" y1=\"120\" x2=\"42\" y2=\"175\"></line><line x1=\"60\" y1=\"120\" x2=\"78\" y2=\"175\"></line></g></g><rect x=\"22\" y=\"86\" width=\"64\" height=\"50\" rx=\"8\" fill=\"#00897b\" stroke=\"#fff\" stroke-width=\"3\"></rect><text x=\"54\" y=\"122\" font-size=\"32\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">6</text></g><g transform=\"translate(788 40)\"><g transform=\"scale(0.9)\"><g transform=\"translate(0 0)\" stroke=\"#222\" stroke-width=\"5\" stroke-linecap=\"round\" fill=\"none\"><circle cx=\"60\" cy=\"40\" r=\"16\"></circle><line x1=\"60\" y1=\"56\" x2=\"60\" y2=\"120\"></line><line x1=\"60\" y1=\"70\" x2=\"38\" y2=\"105\"></line><line x1=\"60\" y1=\"70\" x2=\"82\" y2=\"105\"></line><line x1=\"60\" y1=\"120\" x2=\"42\" y2=\"175\"></line><line x1=\"60\" y1=\"120\" x2=\"78\" y2=\"175\"></line></g></g><rect x=\"22\" y=\"86\" width=\"64\" height=\"50\" rx=\"8\" fill=\"#c2185b\" stroke=\"#fff\" stroke-width=\"3\"></rect><text x=\"54\" y=\"122\" font-size=\"32\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">7</text></g><rect x=\"398\" y=\"20\" width=\"120\" height=\"196\" rx=\"16\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5\" class=\"hl\"></rect><path d=\"M34 232 L34 244 L370 244 L370 232\" fill=\"none\" stroke=\"#43a047\" stroke-width=\"5\"></path><text x=\"202.0\" y=\"282\" font-size=\"28\" font-weight=\"800\" fill=\"#43a047\" text-anchor=\"middle\">до</text><path d=\"M546 232 L546 244 L882 244 L882 232\" fill=\"none\" stroke=\"#8e44ad\" stroke-width=\"5\"></path><text x=\"714.0\" y=\"282\" font-size=\"28\" font-weight=\"800\" fill=\"#8e44ad\" text-anchor=\"middle\">после</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Учебник, с. 28</div><h2>До четырёх — после четырёх</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 680 230\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><text x=\"50\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">1</text><text x=\"140\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">2</text><text x=\"230\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">3</text><text x=\"320\" y=\"110\" font-size=\"84\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">4</text><text x=\"410\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">5</text><text x=\"500\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">6</text><text x=\"590\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">7</text><path d=\"M20 130 Q20 150 40 150 L126.0 150 Q140.0 150 140.0 168 Q140.0 150 154.0 150 L240 150 Q260 150 260 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"140.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#43a047\" text-anchor=\"middle\">до</text><path d=\"M380 130 Q380 150 400 150 L486.0 150 Q500.0 150 500.0 168 Q500.0 150 514.0 150 L600 150 Q620 150 620 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"500.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#8e44ad\" text-anchor=\"middle\">после</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Учебник, с. 28</div><h2>Что после весны? Что перед осенью?</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 1020 230.0\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><svg x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#9ccc65\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#aed581\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"80\" cy=\"44\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"104\" cy=\"32\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"124\" cy=\"52\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"70\" cy=\"70\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"96\" cy=\"60\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"130\" cy=\"76\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"110\" cy=\"80\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"30\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"50\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"150\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"172\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle></svg><rect x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M230 95.0 L264 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M258 84.0 L272 95.0 L258 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"120.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">весна</text><svg x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#43a047\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#2e7d32\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#2e7d32\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#2e7d32\"></circle><line x1=\"190.0\" y1=\"26.0\" x2=\"202.0\" y2=\"26.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"187.3\" y1=\"36.0\" x2=\"197.7\" y2=\"42.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"180.0\" y1=\"43.3\" x2=\"186.0\" y2=\"53.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"170.0\" y1=\"46.0\" x2=\"170.0\" y2=\"58.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"160.0\" y1=\"43.3\" x2=\"154.0\" y2=\"53.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"152.7\" y1=\"36.0\" x2=\"142.3\" y2=\"42.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"150.0\" y1=\"26.0\" x2=\"138.0\" y2=\"26.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"152.7\" y1=\"16.0\" x2=\"142.3\" y2=\"10.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"160.0\" y1=\"8.7\" x2=\"154.0\" y2=\"-1.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"170.0\" y1=\"6.0\" x2=\"170.0\" y2=\"-6.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"180.0\" y1=\"8.7\" x2=\"186.0\" y2=\"-1.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"187.3\" y1=\"16.0\" x2=\"197.7\" y2=\"10.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><circle cx=\"170\" cy=\"26\" r=\"14\" fill=\"#fdd835\" stroke=\"#f2a516\" stroke-width=\"4\"></circle></svg><rect x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M490 95.0 L524 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M518 84.0 L532 95.0 L518 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"380.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">лето</text><svg x=\"540\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff3e0\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#d7a35a\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#fb8c00\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#fb8c00\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#fb8c00\"></circle><circle cx=\"84\" cy=\"52\" r=\"14\" fill=\"#fdd835\"></circle><circle cx=\"118\" cy=\"66\" r=\"12\" fill=\"#e53935\"></circle><circle cx=\"40\" cy=\"96\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"160\" cy=\"100\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"150\" cy=\"130\" r=\"5\" fill=\"#fb8c00\"></circle><circle cx=\"30\" cy=\"132\" r=\"5\" fill=\"#e53935\"></circle></svg><rect x=\"540\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M750 95.0 L784 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M778 84.0 L792 95.0 L778 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"640.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">осень</text><svg x=\"800\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#cfe3f5\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#eef4fa\"></rect><path d=\"M0 118 Q60 110 120 118 Q160 124 200 116\" fill=\"none\" stroke=\"#b0c4d6\" stroke-width=\"3\"></path><rect x=\"94\" y=\"64\" width=\"12\" height=\"56\" fill=\"#6d4c41\"></rect><path d=\"M100 80 L72 54 M100 72 L128 48 M100 92 L130 76 M100 98 L70 82 M100 66 L100 34\" stroke=\"#6d4c41\" stroke-width=\"6\" stroke-linecap=\"round\"></path><text x=\"30\" y=\"30\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"60\" y=\"64\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"160\" y=\"30\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"176\" y=\"80\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"40\" y=\"104\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text></svg><rect x=\"800\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><text x=\"900.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">зима</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Задание 2</div><h2>Какая буква перед Е? После В?</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 680 230\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><text x=\"50\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">А</text><text x=\"140\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#1e63d6\" text-anchor=\"middle\">Б</text><text x=\"230\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">В</text><text x=\"320\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#1e63d6\" text-anchor=\"middle\">Г</text><text x=\"410\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">Д</text><text x=\"500\" y=\"110\" font-size=\"84\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">Е</text><text x=\"590\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">Ё</text><path d=\"M20 130 Q20 150 40 150 L216.0 150 Q230.0 150 230.0 168 Q230.0 150 244.0 150 L420 150 Q440 150 440 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"230.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#43a047\" text-anchor=\"middle\">до</text><path d=\"M560 130 Q560 150 580 150 L576.0 150 Q590.0 150 590.0 168 Q590.0 150 604.0 150 L600 150 Q620 150 620 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"590.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#8e44ad\" text-anchor=\"middle\">после</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Задание 3</div><h2>Буквы до Д и после Д</h2><p class=\"s-big\">А какие буквы после А, но перед Е?</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 680 230\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><text x=\"50\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">А</text><text x=\"140\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#1e63d6\" text-anchor=\"middle\">Б</text><text x=\"230\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">В</text><text x=\"320\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#1e63d6\" text-anchor=\"middle\">Г</text><text x=\"410\" y=\"110\" font-size=\"84\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">Д</text><text x=\"500\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">Е</text><text x=\"590\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">Ё</text><path d=\"M20 130 Q20 150 40 150 L171.0 150 Q185.0 150 185.0 168 Q185.0 150 199.0 150 L330 150 Q350 150 350 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"185.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#43a047\" text-anchor=\"middle\">до</text><path d=\"M470 130 Q470 150 490 150 L531.0 150 Q545.0 150 545.0 168 Q545.0 150 559.0 150 L600 150 Q620 150 620 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"545.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#8e44ad\" text-anchor=\"middle\">после</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Задание 4</div><h2>Н, А, Г, К, И — какое слово?</h2><p class=\"s-big\">КНИГА! Какая буква до И? Какая после?</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 240 190.0\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><svg x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff3e0\"></rect><path d=\"M100 40 Q70 26 34 34 L34 116 Q70 108 100 122 Z\" fill=\"#fff\" stroke=\"#8e44ad\" stroke-width=\"4\"></path><path d=\"M100 40 Q130 26 166 34 L166 116 Q130 108 100 122 Z\" fill=\"#fff\" stroke=\"#8e44ad\" stroke-width=\"4\"></path><line x1=\"46\" y1=\"52\" x2=\"88\" y2=\"56\" stroke=\"#b0bec5\" stroke-width=\"3\"></line><line x1=\"112\" y1=\"56\" x2=\"154\" y2=\"52\" stroke=\"#b0bec5\" stroke-width=\"3\"></line><line x1=\"46\" y1=\"66\" x2=\"88\" y2=\"70\" stroke=\"#b0bec5\" stroke-width=\"3\"></line><line x1=\"112\" y1=\"70\" x2=\"154\" y2=\"66\" stroke=\"#b0bec5\" stroke-width=\"3\"></line><line x1=\"46\" y1=\"80\" x2=\"88\" y2=\"84\" stroke=\"#b0bec5\" stroke-width=\"3\"></line><line x1=\"112\" y1=\"84\" x2=\"154\" y2=\"80\" stroke=\"#b0bec5\" stroke-width=\"3\"></line><line x1=\"46\" y1=\"94\" x2=\"88\" y2=\"98\" stroke=\"#b0bec5\" stroke-width=\"3\"></line><line x1=\"112\" y1=\"98\" x2=\"154\" y2=\"94\" stroke=\"#b0bec5\" stroke-width=\"3\"></line></svg><rect x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">На компьютере</div><h2>Тащи в окошко «после»</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/d541e09c4ad088f6.webp\"></image><rect x=\"662\" y=\"292\" width=\"118\" height=\"118\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><line x1=\"960\" y1=\"350\" x2=\"790\" y2=\"350\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"790\" cy=\"350\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"879.0\" y=\"329\" width=\"162.0\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"960\" y=\"357.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">тащи сюда!</text></svg></div>"
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Какое время года наступает после весны?",
+      "pic": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#9ccc65\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#aed581\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"80\" cy=\"44\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"104\" cy=\"32\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"124\" cy=\"52\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"70\" cy=\"70\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"96\" cy=\"60\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"130\" cy=\"76\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"110\" cy=\"80\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"30\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"50\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"150\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"172\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle></svg>",
+      "word": "ЛЕТО",
+      "n": 1,
+      "of": 4
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Какое число стоит после 4? Напечатай цифру.",
+      "pic": "<svg viewBox=\"0 0 200 90\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"10\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"36\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">3</text><rect x=\"70\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"96\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">4</text><rect x=\"130\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"156\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">?</text></svg>",
+      "word": "5",
+      "n": 2,
+      "of": 4
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Какая буква стоит перед Е?",
+      "pic": "<svg viewBox=\"0 0 440 90\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"10\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"36\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">А</text><rect x=\"70\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"96\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">Б</text><rect x=\"130\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"156\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">В</text><rect x=\"190\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"216\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">Г</text><rect x=\"250\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"276\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">?</text><rect x=\"310\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"336\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">Е</text><rect x=\"370\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"396\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">Ё</text></svg>",
+      "word": "Д",
+      "n": 3,
+      "of": 4
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Собери слово из букв Н, А, Г, К, И и напечатай его.",
+      "pic": "<svg viewBox=\"0 0 320 90\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"10\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"36\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">Н</text><rect x=\"70\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"96\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">А</text><rect x=\"130\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"156\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">Г</text><rect x=\"190\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"216\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">К</text><rect x=\"250\" y=\"10\" width=\"52\" height=\"66\" rx=\"10\" fill=\"#fff\" stroke=\"#f0b98a\" stroke-width=\"3\"></rect><text x=\"276\" y=\"58\" font-size=\"40\" font-weight=\"800\" text-anchor=\"middle\" fill=\"#1f2a37\" font-family=\"Arial\">И</text></svg>",
+      "word": "КНИГА",
+      "n": 4,
+      "of": 4
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 1,
+      "level": {
+        "stars": 1,
+        "say": "Какое число до четырёх? Какое после?",
+        "type": "nbr",
+        "mid": "4",
+        "before": "3",
+        "after": "5",
+        "extra": [
+          "2",
+          "6"
+        ],
+        "labs": [
+          "до",
+          "после"
+        ]
+      }
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 2,
+      "level": {
+        "stars": 1,
+        "say": "Какое время года наступает после весны?",
+        "show": [
+          "spring"
+        ],
+        "dir": "after",
+        "type": "pick",
+        "opts": [
+          [
+            "pic",
+            "winter"
+          ],
+          [
+            "pic",
+            "summer"
+          ],
+          [
+            "pic",
+            "autumn"
+          ]
+        ],
+        "ok": 1
+      }
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 3,
+      "level": {
+        "stars": 1,
+        "say": "Какое время года было перед осенью?",
+        "show": [
+          "autumn"
+        ],
+        "dir": "before",
+        "type": "pick",
+        "opts": [
+          [
+            "pic",
+            "summer"
+          ],
+          [
+            "pic",
+            "spring"
+          ],
+          [
+            "pic",
+            "winter"
+          ]
+        ],
+        "ok": 0
+      }
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 4,
+      "level": {
+        "stars": 1,
+        "say": "Расставь времена года по порядку. Начни с весны.",
+        "type": "story",
+        "cards": [
+          "spring",
+          "summer",
+          "autumn",
+          "winter"
+        ]
+      }
+    },
+    {
+      "kind": "slide",
+      "stage": "practice",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Отдыхаем</div><h2>Отвернулись от экранов!</h2><ul class=\"s-list\"><li>Учитель называет время года</li><li>Ты показываешь, что будет после</li></ul></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 260\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><path d=\"M90 200 A230 160 0 0 1 550 200\" fill=\"none\" stroke=\"#8e44ad\" stroke-width=\"6\" stroke-dasharray=\"14 10\"></path><path d=\"M84 186 L90 206 L104 192 Z\" fill=\"#8e44ad\"></path><path d=\"M556 186 L550 206 L536 192 Z\" fill=\"#8e44ad\"></path><ellipse cx=\"285\" cy=\"190\" rx=\"28\" ry=\"18\" fill=\"#fff\" stroke=\"#333\" stroke-width=\"3\"></ellipse><circle cx=\"285\" cy=\"186\" r=\"9\" fill=\"#333\"></circle><ellipse cx=\"355\" cy=\"190\" rx=\"28\" ry=\"18\" fill=\"#fff\" stroke=\"#333\" stroke-width=\"3\"></ellipse><circle cx=\"355\" cy=\"186\" r=\"9\" fill=\"#333\"></circle><text x=\"320\" y=\"248\" font-size=\"20\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Глазами: до — после</text></svg></div>"
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 5,
+      "level": {
+        "stars": 1,
+        "say": "Какая буква стоит перед буквой Е?",
+        "abc": true,
+        "type": "pick",
+        "opts": [
+          [
+            "abc",
+            0
+          ],
+          [
+            "abc",
+            1
+          ],
+          [
+            "abc",
+            2
+          ],
+          [
+            "abc",
+            3
+          ],
+          [
+            "abc",
+            4
+          ],
+          [
+            "abc",
+            5
+          ],
+          [
+            "abc",
+            6
+          ]
+        ],
+        "ok": 4
+      }
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 6,
+      "level": {
+        "stars": 1,
+        "say": "Какая буква стоит после буквы В?",
+        "abc": true,
+        "type": "pick",
+        "opts": [
+          [
+            "abc",
+            0
+          ],
+          [
+            "abc",
+            1
+          ],
+          [
+            "abc",
+            2
+          ],
+          [
+            "abc",
+            3
+          ],
+          [
+            "abc",
+            4
+          ],
+          [
+            "abc",
+            5
+          ],
+          [
+            "abc",
+            6
+          ]
+        ],
+        "ok": 3
+      }
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 7,
+      "level": {
+        "stars": 2,
+        "say": "Какие буквы стоят после А, но перед Е?",
+        "abc": true,
+        "type": "train",
+        "seq": [
+          "А",
+          "?Б",
+          "?В",
+          "?Г",
+          "?Д",
+          "Е"
+        ],
+        "extra": [
+          "Ё",
+          "К"
+        ]
+      }
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 8,
+      "level": {
+        "stars": 2,
+        "say": "Какая буква до Д? Какая после?",
+        "abc": true,
+        "type": "nbr",
+        "mid": "Д",
+        "before": "Г",
+        "after": "Е",
+        "extra": [
+          "Б",
+          "Ё"
+        ],
+        "labs": [
+          "до",
+          "после"
+        ]
+      }
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 9,
+      "level": {
+        "stars": 3,
+        "say": "Собери слово из букв.",
+        "pic": "book",
+        "type": "word",
+        "letters": [
+          "Н",
+          "А",
+          "Г",
+          "К",
+          "И"
+        ],
+        "word": "КНИГА"
+      }
+    },
+    {
+      "kind": "game",
+      "stage": "practice",
+      "n": 10,
+      "level": {
+        "stars": 3,
+        "say": "В слове КНИГА: какая буква до И? Какая после?",
+        "row": [
+          "К",
+          "Н",
+          "И",
+          "Г",
+          "А"
+        ],
+        "rowhl": 2,
+        "type": "nbr",
+        "mid": "И",
+        "before": "Н",
+        "after": "Г",
+        "extra": [
+          "К",
+          "А"
+        ],
+        "labs": [
+          "до",
+          "после"
+        ]
+      }
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 13,
+      "level": "free",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 13</div><span class=\"stars free\">свободное</span><h2>Загадай соседу число</h2><p class=\"s-hint\">Он называет соседей</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 680 230\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><text x=\"50\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">1</text><text x=\"140\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">2</text><text x=\"230\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">3</text><text x=\"320\" y=\"110\" font-size=\"84\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">4</text><text x=\"410\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">5</text><text x=\"500\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">6</text><text x=\"590\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">7</text><path d=\"M20 130 Q20 150 40 150 L126.0 150 Q140.0 150 140.0 168 Q140.0 150 154.0 150 L240 150 Q260 150 260 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"140.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#43a047\" text-anchor=\"middle\">до</text><path d=\"M380 130 Q380 150 400 150 L486.0 150 Q500.0 150 500.0 168 Q500.0 150 514.0 150 L600 150 Q620 150 620 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"500.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#8e44ad\" text-anchor=\"middle\">после</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "reflection",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Рефлексия</div><div class=\"s-num\">Цепочка</div><h2>Назови число после моего</h2><p class=\"s-big\">Три! — Четыре! — Пять!..</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 680 230\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><text x=\"50\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">1</text><text x=\"140\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">2</text><text x=\"230\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#43a047\" text-anchor=\"middle\">3</text><text x=\"320\" y=\"110\" font-size=\"84\" font-weight=\"900\" fill=\"#e53935\" text-anchor=\"middle\">4</text><text x=\"410\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">5</text><text x=\"500\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">6</text><text x=\"590\" y=\"110\" font-size=\"62\" font-weight=\"900\" fill=\"#8e44ad\" text-anchor=\"middle\">7</text><path d=\"M20 130 Q20 150 40 150 L126.0 150 Q140.0 150 140.0 168 Q140.0 150 154.0 150 L240 150 Q260 150 260 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"140.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#43a047\" text-anchor=\"middle\">до</text><path d=\"M380 130 Q380 150 400 150 L486.0 150 Q500.0 150 500.0 168 Q500.0 150 514.0 150 L600 150 Q620 150 620 130\" fill=\"none\" stroke=\"#5b9bd5\" stroke-width=\"5\"></path><text x=\"500.0\" y=\"208\" font-size=\"30\" font-weight=\"800\" fill=\"#8e44ad\" text-anchor=\"middle\">после</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "reflection",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Рефлексия</div><div class=\"s-num\">Как получилось?</div><h2>Покажи пальцем, как у тебя получилось</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 260\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><circle cx=\"110\" cy=\"105\" r=\"78\" fill=\"#43a047\"></circle><g transform=\"translate(110 105) scale(2.4)\"><path d=\"M0 18 L0 -18 M-14 -4 L0 -18 L14 -4\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></g><text x=\"110\" y=\"228\" font-size=\"24\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">всё получилось</text><circle cx=\"320\" cy=\"105\" r=\"78\" fill=\"#f2a516\"></circle><g transform=\"translate(320 105) scale(2.4)\"><path d=\"M-18 0 L18 0 M4 -14 L18 0 L4 14\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></g><text x=\"320\" y=\"228\" font-size=\"24\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">почти</text><circle cx=\"530\" cy=\"105\" r=\"78\" fill=\"#e53935\"></circle><g transform=\"translate(530 105) scale(2.4)\"><path d=\"M0 -18 L0 18 M-14 4 L0 18 L14 4\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></g><text x=\"530\" y=\"228\" font-size=\"24\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">было трудно</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "summary",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Заключение</div><div class=\"s-num\">Итог</div><h2>Ответь быстро!</h2><ul class=\"s-list\"><li>Какое число до семи?</li><li>Какая буква после А?</li><li>Что после зимы?</li></ul></div><div class=\"s-fig\"><svg viewBox=\"0 0 1020 230.0\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><svg x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#9ccc65\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#aed581\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#aed581\"></circle><circle cx=\"80\" cy=\"44\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"104\" cy=\"32\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"124\" cy=\"52\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"70\" cy=\"70\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"96\" cy=\"60\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"130\" cy=\"76\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"110\" cy=\"80\" r=\"5\" fill=\"#f48fb1\"></circle><circle cx=\"30\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"50\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"150\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle><circle cx=\"172\" cy=\"132\" r=\"4\" fill=\"#fff\"></circle></svg><rect x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M230 95.0 L264 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M258 84.0 L272 95.0 L258 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"120.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">весна</text><svg x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#43a047\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#2e7d32\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#2e7d32\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#2e7d32\"></circle><line x1=\"190.0\" y1=\"26.0\" x2=\"202.0\" y2=\"26.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"187.3\" y1=\"36.0\" x2=\"197.7\" y2=\"42.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"180.0\" y1=\"43.3\" x2=\"186.0\" y2=\"53.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"170.0\" y1=\"46.0\" x2=\"170.0\" y2=\"58.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"160.0\" y1=\"43.3\" x2=\"154.0\" y2=\"53.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"152.7\" y1=\"36.0\" x2=\"142.3\" y2=\"42.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"150.0\" y1=\"26.0\" x2=\"138.0\" y2=\"26.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"152.7\" y1=\"16.0\" x2=\"142.3\" y2=\"10.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"160.0\" y1=\"8.7\" x2=\"154.0\" y2=\"-1.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"170.0\" y1=\"6.0\" x2=\"170.0\" y2=\"-6.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"180.0\" y1=\"8.7\" x2=\"186.0\" y2=\"-1.7\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><line x1=\"187.3\" y1=\"16.0\" x2=\"197.7\" y2=\"10.0\" stroke=\"#f2a516\" stroke-width=\"5\" stroke-linecap=\"round\"></line><circle cx=\"170\" cy=\"26\" r=\"14\" fill=\"#fdd835\" stroke=\"#f2a516\" stroke-width=\"4\"></circle></svg><rect x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M490 95.0 L524 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M518 84.0 L532 95.0 L518 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"380.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">лето</text><svg x=\"540\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff3e0\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#d7a35a\"></rect><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#fb8c00\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#fb8c00\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#fb8c00\"></circle><circle cx=\"84\" cy=\"52\" r=\"14\" fill=\"#fdd835\"></circle><circle cx=\"118\" cy=\"66\" r=\"12\" fill=\"#e53935\"></circle><circle cx=\"40\" cy=\"96\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"160\" cy=\"100\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"150\" cy=\"130\" r=\"5\" fill=\"#fb8c00\"></circle><circle cx=\"30\" cy=\"132\" r=\"5\" fill=\"#e53935\"></circle></svg><rect x=\"540\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M750 95.0 L784 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M778 84.0 L792 95.0 L778 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"640.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">осень</text><svg x=\"800\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#cfe3f5\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#eef4fa\"></rect><path d=\"M0 118 Q60 110 120 118 Q160 124 200 116\" fill=\"none\" stroke=\"#b0c4d6\" stroke-width=\"3\"></path><rect x=\"94\" y=\"64\" width=\"12\" height=\"56\" fill=\"#6d4c41\"></rect><path d=\"M100 80 L72 54 M100 72 L128 48 M100 92 L130 76 M100 98 L70 82 M100 66 L100 34\" stroke=\"#6d4c41\" stroke-width=\"6\" stroke-linecap=\"round\"></path><text x=\"30\" y=\"30\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"60\" y=\"64\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"160\" y=\"30\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"176\" y=\"80\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text><text x=\"40\" y=\"104\" font-size=\"18\" fill=\"#90caf9\" text-anchor=\"middle\">❄</text></svg><rect x=\"800\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><text x=\"900.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">зима</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "summary",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Заключение</div><div class=\"s-num\">В следующий раз</div><h2>Было — стало</h2><p class=\"s-big\">Было семечко — стало дерево</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 500 230.0\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><svg x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><path d=\"M0 118 Q50 108 100 116 Q150 124 200 112 L200 150 L0 150 Z\" fill=\"#8d6e63\"></path><path d=\"M0 118 Q50 108 100 116 Q150 124 200 112\" fill=\"none\" stroke=\"#6d4c41\" stroke-width=\"3\"></path><ellipse cx=\"100\" cy=\"132\" rx=\"11\" ry=\"7\" fill=\"#5d4037\" stroke=\"#3e2723\" stroke-width=\"2\"></ellipse><line x1=\"80\" y1=\"30\" x2=\"76\" y2=\"44\" stroke=\"#1e88e5\" stroke-width=\"4\" stroke-linecap=\"round\"></line><line x1=\"100\" y1=\"30\" x2=\"96\" y2=\"44\" stroke=\"#1e88e5\" stroke-width=\"4\" stroke-linecap=\"round\"></line><line x1=\"120\" y1=\"30\" x2=\"116\" y2=\"44\" stroke=\"#1e88e5\" stroke-width=\"4\" stroke-linecap=\"round\"></line><g transform=\"translate(100 20) scale(0.8)\"><path d=\"M-40 10 Q-44 -8 -26 -10 Q-22 -30 0 -26 Q16 -40 30 -22 Q48 -22 44 -4 Q52 10 36 14 L-30 14 Q-46 16 -40 10 Z\" fill=\"#90a4ae\" stroke=\"#607d8b\" stroke-width=\"3\" stroke-linejoin=\"round\"></path></g></svg><rect x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M230 95.0 L264 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M258 84.0 L272 95.0 L258 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"120.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">было</text><svg x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><path d=\"M0 118 Q50 108 100 116 Q150 124 200 112 L200 150 L0 150 Z\" fill=\"#8d6e63\"></path><path d=\"M0 118 Q50 108 100 116 Q150 124 200 112\" fill=\"none\" stroke=\"#6d4c41\" stroke-width=\"3\"></path><rect x=\"92\" y=\"70\" width=\"16\" height=\"50\" rx=\"3\" fill=\"#8d5a2b\"></rect><circle cx=\"100\" cy=\"58\" r=\"38\" fill=\"#43a047\"></circle><circle cx=\"74\" cy=\"72\" r=\"22\" fill=\"#43a047\"></circle><circle cx=\"126\" cy=\"72\" r=\"22\" fill=\"#43a047\"></circle><circle cx=\"84\" cy=\"50\" r=\"6\" fill=\"#e53935\"></circle><circle cx=\"112\" cy=\"40\" r=\"6\" fill=\"#e53935\"></circle><circle cx=\"122\" cy=\"70\" r=\"6\" fill=\"#e53935\"></circle><circle cx=\"76\" cy=\"76\" r=\"6\" fill=\"#e53935\"></circle><circle cx=\"100\" cy=\"78\" r=\"6\" fill=\"#e53935\"></circle></svg><rect x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><text x=\"380.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">стало</text></svg></div>"
+    }
+  ],
+  "teacherScenario": "/content/1-klass-2-chetvert/scenarios/g11.html",
+  "media": [
+    "/content/1-klass-2-chetvert/media/d541e09c4ad088f6.webp"
+  ]
+}

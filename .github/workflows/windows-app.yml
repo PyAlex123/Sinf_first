@@ -1,0 +1,136 @@
+# Builds the portable Windows package: our window (WebView2) + Node + server + web + lessons.
+# Needed because the desktop cannot be built or run in the Linux cloud container (CLAUDE.md §9.8).
+name: Windows app
+
+on:
+  push:
+    branches: ['claude/**']
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'content/**'
+      - 'tools/package-windows.ps1'
+      - '.github/workflows/windows-app.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # better-sqlite3 is native: this is the step that cannot happen on Linux.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - name: Our window (self-contained, .NET not required on the school PC)
+        run: >
+          dotnet publish apps/desktop/Sinf.Desktop.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+
+      - name: Collect the package (server deploy included)
+        shell: pwsh
+        # The package carries the agent's own Node version, the one the smoke test then runs against.
+        run: ./tools/package-windows.ps1 -NodeVersion (& node --version).TrimStart('v')
+
+      # Proves the server really runs on Windows, from the packaged folder, before anyone downloads it.
+      - name: Smoke test of the packaged server
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = (Get-Location).Path
+          $node = Join-Path $root 'out/Sinf/server/node.exe'
+          $entry = Join-Path $root 'out/Sinf/server/dist/index.js'
+          $smoke = Join-Path $root 'out/smoke'
+          New-Item -ItemType Directory -Force -Path $smoke | Out-Null
+          Write-Host "node.exe: $(& $node --version)"
+          Write-Host "точка входа на месте: $(Test-Path $entry)"
+
+          # The native module first: it is the only compiled code in the server, so a silent crash
+          # (exit code 0xC0000005) points here before anything else.
+          # The native module first: it is the only compiled code in the server, and an old Node cannot
+          # load its prebuilt binary (Node 22.12 crashes with 0xC0000005, 22.23 is fine).
+          Push-Location (Join-Path $root 'out/Sinf/server')
+          & $node -e "const D = require('better-sqlite3'); const db = new D(':memory:'); console.log('better-sqlite3 ok:', db.prepare('select 1 as x').get().x);"
+          $sqliteCode = $LASTEXITCODE
+          Pop-Location
+          if ($sqliteCode -ne 0) { throw "better-sqlite3 не загрузился, код $sqliteCode" }
+
+          $env:NODE_ENV = 'production'
+          $env:PORT = '3123'
+          $env:HOST = '127.0.0.1'
+          $env:DATA_DIR = $smoke
+          $env:DATABASE_PATH = Join-Path $smoke 'sinf.db'
+          $env:CONTENT_DIR = Join-Path $root 'out/Sinf/content'
+          $env:WEB_DIR = Join-Path $root 'out/Sinf/web'
+          $env:SESSION_SECRET = 'smoke-test-secret-not-a-real-one'
+          $env:DEMO_TEACHER_PASSWORD = 'smoke-test'
+
+          $outLog = Join-Path $smoke 'out.log'
+          $errLog = Join-Path $smoke 'err.log'
+          $server = Start-Process -FilePath $node -ArgumentList $entry -WorkingDirectory $root `
+            -PassThru -NoNewWindow -RedirectStandardOutput $outLog -RedirectStandardError $errLog
+          try {
+            $ready = $false
+            foreach ($try in 1..40) {
+              Start-Sleep -Milliseconds 500
+              if ($server.HasExited) { break }
+              try {
+                $health = Invoke-RestMethod 'http://127.0.0.1:3123/health' -TimeoutSec 2
+                if ($health.status -eq 'ok') { $ready = $true; break }
+              } catch { }
+            }
+            if (-not $ready) {
+              Write-Host "процесс завершился: $($server.HasExited)"
+              if ($server.HasExited) { Write-Host "код выхода: $($server.ExitCode)" }
+              foreach ($log in @($outLog, $errLog)) {
+                Write-Host "--- $log"
+                if (Test-Path $log) { Get-Content $log -Raw } else { Write-Host '(файла нет)' }
+              }
+              throw 'Сервер не ответил на /health'
+            }
+            $courses = Invoke-RestMethod 'http://127.0.0.1:3123/api/courses' -TimeoutSec 5
+            $lessons = ($courses.courses | ForEach-Object { $_.lessons.Count } | Measure-Object -Sum).Sum
+            Write-Host "/health: ok, уроков отдано: $lessons"
+            if ($lessons -lt 1) { throw 'Сервер не отдал ни одного урока' }
+          } finally {
+            if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
+          }
+
+      # Top level only: a full listing is thousands of lines of node_modules.
+      - name: Package contents
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem out/Sinf -Recurse -File
+          Write-Host ("всего файлов: {0}, размер: {1:N1} МБ" -f $files.Count, (($files | Measure-Object -Property Length -Sum).Sum / 1MB))
+          Get-ChildItem out/Sinf | Select-Object Name, @{ Name = 'МБ'; Expression = {
+            if ($_.PSIsContainer) {
+              '{0:N1}' -f ((Get-ChildItem $_.FullName -Recurse -File | Measure-Object -Property Length -Sum).Sum / 1MB)
+            } else {
+              '{0:N1}' -f ($_.Length / 1MB)
+            }
+          } } | Format-Table -AutoSize
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sinf-windows-x64
+          path: out/Sinf
+          if-no-files-found: error

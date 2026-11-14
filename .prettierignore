@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+data
+content
+content-src
+pnpm-lock.yaml
+*.md

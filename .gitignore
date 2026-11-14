@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local data (SQLite database, uploads, screenshots) — ADR-004
+data/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Browser automation output
+.playwright-mcp/
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+dist-demo/
+
+# Windows app build (apps/desktop) and packaging output
+apps/desktop/bin/
+apps/desktop/obj/
+/out/

@@ -1,0 +1,307 @@
+{
+  "id": "k10",
+  "group": "krujok",
+  "num": 10,
+  "title": "Радуга",
+  "sub": "Карандаш, кисть и цвета",
+  "icon": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><path d=\"M14 130 A86 86 0 0 1 186 130\" fill=\"none\" stroke=\"#e53935\" stroke-width=\"8\"></path><path d=\"M22 130 A78 78 0 0 1 178 130\" fill=\"none\" stroke=\"#fb8c00\" stroke-width=\"8\"></path><path d=\"M30 130 A70 70 0 0 1 170 130\" fill=\"none\" stroke=\"#fdd835\" stroke-width=\"8\"></path><path d=\"M38 130 A62 62 0 0 1 162 130\" fill=\"none\" stroke=\"#43a047\" stroke-width=\"8\"></path><path d=\"M46 130 A54 54 0 0 1 154 130\" fill=\"none\" stroke=\"#4fc3f7\" stroke-width=\"8\"></path><path d=\"M54 130 A46 46 0 0 1 146 130\" fill=\"none\" stroke=\"#1e63d6\" stroke-width=\"8\"></path><path d=\"M62 130 A38 38 0 0 1 138 130\" fill=\"none\" stroke=\"#8e44ad\" stroke-width=\"8\"></path><g transform=\"translate(30 128) scale(0.7)\"><path d=\"M-40 10 Q-44 -8 -26 -10 Q-22 -30 0 -26 Q16 -40 30 -22 Q48 -22 44 -4 Q52 10 36 14 L-30 14 Q-46 16 -40 10 Z\" fill=\"#eceff1\" stroke=\"#b0bec5\" stroke-width=\"3\" stroke-linejoin=\"round\"></path></g><g transform=\"translate(172 128) scale(0.7)\"><path d=\"M-40 10 Q-44 -8 -26 -10 Q-22 -30 0 -26 Q16 -40 30 -22 Q48 -22 44 -4 Q52 10 36 14 L-30 14 Q-46 16 -40 10 Z\" fill=\"#eceff1\" stroke=\"#b0bec5\" stroke-width=\"3\" stroke-linejoin=\"round\"></path></g></svg>",
+  "stages": [
+    {
+      "key": "greeting",
+      "title": "приветствие",
+      "startMin": 0,
+      "endMin": 2,
+      "place": null
+    },
+    {
+      "key": "goal",
+      "title": "цель",
+      "startMin": 2,
+      "endMin": 5,
+      "place": null
+    },
+    {
+      "key": "theory",
+      "title": "теория",
+      "startMin": 5,
+      "endMin": 15,
+      "place": "projector"
+    },
+    {
+      "key": "practice",
+      "title": "практика",
+      "startMin": 15,
+      "endMin": 37,
+      "place": "computer",
+      "parts": [
+        {
+          "kind": "work",
+          "minutes": 9
+        },
+        {
+          "kind": "rest",
+          "minutes": 4
+        },
+        {
+          "kind": "work",
+          "minutes": 9
+        }
+      ]
+    },
+    {
+      "key": "reflection",
+      "title": "рефлексия",
+      "startMin": 37,
+      "endMin": 42,
+      "place": null
+    },
+    {
+      "key": "summary",
+      "title": "итог",
+      "startMin": 42,
+      "endMin": 45,
+      "place": null
+    }
+  ],
+  "screens": [
+    {
+      "kind": "slide",
+      "stage": "greeting",
+      "layout": "title",
+      "html": "<div class=\"s-title\"><div class=\"s-kicker\">1 класс · Урок 10</div><h1>Радуга после дождя</h1><p>Рисуем на компьютере в Paint</p></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/baf18eef1f6a3b3e.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "greeting",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Приветствие</div><div class=\"s-num\">Здравствуйте!</div><h2>Здравствуйте, художники!</h2><p class=\"s-big\">Мышку берём только по команде «Художники, за работу!»</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 300\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><g transform=\"translate(60 40) scale(3.4)\"><path d=\"M30 4 C12 4 2 16 2 30 C2 46 16 56 30 56 C36 56 38 52 36 48 C34 44 36 40 42 40 L48 40 C55 40 58 35 58 28 C58 14 46 4 30 4 Z\" fill=\"#f6e2bd\" stroke=\"#a57a3e\" stroke-width=\"2\"></path><circle cx=\"18\" cy=\"22\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"30\" cy=\"14\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"43\" cy=\"20\" r=\"5\" fill=\"#1e63d6\"></circle><circle cx=\"16\" cy=\"38\" r=\"5\" fill=\"#43a047\"></circle><circle cx=\"28\" cy=\"44\" r=\"4\" fill=\"#fff\" stroke=\"#a57a3e\" stroke-width=\"1.5\"></circle></g><g transform=\"translate(430 40)\"><rect x=\"0\" y=\"0\" width=\"70\" height=\"110\" rx=\"35\" fill=\"#fff\" stroke=\"#6b7480\" stroke-width=\"2.5\"></rect><path d=\"M35 0 L35 44 L0 44 L0 35 A35 35 0 0 1 35 0 Z\" fill=\"#e9edf2\" stroke=\"#6b7480\" stroke-width=\"2.5\"></path><line x1=\"35\" y1=\"0\" x2=\"35\" y2=\"44\" stroke=\"#6b7480\" stroke-width=\"2.5\"></line><text x=\"35\" y=\"150\" font-size=\"20\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">только по команде</text></g></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "goal",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Постановка цели</div><div class=\"s-num\">Загадка</div><h2>Отгадай!</h2><p class=\"s-big\">Разноцветное коромысло<br>над рекой повисло</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 300\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><path d=\"M70 290 A250 250 0 0 1 570 290\" fill=\"none\" stroke=\"#d5d9df\" stroke-width=\"16\" stroke-dasharray=\"2 10\" stroke-linecap=\"round\"></path><path d=\"M92 290 A228 228 0 0 1 548 290\" fill=\"none\" stroke=\"#d5d9df\" stroke-width=\"16\" stroke-dasharray=\"2 10\" stroke-linecap=\"round\"></path><path d=\"M114 290 A206 206 0 0 1 526 290\" fill=\"none\" stroke=\"#d5d9df\" stroke-width=\"16\" stroke-dasharray=\"2 10\" stroke-linecap=\"round\"></path><path d=\"M136 290 A184 184 0 0 1 504 290\" fill=\"none\" stroke=\"#d5d9df\" stroke-width=\"16\" stroke-dasharray=\"2 10\" stroke-linecap=\"round\"></path><path d=\"M158 290 A162 162 0 0 1 482 290\" fill=\"none\" stroke=\"#d5d9df\" stroke-width=\"16\" stroke-dasharray=\"2 10\" stroke-linecap=\"round\"></path><path d=\"M180 290 A140 140 0 0 1 460 290\" fill=\"none\" stroke=\"#d5d9df\" stroke-width=\"16\" stroke-dasharray=\"2 10\" stroke-linecap=\"round\"></path><path d=\"M202 290 A118 118 0 0 1 438 290\" fill=\"none\" stroke=\"#d5d9df\" stroke-width=\"16\" stroke-dasharray=\"2 10\" stroke-linecap=\"round\"></path><text x=\"320\" y=\"270\" font-size=\"170\" font-weight=\"800\" fill=\"#ff6a00\" text-anchor=\"middle\">?</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "goal",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Постановка цели</div><div class=\"s-num\">Ответ</div><h2>Радуга! Сегодня мы её нарисуем</h2></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/baf18eef1f6a3b3e.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "goal",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Постановка цели</div><div class=\"s-num\">Цель урока</div><h2>Сегодня мы научимся</h2><ul class=\"s-list\"><li>открывать Paint</li><li>рисовать кистью и карандашом</li><li>делать линию толще</li><li>выбирать цвет</li></ul></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/baf18eef1f6a3b3e.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Игра</div><h2>Радуга по порядку</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 300\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><rect x=\"14\" y=\"14\" width=\"80\" height=\"170\" rx=\"12\" fill=\"#e53935\"></rect><text x=\"54\" y=\"120\" font-size=\"64\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\" stroke=\"rgba(0,0,0,.25)\" stroke-width=\"1.5\">К</text><text x=\"54\" y=\"214\" font-size=\"15\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Каждый</text><text x=\"54\" y=\"240\" font-size=\"13\" fill=\"#555\" text-anchor=\"middle\">красный</text><rect x=\"102\" y=\"14\" width=\"80\" height=\"170\" rx=\"12\" fill=\"#fb8c00\"></rect><text x=\"142\" y=\"120\" font-size=\"64\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\" stroke=\"rgba(0,0,0,.25)\" stroke-width=\"1.5\">О</text><text x=\"142\" y=\"214\" font-size=\"15\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Охотник</text><text x=\"142\" y=\"240\" font-size=\"13\" fill=\"#555\" text-anchor=\"middle\">оранжевый</text><rect x=\"190\" y=\"14\" width=\"80\" height=\"170\" rx=\"12\" fill=\"#fdd835\"></rect><text x=\"230\" y=\"120\" font-size=\"64\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\" stroke=\"rgba(0,0,0,.25)\" stroke-width=\"1.5\">Ж</text><text x=\"230\" y=\"214\" font-size=\"15\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Желает</text><text x=\"230\" y=\"240\" font-size=\"13\" fill=\"#555\" text-anchor=\"middle\">жёлтый</text><rect x=\"278\" y=\"14\" width=\"80\" height=\"170\" rx=\"12\" fill=\"#43a047\"></rect><text x=\"318\" y=\"120\" font-size=\"64\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\" stroke=\"rgba(0,0,0,.25)\" stroke-width=\"1.5\">З</text><text x=\"318\" y=\"214\" font-size=\"15\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Знать</text><text x=\"318\" y=\"240\" font-size=\"13\" fill=\"#555\" text-anchor=\"middle\">зелёный</text><rect x=\"366\" y=\"14\" width=\"80\" height=\"170\" rx=\"12\" fill=\"#4fc3f7\"></rect><text x=\"406\" y=\"120\" font-size=\"64\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\" stroke=\"rgba(0,0,0,.25)\" stroke-width=\"1.5\">Г</text><text x=\"406\" y=\"214\" font-size=\"15\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Где</text><text x=\"406\" y=\"240\" font-size=\"13\" fill=\"#555\" text-anchor=\"middle\">голубой</text><rect x=\"454\" y=\"14\" width=\"80\" height=\"170\" rx=\"12\" fill=\"#1e63d6\"></rect><text x=\"494\" y=\"120\" font-size=\"64\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\" stroke=\"rgba(0,0,0,.25)\" stroke-width=\"1.5\">С</text><text x=\"494\" y=\"214\" font-size=\"15\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Сидит</text><text x=\"494\" y=\"240\" font-size=\"13\" fill=\"#555\" text-anchor=\"middle\">синий</text><rect x=\"542\" y=\"14\" width=\"80\" height=\"170\" rx=\"12\" fill=\"#8e44ad\"></rect><text x=\"582\" y=\"120\" font-size=\"64\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\" stroke=\"rgba(0,0,0,.25)\" stroke-width=\"1.5\">Ф</text><text x=\"582\" y=\"214\" font-size=\"15\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Фазан</text><text x=\"582\" y=\"240\" font-size=\"13\" fill=\"#555\" text-anchor=\"middle\">фиолетовый</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Знакомимся</div><h2>Это Paint — наш альбом и краски</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/0c1fd7078665037c.webp\"></image><line x1=\"205\" y1=\"330\" x2=\"258\" y2=\"104\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"258\" cy=\"104\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"137.2\" y=\"309\" width=\"135.6\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"205\" y=\"337.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Карандаш</text><line x1=\"430\" y1=\"270\" x2=\"391\" y2=\"132\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"391\" cy=\"132\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"382.0\" y=\"249\" width=\"96.0\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"430\" y=\"277.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Кисти</text><line x1=\"860\" y1=\"270\" x2=\"860\" y2=\"136\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"860\" cy=\"136\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"798.8\" y=\"249\" width=\"122.39999999999999\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"860\" y=\"277.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Палитра</text><line x1=\"150\" y1=\"470\" x2=\"50\" y2=\"470\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"50\" cy=\"470\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"95.4\" y=\"449\" width=\"109.19999999999999\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"150\" y=\"477.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Размер</text><rect x=\"982.0\" y=\"629\" width=\"96.0\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"1030\" y=\"657.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Холст</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Знакомимся</div><h2>Карандаш и кисть</h2><p class=\"s-big\">Карандаш — тонко.<br>Кисть — толсто.</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/baf18eef1f6a3b3e.webp\"></image><line x1=\"728\" y1=\"250\" x2=\"728\" y2=\"318\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"728\" cy=\"318\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"620.6\" y=\"229\" width=\"214.79999999999998\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"728\" y=\"257.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Кисть — толсто</text><line x1=\"728\" y1=\"600\" x2=\"697\" y2=\"672\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"697\" cy=\"672\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"607.4\" y=\"579\" width=\"241.2\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"728\" y=\"607.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Карандаш — тонко</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Как рисовать</div><h2>Нажал — ведёшь — отпустил</h2><p class=\"s-big\">Только левой кнопкой!</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 240\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><g transform=\"translate(70 30)\"><rect x=\"0\" y=\"0\" width=\"70\" height=\"110\" rx=\"35\" fill=\"#fff\" stroke=\"#6b7480\" stroke-width=\"2.5\"></rect><path d=\"M35 0 L35 44 L0 44 L0 35 A35 35 0 0 1 35 0 Z\" fill=\"#ff6a00\" stroke=\"#6b7480\" stroke-width=\"2.5\"></path><line x1=\"35\" y1=\"0\" x2=\"35\" y2=\"44\" stroke=\"#6b7480\" stroke-width=\"2.5\"></line><text x=\"35\" y=\"150\" font-size=\"20\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">Нажал</text></g><path d=\"M230 85 C280 40 330 130 380 85\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5\" stroke-dasharray=\"10 8\"></path><path d=\"M372 76 L386 84 L374 94 Z\" fill=\"#ff6a00\"></path><g transform=\"translate(270 30)\"><rect x=\"0\" y=\"0\" width=\"70\" height=\"110\" rx=\"35\" fill=\"#fff\" stroke=\"#6b7480\" stroke-width=\"2.5\"></rect><path d=\"M35 0 L35 44 L0 44 L0 35 A35 35 0 0 1 35 0 Z\" fill=\"#ff6a00\" stroke=\"#6b7480\" stroke-width=\"2.5\"></path><line x1=\"35\" y1=\"0\" x2=\"35\" y2=\"44\" stroke=\"#6b7480\" stroke-width=\"2.5\"></line><text x=\"35\" y=\"150\" font-size=\"20\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">Ведёшь</text></g><g transform=\"translate(500 30)\"><rect x=\"0\" y=\"0\" width=\"70\" height=\"110\" rx=\"35\" fill=\"#fff\" stroke=\"#6b7480\" stroke-width=\"2.5\"></rect><path d=\"M35 0 L35 44 L0 44 L0 35 A35 35 0 0 1 35 0 Z\" fill=\"#e9edf2\" stroke=\"#6b7480\" stroke-width=\"2.5\"></path><line x1=\"35\" y1=\"0\" x2=\"35\" y2=\"44\" stroke=\"#6b7480\" stroke-width=\"2.5\"></line><text x=\"35\" y=\"150\" font-size=\"20\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">Отпустил</text></g></svg></div>"
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Что мы нарисуем сегодня в Paint?",
+      "pic": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><path d=\"M14 130 A86 86 0 0 1 186 130\" fill=\"none\" stroke=\"#e53935\" stroke-width=\"8\"></path><path d=\"M22 130 A78 78 0 0 1 178 130\" fill=\"none\" stroke=\"#fb8c00\" stroke-width=\"8\"></path><path d=\"M30 130 A70 70 0 0 1 170 130\" fill=\"none\" stroke=\"#fdd835\" stroke-width=\"8\"></path><path d=\"M38 130 A62 62 0 0 1 162 130\" fill=\"none\" stroke=\"#43a047\" stroke-width=\"8\"></path><path d=\"M46 130 A54 54 0 0 1 154 130\" fill=\"none\" stroke=\"#4fc3f7\" stroke-width=\"8\"></path><path d=\"M54 130 A46 46 0 0 1 146 130\" fill=\"none\" stroke=\"#1e63d6\" stroke-width=\"8\"></path><path d=\"M62 130 A38 38 0 0 1 138 130\" fill=\"none\" stroke=\"#8e44ad\" stroke-width=\"8\"></path><g transform=\"translate(30 128) scale(0.7)\"><path d=\"M-40 10 Q-44 -8 -26 -10 Q-22 -30 0 -26 Q16 -40 30 -22 Q48 -22 44 -4 Q52 10 36 14 L-30 14 Q-46 16 -40 10 Z\" fill=\"#eceff1\" stroke=\"#b0bec5\" stroke-width=\"3\" stroke-linejoin=\"round\"></path></g><g transform=\"translate(172 128) scale(0.7)\"><path d=\"M-40 10 Q-44 -8 -26 -10 Q-22 -30 0 -26 Q16 -40 30 -22 Q48 -22 44 -4 Q52 10 36 14 L-30 14 Q-46 16 -40 10 Z\" fill=\"#eceff1\" stroke=\"#b0bec5\" stroke-width=\"3\" stroke-linejoin=\"round\"></path></g></svg>",
+      "word": "РАДУГА",
+      "n": 1,
+      "of": 3
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Чем в Paint рисуют толстые линии?",
+      "pic": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#fff8e1\"></rect><line x1=\"60\" y1=\"120\" x2=\"140\" y2=\"40\" stroke=\"#8d6e63\" stroke-width=\"14\" stroke-linecap=\"round\"></line><rect x=\"128\" y=\"22\" width=\"26\" height=\"26\" rx=\"4\" transform=\"rotate(45 141 35)\" fill=\"#b0bec5\"></rect><path d=\"M62 118 C40 124 34 140 44 144 C62 148 80 134 72 116 Z\" fill=\"#e53935\"></path></svg>",
+      "word": "КИСТЬ",
+      "n": 2,
+      "of": 3
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Какой цвет у радуги самый первый, сверху?",
+      "pic": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#e3f2fd\"></rect><path d=\"M14 130 A86 86 0 0 1 186 130\" fill=\"none\" stroke=\"#e53935\" stroke-width=\"8\"></path><path d=\"M22 130 A78 78 0 0 1 178 130\" fill=\"none\" stroke=\"#fb8c00\" stroke-width=\"8\"></path><path d=\"M30 130 A70 70 0 0 1 170 130\" fill=\"none\" stroke=\"#fdd835\" stroke-width=\"8\"></path><path d=\"M38 130 A62 62 0 0 1 162 130\" fill=\"none\" stroke=\"#43a047\" stroke-width=\"8\"></path><path d=\"M46 130 A54 54 0 0 1 154 130\" fill=\"none\" stroke=\"#4fc3f7\" stroke-width=\"8\"></path><path d=\"M54 130 A46 46 0 0 1 146 130\" fill=\"none\" stroke=\"#1e63d6\" stroke-width=\"8\"></path><path d=\"M62 130 A38 38 0 0 1 138 130\" fill=\"none\" stroke=\"#8e44ad\" stroke-width=\"8\"></path><g transform=\"translate(30 128) scale(0.7)\"><path d=\"M-40 10 Q-44 -8 -26 -10 Q-22 -30 0 -26 Q16 -40 30 -22 Q48 -22 44 -4 Q52 10 36 14 L-30 14 Q-46 16 -40 10 Z\" fill=\"#eceff1\" stroke=\"#b0bec5\" stroke-width=\"3\" stroke-linejoin=\"round\"></path></g><g transform=\"translate(172 128) scale(0.7)\"><path d=\"M-40 10 Q-44 -8 -26 -10 Q-22 -30 0 -26 Q16 -40 30 -22 Q48 -22 44 -4 Q52 10 36 14 L-30 14 Q-46 16 -40 10 Z\" fill=\"#eceff1\" stroke=\"#b0bec5\" stroke-width=\"3\" stroke-linejoin=\"round\"></path></g></svg>",
+      "word": "КРАСНЫЙ",
+      "n": 3,
+      "of": 3
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 1,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 1</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Открой Paint: щёлк-щёлк по значку</h2><p class=\"s-hint\">Значок с палитрой на рабочем столе</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 420\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><rect x=\"1\" y=\"1\" width=\"638\" height=\"418\" rx=\"12\" fill=\"url(#dsk)\"></rect><g><rect x=\"34\" y=\"34\" width=\"44\" height=\"50\" rx=\"6\" fill=\"#dfe6ee\" stroke=\"#9aa6b2\"></rect><rect x=\"30\" y=\"28\" width=\"52\" height=\"8\" rx=\"3\" fill=\"#c3ccd6\"></rect><text x=\"56\" y=\"104\" font-size=\"13\" fill=\"#fff\" text-anchor=\"middle\">Корзина</text></g><g transform=\"translate(26 130) scale(1.0)\"><path d=\"M30 4 C12 4 2 16 2 30 C2 46 16 56 30 56 C36 56 38 52 36 48 C34 44 36 40 42 40 L48 40 C55 40 58 35 58 28 C58 14 46 4 30 4 Z\" fill=\"#f6e2bd\" stroke=\"#a57a3e\" stroke-width=\"2\"></path><circle cx=\"18\" cy=\"22\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"30\" cy=\"14\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"43\" cy=\"20\" r=\"5\" fill=\"#1e63d6\"></circle><circle cx=\"16\" cy=\"38\" r=\"5\" fill=\"#43a047\"></circle><circle cx=\"28\" cy=\"44\" r=\"4\" fill=\"#fff\" stroke=\"#a57a3e\" stroke-width=\"1.5\"></circle></g><text x=\"56\" y=\"206\" font-size=\"14\" font-weight=\"700\" fill=\"#fff\" text-anchor=\"middle\">Paint</text><g><path d=\"M28 240 L50 240 L56 248 L86 248 L86 282 L28 282 Z\" fill=\"#ffd54f\" stroke=\"#c79a00\"></path><text x=\"56\" y=\"302\" font-size=\"13\" fill=\"#fff\" text-anchor=\"middle\">Мои рисунки</text></g><rect x=\"1\" y=\"378\" width=\"638\" height=\"41\" fill=\"#1d2633\" opacity=\"0.92\"></rect><circle cx=\"28\" cy=\"398\" r=\"11\" fill=\"#fff\" opacity=\"0.85\"></circle><path d=\"M300 388 L316 388 L320 393 L336 393 L336 410 L300 410 Z\" fill=\"#ffd54f\"></path><g transform=\"translate(350 383) scale(0.5)\"><path d=\"M30 4 C12 4 2 16 2 30 C2 46 16 56 30 56 C36 56 38 52 36 48 C34 44 36 40 42 40 L48 40 C55 40 58 35 58 28 C58 14 46 4 30 4 Z\" fill=\"#f6e2bd\" stroke=\"#a57a3e\" stroke-width=\"2\"></path><circle cx=\"18\" cy=\"22\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"30\" cy=\"14\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"43\" cy=\"20\" r=\"5\" fill=\"#1e63d6\"></circle><circle cx=\"16\" cy=\"38\" r=\"5\" fill=\"#43a047\"></circle><circle cx=\"28\" cy=\"44\" r=\"4\" fill=\"#fff\" stroke=\"#a57a3e\" stroke-width=\"1.5\"></circle></g><circle cx=\"400\" cy=\"398\" r=\"11\" fill=\"none\" stroke=\"#9ad0ff\" stroke-width=\"3\"></circle><rect x=\"18\" y=\"122\" width=\"76\" height=\"92\" rx=\"10\" fill=\"none\" stroke=\"#ffb74d\" stroke-width=\"4\" class=\"hl\"></rect><rect x=\"98\" y=\"150\" width=\"128\" height=\"34\" rx=\"17\" fill=\"#ff6a00\"></rect><text x=\"162\" y=\"173\" font-size=\"16\" font-weight=\"700\" fill=\"#fff\" text-anchor=\"middle\">щёлк-щёлк!</text><g transform=\"translate(66 168)\"><path d=\"M0 0 L0 22 L6 17 L10 26 L14 24 L10 15 L17 15 Z\" fill=\"#fff\" stroke=\"#111\" stroke-width=\"1.6\" stroke-linejoin=\"round\"></path></g></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 2,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 2</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Белый лист — это холст. Рисуем на нём</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/0c1fd7078665037c.webp\"></image><rect x=\"289\" y=\"203\" width=\"878\" height=\"496\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><rect x=\"680.0\" y=\"429\" width=\"96.0\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"728\" y=\"457.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Холст</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 3,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 3</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Нажми «Кисти». Выбери красный</h2><p class=\"s-hint\">1 — кисть, 2 — красный кружок</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/288c5fbd17abfa2a.webp\"></image><rect x=\"369\" y=\"74\" width=\"46\" height=\"58\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"413\" cy=\"72\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"413\" y=\"78.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"814\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"826.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"826.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 4,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 4</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Подними ползунок слева — кисть станет толще</h2><p class=\"s-hint\">Красный кружок на холсте — такой будет линия</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/e7a79b9316de0404.webp\"></image><rect x=\"10\" y=\"282\" width=\"41\" height=\"340\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><line x1=\"165\" y1=\"500\" x2=\"52\" y2=\"500\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"52\" cy=\"500\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"57.60000000000001\" y=\"479\" width=\"214.79999999999998\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"165\" y=\"507.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Ползунок вверх</text><line x1=\"700\" y1=\"380\" x2=\"700\" y2=\"430\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"700\" cy=\"430\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"572.8\" y=\"359\" width=\"254.39999999999998\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"700\" y=\"387.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Такая будет линия</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 5,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 5</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Нажми и веди горкой слева направо</h2><p class=\"s-hint\">Нажали — едем на горку — съезжаем — отпустили</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/6412f464d727a412.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 6,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 6</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Какой цвет следующий? Оранжевый!</h2><p class=\"s-hint\">Новая дуга — под красной, вплотную</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/fa1c4703fa8f6658.webp\"></image><rect x=\"837\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 7,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 7</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Дальше жёлтый, потом зелёный</h2><p class=\"s-hint\">Каждая дуга — под предыдущей</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/f4354f51a9947add.webp\"></image><rect x=\"860\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"872.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"872.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"883\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"895.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"895.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 8,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 8</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Голубой, синий, фиолетовый — и радуга готова!</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/b2a9663f50998fce.webp\"></image><rect x=\"905\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"917.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"917.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"928\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"940.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"940.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text><rect x=\"951\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"963.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"963.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">3</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 9,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 9</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Возьми карандаш и зелёный. Нарисуй травку</h2><p class=\"s-hint\">Короткие чёрточки снизу вверх</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/f92a18bc7d9fdae2.webp\"></image><rect x=\"240\" y=\"66\" width=\"37\" height=\"37\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"275\" cy=\"64\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"275\" y=\"70.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"883\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"895.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"895.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "practice",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Отдыхаем</div><h2>Отвернулись от экранов!</h2><ul class=\"s-list\"><li>«Карандаш!» — тянемся вверх</li><li>«Кисть!» — руки в стороны</li><li>«Радуга!» — дуга руками</li></ul></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 260\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><path d=\"M90 200 A230 160 0 0 1 550 200\" fill=\"none\" stroke=\"#8e44ad\" stroke-width=\"6\" stroke-dasharray=\"14 10\"></path><path d=\"M84 186 L90 206 L104 192 Z\" fill=\"#8e44ad\"></path><path d=\"M556 186 L550 206 L536 192 Z\" fill=\"#8e44ad\"></path><ellipse cx=\"285\" cy=\"190\" rx=\"28\" ry=\"18\" fill=\"#fff\" stroke=\"#333\" stroke-width=\"3\"></ellipse><circle cx=\"285\" cy=\"186\" r=\"9\" fill=\"#333\"></circle><ellipse cx=\"355\" cy=\"190\" rx=\"28\" ry=\"18\" fill=\"#fff\" stroke=\"#333\" stroke-width=\"3\"></ellipse><circle cx=\"355\" cy=\"186\" r=\"9\" fill=\"#333\"></circle><text x=\"320\" y=\"248\" font-size=\"20\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Нарисуй глазами радугу</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 10,
+      "level": 2,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 10</div><span class=\"stars\" title=\"уровень 2\">★★</span><h2>Стрелочка под «Кисти» → Распылитель. Цвет серый</h2><p class=\"s-hint\">Стрелочка открывает список кистей</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/64697c68d5a8bd01.webp\"></image><rect x=\"377\" y=\"268\" width=\"268\" height=\"38\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"643\" cy=\"266\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"643\" y=\"272.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"769\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"781.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"781.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 11,
+      "level": 2,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 11</div><span class=\"stars\" title=\"уровень 2\">★★</span><h2>Ползунок повыше. Держи кнопку и води кругами</h2><p class=\"s-hint\">Чем дольше держишь — тем гуще туча</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/ea151727085f543e.webp\"></image><rect x=\"10\" y=\"282\" width=\"41\" height=\"340\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><line x1=\"640\" y1=\"262\" x2=\"548\" y2=\"258\" stroke=\"#ff6a00\" stroke-width=\"3.5\"></line><circle cx=\"548\" cy=\"258\" r=\"5\" fill=\"#ff6a00\"></circle><rect x=\"545.8\" y=\"241\" width=\"188.39999999999998\" height=\"42\" rx=\"21\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></rect><text x=\"640\" y=\"269.5\" font-size=\"22\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">Води кругами</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 12,
+      "level": 2,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 12</div><span class=\"stars\" title=\"уровень 2\">★★</span><h2>Карандаш, голубой: капли из тучи</h2><p class=\"s-hint\">Короткие косые чёрточки</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/5624f58777b079c7.webp\"></image><rect x=\"240\" y=\"66\" width=\"37\" height=\"37\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"275\" cy=\"64\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"275\" y=\"70.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"905\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"917.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"917.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 13,
+      "level": 3,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 13</div><span class=\"stars\" title=\"уровень 3\">★★★</span><h2>Стрелочка под «Кисти» → Кисть. Цвет жёлтый</h2><p class=\"s-hint\">Иначе останется распылитель</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/64697c68d5a8bd01.webp\"></image><rect x=\"377\" y=\"139\" width=\"268\" height=\"38\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"643\" cy=\"137\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"643\" y=\"143.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"860\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"872.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"872.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 14,
+      "level": 3,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 14</div><span class=\"stars\" title=\"уровень 3\">★★★</span><h2>Круг в правом углу, закрась его кругами</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/45874ea6471471ee.webp\"></image><rect x=\"369\" y=\"74\" width=\"46\" height=\"58\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"413\" cy=\"72\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"413\" y=\"78.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"860\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"872.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"872.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 15,
+      "level": 3,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 15</div><span class=\"stars\" title=\"уровень 3\">★★★</span><h2>Карандаш: оранжевые лучики и чёрные птички</h2><p class=\"s-hint\">Птичка — две маленькие горки</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/baf18eef1f6a3b3e.webp\"></image><rect x=\"240\" y=\"66\" width=\"37\" height=\"37\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"275\" cy=\"64\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"275\" y=\"70.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"837\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"849.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"849.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text><rect x=\"746\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"758.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"758.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">3</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 16,
+      "level": "free",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 16</div><span class=\"stars free\">свободное</span><h2>Кто гуляет под радугой? Нарисуй!</h2><p class=\"s-hint\">Ты сам, котёнок или цветы — любыми инструментами</p></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/baf18eef1f6a3b3e.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "reflection",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Рефлексия</div><div class=\"s-num\">Галерея</div><h2>Руки за спину — идём в музей</h2><p class=\"s-big\">Что тебе понравилось у соседа?</p></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/baf18eef1f6a3b3e.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "reflection",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Рефлексия</div><div class=\"s-num\">Как получилось?</div><h2>Покажи пальцем, как у тебя получилось</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 260\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><circle cx=\"110\" cy=\"105\" r=\"78\" fill=\"#43a047\"></circle><g transform=\"translate(110 105) scale(2.4)\"><path d=\"M0 18 L0 -18 M-14 -4 L0 -18 L14 -4\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></g><text x=\"110\" y=\"228\" font-size=\"24\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">всё получилось</text><circle cx=\"320\" cy=\"105\" r=\"78\" fill=\"#f2a516\"></circle><g transform=\"translate(320 105) scale(2.4)\"><path d=\"M-18 0 L18 0 M4 -14 L18 0 L4 14\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></g><text x=\"320\" y=\"228\" font-size=\"24\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">почти</text><circle cx=\"530\" cy=\"105\" r=\"78\" fill=\"#e53935\"></circle><g transform=\"translate(530 105) scale(2.4)\"><path d=\"M0 -18 L0 18 M-14 4 L0 18 L14 4\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></g><text x=\"530\" y=\"228\" font-size=\"24\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">было трудно</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "summary",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Заключение</div><div class=\"s-num\">Итог</div><h2>Мы научились?</h2><ul class=\"s-list\"><li>Открывать Paint</li><li>Рисовать кистью и карандашом</li><li>Делать линию толще</li><li>Выбирать цвет</li></ul></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/baf18eef1f6a3b3e.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "summary",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Заключение</div><div class=\"s-num\">В следующий раз</div><h2>Научимся исправлять ошибки</h2><p class=\"s-big\">Ластик и волшебная кнопка «Отменить»</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 260\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><rect x=\"90\" y=\"10\" width=\"200\" height=\"180\" rx=\"28\" fill=\"#fff1e6\" stroke=\"#ffc89e\" stroke-width=\"3\"></rect><g transform=\"translate(190 100) scale(4)\"><path d=\"M10 10 Q10 -3 -2 -3 L-9 -3\" fill=\"none\" stroke=\"#333\" stroke-width=\"3\" stroke-linecap=\"round\"></path><path d=\"M-8 -9.5 L-15 -3 L-8 3.5 Z\" fill=\"#333\"></path></g><text x=\"190\" y=\"235\" font-size=\"28\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">Отменить</text><rect x=\"350\" y=\"10\" width=\"200\" height=\"180\" rx=\"28\" fill=\"#fff1e6\" stroke=\"#ffc89e\" stroke-width=\"3\"></rect><g transform=\"translate(450 100) scale(4) rotate(-35)\"><rect x=\"-12\" y=\"-6\" width=\"24\" height=\"12\" rx=\"2\" fill=\"#f8bbd0\" stroke=\"#c2185b\" stroke-width=\"1.2\"></rect><rect x=\"-12\" y=\"-6\" width=\"9\" height=\"12\" rx=\"2\" fill=\"#90caf9\" stroke=\"#1565c0\" stroke-width=\"1.2\"></rect></g><text x=\"450\" y=\"235\" font-size=\"28\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">Ластик</text></svg></div>"
+    }
+  ],
+  "teacherScenario": "/content/1-klass-2-chetvert/scenarios/k10.html",
+  "media": [
+    "/content/1-klass-2-chetvert/media/baf18eef1f6a3b3e.webp",
+    "/content/1-klass-2-chetvert/media/0c1fd7078665037c.webp",
+    "/content/1-klass-2-chetvert/media/288c5fbd17abfa2a.webp",
+    "/content/1-klass-2-chetvert/media/e7a79b9316de0404.webp",
+    "/content/1-klass-2-chetvert/media/6412f464d727a412.webp",
+    "/content/1-klass-2-chetvert/media/fa1c4703fa8f6658.webp",
+    "/content/1-klass-2-chetvert/media/f4354f51a9947add.webp",
+    "/content/1-klass-2-chetvert/media/b2a9663f50998fce.webp",
+    "/content/1-klass-2-chetvert/media/f92a18bc7d9fdae2.webp",
+    "/content/1-klass-2-chetvert/media/64697c68d5a8bd01.webp",
+    "/content/1-klass-2-chetvert/media/ea151727085f543e.webp",
+    "/content/1-klass-2-chetvert/media/5624f58777b079c7.webp",
+    "/content/1-klass-2-chetvert/media/45874ea6471471ee.webp"
+  ]
+}

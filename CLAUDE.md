@@ -4,7 +4,7 @@
 >
 > «Sinf» (узб. «класс») — временное название. Перед публичным запуском проверить, что имя свободно.
 >
-> **Сейчас идёт этап 1 — демонстрационный веб-MVP. Активный план — `STAGE1.md`.** В нём же перечислено, где этап 1 отступает от этого файла (ADR-004: только веб, SQLite, файлы в локальной папке). После этапа 1 продолжаем по `PLAN.md`.
+> **Сейчас идёт этап 2 — общий сайт, школы и их компьютеры. Активный план — `STAGE2.md`** (решения — ADR-009). Этап 1 (демо-MVP, `STAGE1.md`) закрыт по шагам S1.1–S1.10; S1.11–S1.16 отложены до конца этапа 2. Где этап 1 отступил от этого файла, перечислено в ADR-004 (только веб, SQLite, файлы в локальной папке). После этапа 2 продолжаем по `PLAN.md`.
 
 ---
 
@@ -347,7 +347,7 @@ Windows 10/11 x64 Pro · 4 ГБ ОЗУ · старый двухъядерный 
 - демо должно запускаться в облачной среде Claude Code и на ноутбуке учителя без Docker;
 - десктоп для Windows в облаке не собрать.
 
-Схему базы пишем переносимой, чтобы потом перейти на PostgreSQL. Подробно — в `docs/decisions/004-stage1-demo.md`.
+Схему базы пишем переносимой, чтобы потом перейти на PostgreSQL. Подробно — в `docs/decisions/004-stage1-demo.md`. Технический план шагов этапа 1 — `docs/stage1-architecture.md`; формат контента уроков — ADR-005, протокол реального времени и состояние сеанса — ADR-006.
 
 ### 5.5 Мост между вебом и десктопом
 
@@ -468,7 +468,46 @@ Windows 10/11 x64 Pro · 4 ГБ ОЗУ · старый двухъядерный 
 
 ## 10. Команды
 
-_Заполнить по мере появления (фаза 1): установка зависимостей, запуск БД, запуск сервера и веба, тесты, сборка десктопа._
+Требования: Node.js 22 LTS (≥ 22.12), pnpm 10 (`corepack enable`). Все команды запускаются из корня репозитория.
+
+| Команда | Что делает |
+|---|---|
+| `pnpm install` | установить зависимости всех пакетов |
+| `cp .env.example .env` | создать локальный конфиг (секреты только в `.env`) |
+| `pnpm dev` | сервер (`tsx watch`, :3000) и веб (Vite, http://localhost:5173 с прокси `/api`, `/content`, `/ws`) параллельно |
+| `pnpm build` | собрать все пакеты в `dist/` по порядку зависимостей |
+| `pnpm start` | запустить собранный сервер (`apps/server/dist/index.js`); он же раздаёт собранный веб из `apps/web/dist` — один порт :3000 |
+| `pnpm test` | Vitest во всех пакетах (`pnpm test:watch` — в режиме наблюдения) |
+| `pnpm lint` | ESLint (с проверкой типов) и `prettier --check` |
+| `pnpm format` | отформатировать код Prettier |
+| `pnpm typecheck` | `tsc --noEmit` во всех пакетах |
+| `pnpm seed` | демо-данные в пустую базу; `pnpm seed --reset` — стереть всё и засеять заново |
+| `pnpm --filter @sinf/server db:generate` | SQL-миграция после изменения `apps/server/src/db/schema.ts` (папка `apps/server/drizzle/`, коммитится) |
+| `pnpm import:html <файл детей> <файл учителя> <папка вывода>` | импорт уроков из HTML автора в `content/` (ADR-005); пути — от корня репозитория |
+
+Импорт уроков 1 класса, II четверть (после изменения `content-src/` — перезапустить и закоммитить `content/`):
+
+```bash
+pnpm import:html content-src/1-klass-2-chetvert/1_klass_2_chetvert.html content-src/1-klass-2-chetvert/1_klass_2_chetvert_uchitel.html content/1-klass-2-chetvert
+```
+
+Сервер: `pnpm dev` → http://localhost:3000/health. База — `data/sinf.db`; при пустой базе демо-данные создаются сами. Демо-учитель `demo@sinf.local`, пароль — `DEMO_TEACHER_PASSWORD` из `.env`. Сброс демо — `pnpm seed --reset` или `POST /api/demo/reset` с cookie учителя.
+
+Школы заводит суперадмин (ADR-009): задайте `SUPERADMIN_EMAIL` и `SUPERADMIN_PASSWORD` в `.env`, и учётка создастся при старте сервера; раздел — `/admin`. Без этих переменных суперадмина нет, а раздел отвечает 404.
+
+Запуск для урока — `docs/deploy.md`: ноутбук в локальной сети (`pnpm build && pnpm start`, адрес `http://192.168.x.x:3000`) или сервер с доменом (`docker compose -f deploy/docker-compose.yml up -d --build`, Caddy даёт HTTPS).
+
+Проверка перед PR: `pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm build`.
+
+Windows-приложение (`apps/desktop`, своё окно на WebView2, шаг 6.1 раньше срока — ADR-008) собирает GitHub Actions на `windows-latest`: workflow **Windows app**, архив в Artifacts. В Linux-окружении оно не собирается (§9.8). Собрать на своей машине:
+
+```powershell
+pnpm build
+dotnet publish apps/desktop/Sinf.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+./tools/package-windows.ps1
+```
+
+Агент (служба Windows) на этапе 1 не собирается (ADR-004); команды для него добавим в фазе 6.
 
 ---
 
