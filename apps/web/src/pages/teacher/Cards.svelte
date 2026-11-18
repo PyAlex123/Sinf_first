@@ -7,6 +7,7 @@
   import { router, type PageProps } from '../../lib/router.svelte.js';
   import Button from '../../lib/ui/Button.svelte';
   import Header from '../../lib/ui/Header.svelte';
+  import Icon from '../../lib/ui/Icon.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
 
   let { params }: PageProps = $props();
@@ -35,7 +36,10 @@
 
 <div class="no-print">
   <Header back="/teacher" title={t('cards.title')}>
-    <Button onclick={() => window.print()}>{t('cards.print')}</Button>
+    <Button onclick={() => window.print()}>
+      <Icon name="print" />
+      {t('cards.print')}
+    </Button>
   </Header>
   <p class="page hint">{t('cards.perPage')}</p>
 </div>

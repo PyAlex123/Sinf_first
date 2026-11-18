@@ -18,17 +18,19 @@
 <style>
   .lang {
     display: inline-flex;
-    border: 1px solid var(--c-line);
-    border-radius: 999px;
+    border: 1px solid var(--c-line-strong);
+    border-radius: var(--radius-pill);
     overflow: hidden;
     background: var(--c-surface);
+    flex: none;
   }
   button {
     border: 0;
     background: transparent;
-    padding: var(--space-2) var(--space-3);
+    padding: 0 var(--space-3);
     color: var(--c-muted);
-    min-height: 36px;
+    font-weight: 600;
+    min-height: var(--control-sm);
   }
   .active {
     background: var(--c-dark);

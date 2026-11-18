@@ -177,10 +177,15 @@
       {/each}
     </div>
     <div class="row">
-      <Button variant="secondary" onclick={() => (entered = [])} disabled={entered.length === 0}>
+      <Button
+        variant="secondary"
+        size="lg"
+        onclick={() => (entered = [])}
+        disabled={entered.length === 0}
+      >
         {t('join.clear')}
       </Button>
-      <Button variant="ghost" onclick={notMe}>{t('join.notMe')}</Button>
+      <Button variant="ghost" size="lg" onclick={notMe}>{t('join.notMe')}</Button>
     </div>
   {/if}
 
@@ -206,6 +211,9 @@
     margin-bottom: var(--space-5);
   }
   .home {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-sm);
     font-weight: 800;
     color: var(--c-dark);
     text-decoration: none;
@@ -231,7 +239,7 @@
     text-align: center;
     letter-spacing: 12px;
     padding: var(--space-3);
-    border: 3px solid var(--c-line);
+    border: 2px solid var(--c-field-line);
     border-radius: var(--radius-lg);
     color: var(--c-dark);
     background: var(--c-surface);
@@ -244,18 +252,19 @@
     margin-top: var(--space-4);
   }
   .names button {
-    min-height: 72px;
+    min-height: var(--tap);
     font-size: var(--text-lg);
     font-weight: 700;
     color: var(--c-dark);
     background: var(--c-surface);
-    border: 3px solid var(--c-line);
+    border: 1px solid var(--c-field-line);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow);
-    padding: var(--space-2) var(--space-3);
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-3) var(--space-4);
   }
   .names button:hover {
     border-color: var(--c-accent);
+    background: var(--c-accent-soft);
   }
   .slots {
     display: flex;
@@ -265,7 +274,7 @@
   .slot {
     width: 110px;
     height: 84px;
-    border: 4px dashed var(--c-line);
+    border: 3px dashed var(--c-line-strong);
     border-radius: var(--radius-lg);
     background: var(--c-surface);
     display: flex;
@@ -297,15 +306,20 @@
   }
   .choice {
     aspect-ratio: 4 / 3;
-    border: 3px solid var(--c-line);
+    min-height: var(--tap);
+    border: 1px solid var(--c-field-line);
     border-radius: var(--radius-lg);
     background: var(--c-surface);
-    box-shadow: var(--shadow);
-    padding: 4px;
+    box-shadow: var(--shadow-sm);
+    padding: var(--space-1);
     overflow: hidden;
+  }
+  .choice:hover {
+    border-color: var(--c-accent);
   }
   .choice:active {
     border-color: var(--c-accent);
+    background: var(--c-accent-soft);
   }
   .choice :global(svg) {
     width: 100%;

@@ -13,8 +13,11 @@
   import { router, type PageProps } from '../../lib/router.svelte.js';
   import Button from '../../lib/ui/Button.svelte';
   import Card from '../../lib/ui/Card.svelte';
+  import EmptyState from '../../lib/ui/EmptyState.svelte';
   import Header from '../../lib/ui/Header.svelte';
+  import Icon from '../../lib/ui/Icon.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
+  import PageHeader from '../../lib/ui/PageHeader.svelte';
   import StudentList from '../../lib/ui/StudentList.svelte';
 
   /** Class page (S2.2): the register, pasting a roster, fixing names, cards for printing. */
@@ -86,115 +89,126 @@
 
 <Header back="/teacher" />
 
-<main class="page">
+<main class="page stack">
   {#if error && !cls}
     <Notice kind="error">{error}</Notice>
   {:else if !cls}
-    <p aria-busy="true">{t('common.loading')}</p>
+    <p aria-busy="true" class="muted">{t('common.loading')}</p>
   {:else}
-    <section class="top">
-      <Card>
-        <h1>{t('teacher.class', { name: cls.name })}</h1>
-        <p class="muted">
-          {t('teacher.students', { count: cls.studentCount })}
-          {#if cls.schoolName}· {cls.schoolName}{:else}· {t('class.personal')}{/if}
-        </p>
-        <div class="actions">
-          <Button variant="secondary" href={`/teacher/class/${cls.id}/cards`}>
-            {t('teacher.cards')}
-          </Button>
-        </div>
-      </Card>
-
-      <Card>
-        <h2>{t('class.add.title')}</h2>
-        <p class="muted">{t('class.add.hint')}</p>
-        <textarea
-          bind:value={pasted}
-          rows="6"
-          placeholder={t('class.add.placeholder')}
-          aria-label={t('class.add.title')}
-        ></textarea>
-        {#if preview}
-          <p class="count">
-            {t('class.add.found', { count: preview.students.length })}
-            {#if room < preview.students.length}
-              <span class="warn">{t('class.add.tooMany', { room })}</span>
-            {/if}
-          </p>
-          {#if preview.problems.length > 0}
-            <ul class="problems">
-              {#each preview.problems as p (p.line)}
-                <li>
-                  <b>{t('class.add.line', { line: p.line })}</b>
-                  «{p.text}» — {t(`class.add.problem.${p.reason}`)}
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        {/if}
-        {#if error}<Notice kind="error">{error}</Notice>{/if}
-        {#if report}
-          <Notice kind="info">
-            {t('class.add.added', { count: report.added })}
-            {#if report.skipped.length > 0}
-              · {t('class.add.skipped', { names: report.skipped.join(', ') })}
-            {/if}
-          </Notice>
-        {/if}
-        <Button
-          size="lg"
-          disabled={busy || !preview || preview.students.length === 0}
-          onclick={addStudents}
-        >
-          {t('class.add.submit')}
+    <PageHeader
+      title={t('teacher.class', { name: cls.name })}
+      subtitle={`${t('teacher.students', { count: cls.studentCount })} · ${
+        cls.schoolName ?? t('class.personal')
+      }`}
+    >
+      {#snippet actions()}
+        <Button variant="secondary" href={`/teacher/class/${cls?.id}/cards`}>
+          {t('teacher.cards')}
         </Button>
-      </Card>
-    </section>
+      {/snippet}
+    </PageHeader>
 
-    <h2>{t('teacher.students.title')}</h2>
-    {#if students.length === 0}
-      <p class="muted">{t('class.noStudents')}</p>
-    {:else}
-      <StudentList
-        {students}
-        {pics}
-        editable
-        onChange={(u: Student) => (students = students.map((s) => (s.id === u.id ? u : s)))}
-        onRename={rename}
-        onRemove={remove}
-      />
-    {/if}
+    <div class="cols">
+      <section class="stack">
+        <h2>{t('teacher.students.title')}</h2>
+        {#if students.length === 0}
+          <EmptyState
+            icon="student"
+            title={t('class.noStudents')}
+            text={t('class.noStudents.hint')}
+          />
+        {:else}
+          <StudentList
+            {students}
+            {pics}
+            editable
+            onChange={(u: Student) => (students = students.map((s) => (s.id === u.id ? u : s)))}
+            onRename={rename}
+            onRemove={remove}
+          />
+        {/if}
+      </section>
+
+      <aside>
+        <Card>
+          <h2>{t('class.add.title')}</h2>
+          <p class="muted small">{t('class.add.hint')}</p>
+          <textarea
+            class="paste"
+            bind:value={pasted}
+            rows="6"
+            placeholder={t('class.add.placeholder')}
+            aria-label={t('class.add.title')}
+          ></textarea>
+          {#if preview}
+            <p class="count">
+              <Icon name="check" size={16} />
+              {t('class.add.found', { count: preview.students.length })}
+            </p>
+            {#if room < preview.students.length}
+              <Notice kind="warn">{t('class.add.tooMany', { room })}</Notice>
+            {/if}
+            {#if preview.problems.length > 0}
+              <ul class="problems">
+                {#each preview.problems as p (p.line)}
+                  <li>
+                    <b>{t('class.add.line', { line: p.line })}</b>
+                    «{p.text}» — {t(`class.add.problem.${p.reason}`)}
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          {/if}
+          {#if error}<Notice kind="error">{error}</Notice>{/if}
+          {#if report}
+            <Notice kind="ok">
+              {t('class.add.added', { count: report.added })}
+              {#if report.skipped.length > 0}
+                · {t('class.add.skipped', { names: report.skipped.join(', ') })}
+              {/if}
+            </Notice>
+          {/if}
+          <div class="go">
+            <Button
+              size="lg"
+              block
+              disabled={busy || !preview || preview.students.length === 0}
+              onclick={addStudents}
+            >
+              {t('class.add.submit')}
+            </Button>
+          </div>
+        </Card>
+      </aside>
+    </div>
   {/if}
 </main>
 
 <style>
-  .top {
+  /* The roster is the page; pasting a list is the tool beside it. */
+  .cols {
     display: grid;
-    gap: var(--space-4);
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    margin-bottom: var(--space-5);
+    gap: var(--space-5);
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+    align-items: start;
   }
-  .actions {
-    margin-top: var(--space-3);
-  }
-  textarea {
+  .paste {
     width: 100%;
-    margin-top: var(--space-2);
-    padding: var(--space-2);
-    border: 1px solid var(--c-line);
+    margin-top: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--c-field-line);
     border-radius: var(--radius);
     font: inherit;
+    line-height: var(--leading-normal);
     resize: vertical;
   }
   .count {
-    margin: var(--space-2) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-3) 0;
     font-weight: 600;
-    color: var(--c-dark);
-  }
-  .warn {
-    color: var(--c-danger);
-    margin-left: var(--space-2);
+    color: var(--c-ok);
   }
   .problems {
     margin: 0 0 var(--space-3);
@@ -202,8 +216,11 @@
     color: var(--c-muted);
     font-size: var(--text-sm);
   }
+  .go {
+    margin-top: var(--space-4);
+  }
   @media (max-width: 900px) {
-    .top {
+    .cols {
       grid-template-columns: minmax(0, 1fr);
     }
   }

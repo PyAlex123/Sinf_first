@@ -4,6 +4,7 @@
   import { router, type PageProps } from '../../lib/router.svelte.js';
   import Button from '../../lib/ui/Button.svelte';
   import Card from '../../lib/ui/Card.svelte';
+  import Field from '../../lib/ui/Field.svelte';
   import Header from '../../lib/ui/Header.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
 
@@ -37,16 +38,13 @@
     <h1>{t('register.title')}</h1>
     <p class="muted">{t('register.hint')}</p>
     <form onsubmit={submit}>
-      <label>
-        <span>{t('register.name')}</span>
+      <Field label={t('register.name')}>
         <input type="text" bind:value={fullName} required autocomplete="name" minlength="2" />
-      </label>
-      <label>
-        <span>{t('login.email')}</span>
+      </Field>
+      <Field label={t('login.email')}>
         <input type="email" bind:value={email} required autocomplete="username" />
-      </label>
-      <label>
-        <span>{t('login.password')}</span>
+      </Field>
+      <Field label={t('login.password')} hint={t('register.passwordHint')}>
         <input
           type="password"
           bind:value={password}
@@ -54,12 +52,11 @@
           autocomplete="new-password"
           minlength="8"
         />
-        <small class="muted">{t('register.passwordHint')}</small>
-      </label>
+      </Field>
       {#if error}<Notice kind="error">{error}</Notice>{/if}
-      <Button type="submit" size="lg" disabled={busy}>{t('register.submit')}</Button>
+      <Button type="submit" size="lg" block disabled={busy}>{t('register.submit')}</Button>
     </form>
-    <p class="muted alt">
+    <p class="muted small alt">
       {t('register.haveAccount')}
       <a href="/teacher/login">{t('login.submit')}</a>
     </p>
@@ -67,30 +64,17 @@
 </main>
 
 <style>
-  .narrow {
-    max-width: 420px;
+  .page {
     padding-top: var(--space-6);
   }
   form {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-  }
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    font-weight: 600;
-    color: var(--c-dark);
-  }
-  input {
-    min-height: 44px;
-    padding: 0 var(--space-3);
-    border: 1px solid var(--c-line);
-    border-radius: var(--radius);
-    font-size: var(--text-md);
+    margin-top: var(--space-4);
   }
   .alt {
     margin-top: var(--space-4);
+    text-align: center;
   }
 </style>

@@ -7,6 +7,7 @@
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
   import Button from '../lib/ui/Button.svelte';
+  import Icon from '../lib/ui/Icon.svelte';
   import Notice from '../lib/ui/Notice.svelte';
   import RestScreen from '../lib/ui/RestScreen.svelte';
   import StageTimer from '../lib/ui/StageTimer.svelte';
@@ -159,11 +160,13 @@
           class:up={me?.hand}
           onclick={() => store?.hand(!me?.hand)}
         >
-          ✋ {me?.hand ? t('student.handDown') : t('student.hand')}
+          <Icon name="hand" />
+          {me?.hand ? t('student.handDown') : t('student.hand')}
         </button>
       </div>
       {#if lock}
         <div class="lock" role="alert">
+          <Icon name="lock" size={64} />
           <div class="lock-text">{lock.text || t('student.lockDefault')}</div>
         </div>
       {/if}
@@ -204,25 +207,29 @@
   }
   .num,
   .conn {
-    background: rgba(19, 35, 58, 0.8);
+    background: rgba(19, 35, 58, 0.85);
     color: #fff;
-    border-radius: 999px;
-    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    padding: var(--space-1) var(--space-3);
     font-size: var(--text-sm);
+    font-weight: 600;
   }
   .conn {
     background: var(--c-danger);
   }
   .hand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
     min-height: var(--tap);
     padding: 0 var(--space-4);
-    border-radius: 999px;
-    border: 3px solid #fff;
+    border-radius: var(--radius-pill);
+    border: 2px solid #fff;
     background: var(--c-teal);
     color: #fff;
     font-weight: 700;
     font-size: var(--text-md);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-lg);
   }
   .hand.up {
     background: var(--c-accent);
@@ -234,8 +241,10 @@
     background: var(--c-dark);
     color: #fff;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: var(--space-5);
     padding: var(--space-6);
     text-align: center;
   }
@@ -250,7 +259,7 @@
       right: var(--space-2);
     }
     .hand {
-      min-height: 44px;
+      min-height: var(--control);
       padding: 0 var(--space-3);
       font-size: var(--text-sm);
     }

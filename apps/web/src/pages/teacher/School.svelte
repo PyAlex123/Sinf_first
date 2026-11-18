@@ -4,10 +4,15 @@
   import { api, ApiError } from '../../lib/api.js';
   import { t } from '../../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../../lib/router.svelte.js';
+  import Badge from '../../lib/ui/Badge.svelte';
   import Button from '../../lib/ui/Button.svelte';
   import Card from '../../lib/ui/Card.svelte';
+  import EmptyState from '../../lib/ui/EmptyState.svelte';
+  import Field from '../../lib/ui/Field.svelte';
   import Header from '../../lib/ui/Header.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
+  import PageHeader from '../../lib/ui/PageHeader.svelte';
+  import Table from '../../lib/ui/Table.svelte';
 
   /** School cabinet (S2.3): requests first, then the teachers and the classes of the school. */
 
@@ -75,6 +80,13 @@
       : t('devices.daysAgo', { count: Math.round(hours / 24) });
   }
 
+  /** Green only while the computer is actually answering; waiting for its code is not "online". */
+  function seenTone(device: Device): 'ok' | 'warn' | 'neutral' {
+    if (!device.paired) return 'warn';
+    if (!device.lastSeenAt) return 'neutral';
+    return Date.now() - Date.parse(device.lastSeenAt) < 3 * 60000 ? 'ok' : 'neutral';
+  }
+
   async function addDevice(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (!deviceName.trim()) return;
@@ -122,263 +134,275 @@
 
 <Header back="/teacher" />
 
-<main class="page">
+<main class="page stack">
   {#if error && !data}
     <Notice kind="error">{error}</Notice>
   {:else if !data}
-    <p aria-busy="true">{t('common.loading')}</p>
-  {:else}
+    <p aria-busy="true" class="muted">{t('common.loading')}</p>
+  {:else if editing}
     <Card>
-      {#if editing}
-        <form onsubmit={save}>
-          <label>
-            <span>{t('school.name')}</span>
-            <input bind:value={name} required maxlength="120" />
-          </label>
-          <label>
-            <span>{t('school.city')}</span>
-            <input bind:value={city} maxlength="60" />
-          </label>
-          <div class="actions">
-            <Button type="submit" disabled={busy === 'school'}>{t('common.save')}</Button>
-            <Button variant="ghost" onclick={() => (editing = false)}>{t('common.cancel')}</Button>
-          </div>
-        </form>
-      {:else}
-        <h1>{data.school.name}</h1>
-        <p class="muted">
-          {#if data.school.city}{data.school.city} ·
-          {/if}
-          {t('school.members', { count: data.members.length })} ·
-          {t('school.classes', { count: data.classes.length })}
-        </p>
-        {#if isAdmin}
-          <div class="actions">
-            <Button variant="ghost" onclick={() => (editing = true)}>{t('school.edit')}</Button>
-          </div>
-        {/if}
-      {/if}
+      <h1>{t('school.edit')}</h1>
+      <form class="edit" onsubmit={save}>
+        <Field label={t('school.name')}>
+          <input bind:value={name} required maxlength="120" />
+        </Field>
+        <Field label={t('school.city')}>
+          <input bind:value={city} maxlength="60" />
+        </Field>
+        <div class="row">
+          <Button type="submit" disabled={busy === 'school'}>{t('common.save')}</Button>
+          <Button variant="ghost" onclick={() => (editing = false)}>{t('common.cancel')}</Button>
+        </div>
+      </form>
     </Card>
+  {:else}
+    <PageHeader
+      title={data.school.name}
+      subtitle={[
+        data.school.city,
+        t('school.members', { count: data.members.length }),
+        t('school.classes', { count: data.classes.length }),
+      ]
+        .filter(Boolean)
+        .join(' · ')}
+    >
+      {#snippet actions()}
+        {#if isAdmin}
+          <Button variant="secondary" size="sm" onclick={() => (editing = true)}>
+            {t('school.edit')}
+          </Button>
+        {/if}
+      {/snippet}
+    </PageHeader>
+  {/if}
 
+  {#if data && !editing}
     {#if error}<Notice kind="error">{error}</Notice>{/if}
 
+    <!-- Waiting for an answer comes first: somebody cannot work until it is decided. -->
     {#if isAdmin && data.requests.length > 0}
-      <h2>{t('school.requests')}</h2>
-      <ul class="rows">
-        {#each data.requests as r (r.userId)}
-          <li>
-            <span class="who"><b>{r.fullName}</b> <small class="muted">{r.email}</small></span>
-            <span class="row-actions">
-              <Button
-                size="md"
-                disabled={busy === r.userId}
-                onclick={() =>
-                  run(r.userId, () => api.decideRequest(schoolId, r.userId, 'approve'))}
-              >
-                {t('school.approve')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="md"
-                disabled={busy === r.userId}
-                onclick={() => run(r.userId, () => api.decideRequest(schoolId, r.userId, 'reject'))}
-              >
-                {t('school.reject')}
-              </Button>
-            </span>
-          </li>
-        {/each}
-      </ul>
+      <Card accent>
+        <h2>{t('school.requests')}</h2>
+        <Table>
+          <tbody>
+            {#each data.requests as r (r.userId)}
+              <tr>
+                <td>
+                  <b>{r.fullName}</b>
+                  <div class="muted small">{r.email}</div>
+                </td>
+                <td class="actions">
+                  <div>
+                    <Button
+                      size="sm"
+                      disabled={busy === r.userId}
+                      onclick={() =>
+                        run(r.userId, () => api.decideRequest(schoolId, r.userId, 'approve'))}
+                    >
+                      {t('school.approve')}
+                    </Button>
+                    <Button
+                      variant="danger-ghost"
+                      size="sm"
+                      disabled={busy === r.userId}
+                      onclick={() =>
+                        run(r.userId, () => api.decideRequest(schoolId, r.userId, 'reject'))}
+                    >
+                      {t('school.reject')}
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </Table>
+      </Card>
     {/if}
 
-    <h2>{t('school.teachers')}</h2>
-    <ul class="rows">
-      {#each data.members as m (m.userId)}
-        <li>
-          <span class="who">
-            <b>{m.fullName}</b>
-            {#if m.email}<small class="muted">{m.email}</small>{/if}
-            {#if m.role === 'admin'}<span class="tag">{t('school.role.admin')}</span>{/if}
-          </span>
-          {#if isAdmin}
-            <span class="row-actions">
-              <Button
-                variant="ghost"
-                size="md"
-                disabled={busy === m.userId}
-                onclick={() =>
-                  run(m.userId, () =>
-                    api.setSchoolRole(schoolId, m.userId, m.role === 'admin' ? 'teacher' : 'admin'),
-                  )}
-              >
-                {m.role === 'admin' ? t('school.makeTeacher') : t('school.makeAdmin')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="md"
-                disabled={busy === m.userId}
-                onclick={() => run(m.userId, () => api.removeMember(schoolId, m.userId))}
-              >
-                {t('school.remove')}
-              </Button>
-            </span>
-          {/if}
-        </li>
-      {/each}
-    </ul>
+    <Card>
+      <h2>{t('school.teachers')}</h2>
+      <Table>
+        <tbody>
+          {#each data.members as m (m.userId)}
+            <tr>
+              <td>
+                <span class="who">
+                  <b>{m.fullName}</b>
+                  {#if m.role === 'admin'}<Badge tone="accent">{t('school.role.admin')}</Badge>{/if}
+                </span>
+                {#if m.email}<div class="muted small">{m.email}</div>{/if}
+              </td>
+              {#if isAdmin}
+                <td class="actions">
+                  <div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy === m.userId}
+                      onclick={() =>
+                        run(m.userId, () =>
+                          api.setSchoolRole(
+                            schoolId,
+                            m.userId,
+                            m.role === 'admin' ? 'teacher' : 'admin',
+                          ),
+                        )}
+                    >
+                      {m.role === 'admin' ? t('school.makeTeacher') : t('school.makeAdmin')}
+                    </Button>
+                    <Button
+                      variant="danger-ghost"
+                      size="sm"
+                      disabled={busy === m.userId}
+                      onclick={() => run(m.userId, () => api.removeMember(schoolId, m.userId))}
+                    >
+                      {t('school.remove')}
+                    </Button>
+                  </div>
+                </td>
+              {/if}
+            </tr>
+          {/each}
+        </tbody>
+      </Table>
+    </Card>
 
     {#if isAdmin}
-      <h2>{t('devices.title')}</h2>
-      <p class="muted">{t('devices.hint')}</p>
-      <form class="inline" onsubmit={addDevice}>
-        <label>
-          <span>{t('devices.name')}</span>
-          <input bind:value={deviceName} maxlength="40" placeholder="ПК-05" />
-        </label>
-        <label>
-          <span>{t('devices.room')}</span>
-          <input bind:value={deviceRoom} maxlength="40" placeholder="Кабинет 204" />
-        </label>
-        <Button type="submit" disabled={busy === 'device'}>{t('devices.add')}</Button>
-      </form>
-      {#if devices.length === 0}
-        <p class="muted">{t('devices.none')}</p>
-      {:else}
-        <ul class="rows">
-          {#each devices as d (d.id)}
-            <li>
-              <span class="who">
-                <b>{d.name}</b>
-                {#if d.room}<small class="muted">{d.room}</small>{/if}
-                <small class="muted">
-                  {seen(d)}
-                  {#if d.appVersion}· {d.appVersion}{/if}
-                </small>
-              </span>
-              <span class="row-actions">
-                {#if d.pairingCode}
-                  <code class="pair">{d.pairingCode}</code>
-                {/if}
-                <Button
-                  variant="ghost"
-                  size="md"
-                  disabled={busy === d.id}
-                  onclick={() => newCode(d)}
-                >
-                  {d.paired ? t('devices.recode') : t('devices.newCode')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="md"
-                  disabled={busy === d.id}
-                  onclick={() => removeDevice(d)}
-                >
-                  {t('school.remove')}
-                </Button>
-              </span>
-            </li>
-          {/each}
-        </ul>
-      {/if}
+      <Card>
+        <h2>{t('devices.title')}</h2>
+        <p class="muted small">{t('devices.hint')}</p>
+        <form class="add" onsubmit={addDevice}>
+          <Field label={t('devices.name')}>
+            <input bind:value={deviceName} maxlength="40" placeholder="ПК-05" />
+          </Field>
+          <Field label={t('devices.room')}>
+            <input bind:value={deviceRoom} maxlength="40" placeholder="Кабинет 204" />
+          </Field>
+          <Button type="submit" disabled={busy === 'device'}>{t('devices.add')}</Button>
+        </form>
+        {#if devices.length === 0}
+          <EmptyState icon="pc" title={t('devices.none')} text={t('devices.none.hint')} />
+        {:else}
+          <Table>
+            <thead>
+              <tr>
+                <th>{t('devices.name')}</th>
+                <th>{t('devices.room')}</th>
+                <th>{t('devices.state')}</th>
+                <th><span class="visually-hidden">{t('common.actions')}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each devices as d (d.id)}
+                <tr>
+                  <td>
+                    <b>{d.name}</b>
+                    {#if d.appVersion}<div class="muted small">{d.appVersion}</div>{/if}
+                  </td>
+                  <td class="muted">{d.room ?? '—'}</td>
+                  <td>
+                    <Badge tone={seenTone(d)}>{seen(d)}</Badge>
+                    {#if d.pairingCode}<code class="pair">{d.pairingCode}</code>{/if}
+                  </td>
+                  <td class="actions">
+                    <div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy === d.id}
+                        onclick={() => newCode(d)}
+                      >
+                        {d.paired ? t('devices.recode') : t('devices.newCode')}
+                      </Button>
+                      <Button
+                        variant="danger-ghost"
+                        size="sm"
+                        disabled={busy === d.id}
+                        onclick={() => removeDevice(d)}
+                      >
+                        {t('devices.remove')}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </Table>
+        {/if}
+      </Card>
     {/if}
 
-    <h2>{t('school.classes.title')}</h2>
-    {#if data.classes.length === 0}
-      <p class="muted">{t('school.noClasses')}</p>
-    {:else}
-      <ul class="rows">
-        {#each data.classes as c (c.id)}
-          <li>
-            <span class="who">
-              <b>{c.name}</b>
-              <small class="muted">
-                {t('teacher.students', { count: c.studentCount })}
-                {#if c.teachers.length > 0}· {c.teachers.join(', ')}{/if}
-              </small>
-            </span>
-            <span class="row-actions">
-              <Button variant="ghost" size="md" href={`/teacher/class/${c.id}`}>
-                {t('class.manage')}
-              </Button>
-            </span>
-          </li>
-        {/each}
-      </ul>
-    {/if}
+    <Card>
+      <h2>{t('school.classes.title')}</h2>
+      {#if data.classes.length === 0}
+        <EmptyState
+          icon="student"
+          title={t('school.noClasses')}
+          text={t('school.noClasses.hint')}
+        />
+      {:else}
+        <Table>
+          <tbody>
+            {#each data.classes as c (c.id)}
+              <tr>
+                <td>
+                  <b>{c.name}</b>
+                  <div class="muted small">
+                    {t('teacher.students', { count: c.studentCount })}
+                    {#if c.teachers.length > 0}· {c.teachers.join(', ')}{/if}
+                  </div>
+                </td>
+                <td class="actions">
+                  <div>
+                    <Button variant="ghost" size="sm" href={`/teacher/class/${c.id}`}>
+                      {t('class.manage')}
+                    </Button>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </Table>
+      {/if}
+    </Card>
   {/if}
 </main>
 
 <style>
-  .rows {
-    list-style: none;
-    margin: 0 0 var(--space-5);
-    padding: 0;
-    background: var(--c-surface);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-  }
-  .rows li {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-2) var(--space-3);
-    border-bottom: 1px solid var(--c-line);
-  }
   .who {
-    display: flex;
-    align-items: baseline;
+    display: inline-flex;
+    align-items: center;
     gap: var(--space-2);
     flex-wrap: wrap;
-    color: var(--c-dark);
   }
-  .tag {
-    padding: 2px var(--space-2);
-    border-radius: 999px;
-    background: var(--c-bg-2);
-    font-size: var(--text-sm);
-    color: var(--c-accent);
-    font-weight: 700;
-  }
-  .row-actions {
+  .edit {
     display: flex;
-    gap: var(--space-1);
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: var(--page-narrow);
+    margin-top: var(--space-4);
   }
-  .inline {
-    display: flex;
+  /* Two fields and the button on one line, wrapping on a phone. */
+  .add {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
     gap: var(--space-3);
-    align-items: flex-end;
-    flex-wrap: wrap;
-    margin-bottom: var(--space-3);
+    align-items: end;
+    margin: var(--space-4) 0;
   }
   .pair {
-    padding: 4px var(--space-2);
-    border-radius: var(--radius);
+    display: inline-block;
+    margin-left: var(--space-2);
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-sm);
     background: var(--c-bg-2);
-    font-size: var(--text-md);
     font-weight: 700;
     letter-spacing: 0.12em;
     color: var(--c-dark);
   }
-  form {
-    display: flex;
-    gap: var(--space-3);
-    align-items: flex-end;
-    flex-wrap: wrap;
-  }
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    font-weight: 600;
-    color: var(--c-dark);
-  }
-  input {
-    min-height: 44px;
-    padding: 0 var(--space-3);
-    border: 1px solid var(--c-line);
-    border-radius: var(--radius);
-    font-size: var(--text-md);
+  @media (max-width: 700px) {
+    .add {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 </style>

@@ -21,6 +21,32 @@ function storedLocale(): Locale {
   return DEFAULT_LOCALE;
 }
 
+/**
+ * Russian needs three forms after a number ("1 ученик", "2 ученика", "5 учеников"); Uzbek needs
+ * none. A key may therefore carry `<key>#one` / `#few` / `#many` beside the plain `<key>`, and the
+ * form is chosen from the `count` (or `sec`) placeholder. Without those keys nothing changes.
+ * The separator is `#`, not a dot: a dot is already part of ordinary key names (`session.lock.one`).
+ */
+function russianForm(n: number): 'one' | 'few' | 'many' {
+  const abs = Math.abs(Math.trunc(n));
+  const tens = abs % 100;
+  if (tens >= 11 && tens <= 14) return 'many';
+  const unit = abs % 10;
+  if (unit === 1) return 'one';
+  if (unit >= 2 && unit <= 4) return 'few';
+  return 'many';
+}
+
+function pluralKey(
+  locale: Locale,
+  key: string,
+  params?: Record<string, string | number>,
+): string | null {
+  if (locale !== 'ru' || !params) return null;
+  const n = params['count'] ?? params['sec'];
+  return typeof n === 'number' ? `${key}#${russianForm(n)}` : null;
+}
+
 class I18n {
   locale = $state<Locale>(storedLocale());
 
@@ -38,7 +64,15 @@ class I18n {
 
   /** Translates a key; missing keys fall back to Russian, then to the key itself (visible in dev). */
   t(key: string, params?: Record<string, string | number>): string {
-    return format(dictionaries[this.locale][key] ?? dictionaries.ru[key] ?? key, params);
+    const plural = pluralKey(this.locale, key, params);
+    const dictionary = dictionaries[this.locale];
+    const template =
+      (plural ? dictionary[plural] : undefined) ??
+      dictionary[key] ??
+      (plural ? dictionaries.ru[plural] : undefined) ??
+      dictionaries.ru[key] ??
+      key;
+    return format(template, params);
   }
 }
 

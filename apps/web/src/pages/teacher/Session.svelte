@@ -7,9 +7,12 @@
   import { router, type PageProps } from '../../lib/router.svelte.js';
   import { SessionStore } from '../../lib/stores/session.svelte.js';
   import Button from '../../lib/ui/Button.svelte';
+  import EmptyState from '../../lib/ui/EmptyState.svelte';
   import Header from '../../lib/ui/Header.svelte';
+  import Icon from '../../lib/ui/Icon.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
   import StageTimer from '../../lib/ui/StageTimer.svelte';
+  import Toolbar from '../../lib/ui/Toolbar.svelte';
   import LessonPlayer from '../../player/LessonPlayer.svelte';
 
   let { params }: PageProps = $props();
@@ -142,70 +145,100 @@
   {:else}
     <div class="panel">
       <section class="left">
-        <div class="toolbar">
-          <Button variant="secondary" disabled={session.screenIndex === 0} onclick={() => go(-1)}
-            >←</Button
-          >
-          <span class="pos">{t('session.screen', { index: session.screenIndex + 1, count })}</span>
-          <Button
-            variant="secondary"
-            disabled={session.screenIndex >= count - 1}
-            onclick={() => go(1)}>→</Button
-          >
-          <span class="spacer"></span>
-          <div class="modes" role="group" aria-label={t('session.mode')}>
-            <button
-              type="button"
-              class:active={session.mode === 'presentation'}
-              onclick={() => store?.setMode('presentation')}
-              >{t('session.mode.presentation')}</button
-            >
-            <button
-              type="button"
-              class:active={session.mode === 'free'}
-              onclick={() => store?.setMode('free')}>{t('session.mode.free')}</button
-            >
+        <!-- One band of controls: the time left, then the stage, the screen, and the mode. -->
+        <Toolbar>
+          {#snippet lead()}
+            <StageTimer {session} {stages} now={() => store?.now() ?? Date.now()} />
+          {/snippet}
+
+          <div class="group" role="group" aria-label={t('stage.timer')}>
+            <Button variant="secondary" size="sm" onclick={() => store?.backStage()}>
+              <Icon name="back" size={16} />
+              {t('stage.back')}
+            </Button>
+            {#if paused}
+              <Button variant="secondary" size="sm" onclick={() => store?.resumeStage()}>
+                <Icon name="play" size={16} />
+                {t('stage.resume')}
+              </Button>
+            {:else}
+              <Button variant="secondary" size="sm" onclick={() => store?.pauseStage()}>
+                <Icon name="pause" size={16} />
+                {t('stage.pause')}
+              </Button>
+            {/if}
+            <Button variant="secondary" size="sm" onclick={() => store?.extendStage(5)}>
+              {t('stage.extend')}
+            </Button>
+            <Button variant="secondary" size="sm" onclick={() => store?.skipStage()}>
+              {t('stage.skip')}
+              <Icon name="skip" size={16} />
+            </Button>
           </div>
-        </div>
-        <div class="stagebar">
-          <StageTimer {session} {stages} now={() => store?.now() ?? Date.now()} />
-          <span class="spacer"></span>
-          <Button variant="secondary" size="md" onclick={() => store?.backStage()}>
-            ⏮ {t('stage.back')}
-          </Button>
-          {#if paused}
-            <Button variant="secondary" size="md" onclick={() => store?.resumeStage()}>
-              ▶ {t('stage.resume')}
+
+          <div class="group screens">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={session.screenIndex === 0}
+              aria-label={t('common.prev')}
+              onclick={() => go(-1)}
+            >
+              <Icon name="back" size={16} />
             </Button>
-          {:else}
-            <Button variant="secondary" size="md" onclick={() => store?.pauseStage()}>
-              ⏸ {t('stage.pause')}
+            <span class="pos">{t('session.screen', { index: session.screenIndex + 1, count })}</span
+            >
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={session.screenIndex >= count - 1}
+              aria-label={t('common.next')}
+              onclick={() => go(1)}
+            >
+              <Icon name="forward" size={16} />
             </Button>
-          {/if}
-          <Button variant="secondary" size="md" onclick={() => store?.extendStage(5)}>
-            {t('stage.extend')}
-          </Button>
-          <Button variant="secondary" size="md" onclick={() => store?.skipStage()}>
-            {t('stage.skip')} ⏭
-          </Button>
-          <button
-            type="button"
-            class="scenariobtn"
-            class:on={scenarioOpen}
-            onclick={() => (scenarioOpen = !scenarioOpen)}
-          >
-            {scenarioOpen ? t('session.scenario.hide') : t('session.scenario.show')}
-          </button>
-          <button
-            type="button"
-            class="speed"
-            class:on={session.demoSpeed > 1}
-            title={t('stage.demoSpeed')}
-            onclick={() => store?.setDemoSpeed(session.demoSpeed > 1 ? 1 : 10)}
-          >
-            {session.demoSpeed > 1 ? t('stage.demoSpeed.on') : t('stage.demoSpeed.off')}
-          </button>
-        </div>
+          </div>
+
+          {#snippet trail()}
+            <div class="modes" role="group" aria-label={t('session.mode')}>
+              <button
+                type="button"
+                class:active={session.mode === 'presentation'}
+                aria-pressed={session.mode === 'presentation'}
+                onclick={() => store?.setMode('presentation')}
+              >
+                {t('session.mode.presentation')}
+              </button>
+              <button
+                type="button"
+                class:active={session.mode === 'free'}
+                aria-pressed={session.mode === 'free'}
+                onclick={() => store?.setMode('free')}
+              >
+                {t('session.mode.free')}
+              </button>
+            </div>
+            <button
+              type="button"
+              class="pill"
+              class:on={scenarioOpen}
+              aria-pressed={scenarioOpen}
+              onclick={() => (scenarioOpen = !scenarioOpen)}
+            >
+              {scenarioOpen ? t('session.scenario.hide') : t('session.scenario.show')}
+            </button>
+            <button
+              type="button"
+              class="pill"
+              class:on={session.demoSpeed > 1}
+              aria-pressed={session.demoSpeed > 1}
+              title={t('stage.demoSpeed')}
+              onclick={() => store?.setDemoSpeed(session.demoSpeed > 1 ? 1 : 10)}
+            >
+              {session.demoSpeed > 1 ? t('stage.demoSpeed.on') : t('stage.demoSpeed.off')}
+            </button>
+          {/snippet}
+        </Toolbar>
         <div class="previews">
           <div class="preview">
             <LessonPlayer
@@ -248,7 +281,14 @@
               <span class="spacer"></span>
               <a href={scenarioUrl} target="_blank" rel="noopener">{t('session.scenario.open')} ↗</a
               >
-              <Button variant="ghost" size="md" onclick={() => (scenarioOpen = false)}>✕</Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label={t('common.close')}
+                onclick={() => (scenarioOpen = false)}
+              >
+                <Icon name="close" size={16} />
+              </Button>
             </div>
             {#key scenarioUrl}
               <iframe src={scenarioUrl} title={t('session.scenario')}></iframe>
@@ -265,16 +305,23 @@
 
       <aside class="right">
         <div class="lockbox">
+          <h2 class="boxtitle">
+            <Icon name="lock" size={16} />
+            {t('session.lock')}
+          </h2>
           <input
             type="text"
             bind:value={lockText}
             placeholder={t('session.lock.text')}
             aria-label={t('session.lockText')}
           />
+          <Button variant="danger" size="lg" block onclick={() => lock('all')}>
+            {t('session.lock.all')}
+          </Button>
           <div class="lockbtns">
-            <Button variant="danger" onclick={() => lock('all')}>{t('session.lock.all')}</Button>
             <Button
               variant="secondary"
+              size="sm"
               disabled={selected.length === 0}
               onclick={() => lock(selected)}
             >
@@ -282,14 +329,15 @@
             </Button>
             <Button
               variant="secondary"
+              size="sm"
               disabled={selected.length === 0}
               onclick={() => store?.unlock(selected)}
             >
               {t('session.unlock.selected')}
             </Button>
-            <Button variant="secondary" onclick={() => store?.unlock('all')}
-              >{t('session.unlock.all')}</Button
-            >
+            <Button variant="secondary" size="sm" onclick={() => store?.unlock('all')}>
+              {t('session.unlock.all')}
+            </Button>
           </div>
           <p class="soft">{t('session.lock.soft')}</p>
         </div>
@@ -299,8 +347,11 @@
           <span class="muted">({participants.filter((p) => p.online).length})</span>
         </h2>
         {#if participants.length === 0}
-          <p class="muted">{t('session.participants.none')}</p>
-          <p class="muted">{t('session.joinHint')}</p>
+          <EmptyState
+            icon="student"
+            title={t('session.participants.none')}
+            text={t('session.joinHint')}
+          />
         {:else}
           <div class="selbar">
             <button
@@ -340,7 +391,7 @@
                     <span class="stars">{t('session.stars', { count: p.stars })}</span>
                   </div>
                   <div class="flags">
-                    {#if p.hand}<span class="flag hand">✋ {t('session.hand')}</span>{/if}
+                    {#if p.hand}<span class="flag hand">{t('session.hand')}</span>{/if}
                     {#if p.hidden}<span class="flag away">{t('session.hidden')}</span>{/if}
                     {#if p.escapes > 0}<span class="flag away"
                         >{t('session.escapes', { count: p.escapes })}</span
@@ -362,7 +413,7 @@
                     aria-label={isLocked(p) ? t('session.unlock.one') : t('session.lock.one')}
                     onclick={() => toggleLockOne(p)}
                   >
-                    {isLocked(p) ? '🔓' : '🔒'}
+                    <Icon name={isLocked(p) ? 'unlock' : 'lock'} size={16} />
                   </button>
                   {#if p.hand}
                     <button
@@ -372,7 +423,7 @@
                       aria-label={t('session.handDown')}
                       onclick={() => store?.clearHand(p.id)}
                     >
-                      ✋
+                      <Icon name="hand" size={16} />
                     </button>
                   {/if}
                 </div>
@@ -417,13 +468,20 @@
     min-width: 0;
     border-right: 1px solid var(--c-line);
   }
-  .toolbar {
+  /* The band is a card, so it is given room rather than being glued to the edges. */
+  .left :global(.toolbar) {
+    margin: var(--space-3);
+    border-radius: var(--radius-lg);
+  }
+  .group {
     display: flex;
     align-items: center;
+    gap: var(--space-1);
+  }
+  .screens {
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    background: var(--c-surface);
-    border-bottom: 1px solid var(--c-line);
+    padding-left: var(--space-3);
+    border-left: 1px solid var(--c-line);
   }
   .pos {
     font-weight: 600;
@@ -435,43 +493,36 @@
   }
   .modes {
     display: inline-flex;
-    border: 1px solid var(--c-line);
-    border-radius: 999px;
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius-pill);
     overflow: hidden;
   }
   .modes button {
     border: 0;
     background: transparent;
-    padding: var(--space-2) var(--space-3);
-    min-height: 36px;
+    padding: 0 var(--space-3);
+    min-height: var(--control-sm);
     color: var(--c-muted);
+    font-weight: 600;
   }
   .modes .active {
     background: var(--c-teal);
     color: #fff;
   }
-  .stagebar {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    background: var(--c-bg-2);
-    border-bottom: 1px solid var(--c-line);
-    flex-wrap: wrap;
-  }
-  .speed {
-    min-height: 36px;
+  /* A switch that stays on: the scenario pane, the demo speed. */
+  .pill {
+    min-height: var(--control-sm);
     padding: 0 var(--space-3);
-    border: 1px solid var(--c-line);
-    border-radius: 999px;
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius-pill);
     background: var(--c-surface);
     color: var(--c-muted);
-    font-weight: 700;
+    font-weight: 600;
   }
-  .speed.on {
-    background: var(--c-teal);
+  .pill.on {
+    background: var(--c-dark);
     color: #fff;
-    border-color: var(--c-teal);
+    border-color: var(--c-dark);
   }
   .previews {
     flex: 1;
@@ -534,20 +585,6 @@
     border: 0;
     width: 100%;
   }
-  .scenariobtn {
-    min-height: 36px;
-    padding: 0 var(--space-3);
-    border: 1px solid var(--c-line);
-    border-radius: 999px;
-    background: var(--c-surface);
-    color: var(--c-muted);
-    font-weight: 600;
-  }
-  .scenariobtn.on {
-    background: var(--c-dark);
-    color: #fff;
-    border-color: var(--c-dark);
-  }
   @media (max-width: 1200px) {
     .previews {
       grid-template-columns: minmax(0, 1fr);
@@ -564,22 +601,34 @@
     border-top: 1px solid var(--c-line);
   }
   .right {
-    /* `min-height: 0`, otherwise the grid item grows with its content and `overflow` never scrolls:
-       with a class of 20 the lower tiles were unreachable (S1.10). */
+    /* Its own scroll: the grid row is the viewport height, so a class of 20 still reaches the end. */
     overflow: auto;
     padding: var(--space-3);
     background: var(--c-bg-2);
   }
+  /* "Внимание!" is the one red thing on the panel, and it stays at the top. */
   .lockbox {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    margin-bottom: var(--space-4);
+    margin-bottom: var(--space-5);
+    padding: var(--space-3);
+    background: var(--c-surface);
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-lg);
+  }
+  .boxtitle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+    font-size: var(--text-md);
+    color: var(--c-danger-strong);
   }
   .lockbox input {
-    min-height: 40px;
+    min-height: var(--control);
     padding: 0 var(--space-3);
-    border: 1px solid var(--c-line);
+    border: 1px solid var(--c-field-line);
     border-radius: var(--radius);
   }
   .lockbtns {
@@ -613,50 +662,62 @@
   .tiles {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    /* Equal rows: a name on two lines must not make its neighbour taller than the rest. */
+    grid-auto-rows: 1fr;
     gap: var(--space-2);
   }
   .tile {
     position: relative;
     background: var(--c-surface);
-    border: 2px solid var(--c-line);
+    border: 1px solid var(--c-line);
     border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
   }
   .pick {
     width: 100%;
+    height: 100%;
     text-align: left;
     background: none;
     border: 0;
     border-radius: var(--radius);
     /* Room on the right for the per-student actions. */
-    padding: var(--space-2) 44px var(--space-2) var(--space-2);
+    padding: var(--space-2) var(--control) var(--space-2) var(--space-2);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-1);
   }
   .acts {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: var(--space-1);
+    right: var(--space-1);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-1);
   }
   .act {
-    width: 34px;
-    height: 34px;
-    border: 1px solid var(--c-line);
+    display: grid;
+    place-items: center;
+    width: var(--control-sm);
+    height: var(--control-sm);
+    border: 1px solid var(--c-field-line);
     border-radius: var(--radius);
-    background: var(--c-bg);
-    font-size: 16px;
-    line-height: 1;
+    background: var(--c-surface);
+    color: var(--c-muted);
     cursor: pointer;
   }
+  .act:hover:not(:disabled) {
+    border-color: var(--c-muted);
+    color: var(--c-dark);
+  }
   .act.on {
-    background: #fdecea;
+    background: var(--c-danger-soft);
     border-color: var(--c-danger);
+    color: var(--c-danger-strong);
   }
   .act.hand {
     background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: #fff;
   }
   .act:disabled {
     opacity: 0.45;
@@ -664,9 +725,10 @@
   }
   .tile.selected {
     border-color: var(--c-accent);
+    box-shadow: 0 0 0 1px var(--c-accent);
   }
   .tile.locked {
-    background: #fdecea;
+    background: var(--c-danger-soft);
   }
   .tile.offline {
     opacity: 0.55;
@@ -676,13 +738,14 @@
     color: var(--c-dark);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-2);
   }
   .dot {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: var(--c-line);
+    background: var(--c-line-strong);
+    flex: none;
   }
   .dot.on {
     background: var(--c-ok);
@@ -694,28 +757,29 @@
     color: var(--c-muted);
   }
   .stars {
-    color: var(--c-star);
+    color: var(--c-star-ink);
     font-weight: 700;
   }
   .flags {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    font-size: 12px;
+    gap: var(--space-1);
+    font-size: var(--text-xs);
   }
   .flag {
     background: var(--c-bg-2);
-    border-radius: 999px;
-    padding: 1px 8px;
+    color: var(--c-muted);
+    border-radius: var(--radius-pill);
+    padding: 1px var(--space-2);
+    font-weight: 600;
   }
   .flag.hand {
     background: #fff4e5;
-    color: var(--c-accent);
-    font-weight: 700;
+    color: #8a5a00;
   }
   .flag.away {
-    background: #fdecea;
-    color: var(--c-danger);
+    background: var(--c-danger-soft);
+    color: var(--c-danger-strong);
   }
   @media (max-width: 1100px) {
     .panel {

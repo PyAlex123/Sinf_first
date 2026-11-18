@@ -105,7 +105,7 @@
       <span class="ltitle">{lesson.title}</span>
       <div class="prog"><i style="width:{((index + 1) / count) * 100}%"></i></div>
       <div class="count">{t('player.screen', { index: index + 1, count })}</div>
-      <div class="score">★ {totalStars}</div>
+      <div class="score" title={t('session.stars', { count: totalStars })}>★ {totalStars}</div>
     </header>
   {/if}
 
@@ -156,14 +156,72 @@
   .lesson-root {
     height: 100%;
     min-height: 0;
+    /* One font for the whole product; the lesson CSS asks for its own stack (ADR-010). */
+    font-family: var(--font);
   }
   .ltitle {
     font-weight: 800;
-    font-size: 20px;
-    color: var(--acc, #ff6a00);
+    font-size: var(--text-lg);
+    line-height: var(--leading-tight);
+    color: var(--acc, #b04a12);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 46vw;
+  }
+
+  /*
+   * The thin layer over the author's lesson CSS (ADR-010). `content/<course>/lesson.css` is written
+   * by the import, so it is never edited there — the chrome around the lesson is brought into line
+   * from here instead, while the slides themselves keep the author's own look.
+   *
+   * These selectors beat `.lesson-root .bar` because Svelte adds its scope class to `.lesson-root`.
+   */
+  .lesson-root :global(.bar) {
+    height: auto;
+    min-height: var(--control-lg);
+    gap: var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-line);
+  }
+  .lesson-root :global(.prog) {
+    height: 8px;
+    background: var(--c-bg-2);
+    border-radius: var(--radius-pill);
+  }
+  .lesson-root :global(.count) {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--c-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .lesson-root :global(.score) {
+    font-size: var(--text-lg);
+    color: var(--c-star-ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .lesson-root :global(.nav) {
+    height: auto;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--c-surface);
+    border-top: 1px solid var(--c-line);
+  }
+  /* The lesson's own buttons stay playful; only their size and corners are ours. */
+  .lesson-root :global(.nb) {
+    min-height: var(--tap);
+    padding: 0 var(--space-5);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-lg);
+  }
+  .lesson-root :global(.win .box) {
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-lg);
+  }
+  .lesson-root :global(.win .go) {
+    min-height: var(--tap);
+    border-radius: var(--radius-lg);
   }
 </style>

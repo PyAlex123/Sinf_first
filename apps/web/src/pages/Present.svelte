@@ -6,6 +6,7 @@
   import type { PageProps } from '../lib/router.svelte.js';
   import { SessionStore } from '../lib/stores/session.svelte.js';
   import Button from '../lib/ui/Button.svelte';
+  import Icon from '../lib/ui/Icon.svelte';
   import Notice from '../lib/ui/Notice.svelte';
   import QrCode from '../lib/ui/QrCode.svelte';
   import RestScreen from '../lib/ui/RestScreen.svelte';
@@ -116,7 +117,14 @@
           : t('present.participants', { count: online })}
       </span>
       <span class="code">{t('present.code')}: <b>{joinCode}</b></span>
-      <Button variant="secondary" size="md" onclick={toggleFullscreen}>⛶</Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        onclick={toggleFullscreen}
+        aria-label={t('present.fullscreen')}
+      >
+        <Icon name="screen" />
+      </Button>
     </div>
   {/if}
 </div>
@@ -188,9 +196,11 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    background: rgba(255, 255, 255, 0.85);
-    border-radius: 999px;
-    padding: 4px 6px 4px 14px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid var(--c-line);
+    box-shadow: var(--shadow);
+    border-radius: var(--radius-pill);
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
     color: var(--c-dark);
     font-weight: 600;
     z-index: 40;

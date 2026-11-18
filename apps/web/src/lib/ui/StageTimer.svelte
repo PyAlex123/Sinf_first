@@ -54,17 +54,19 @@
       <small>{t('stage.of', { n: session.stage.index + 1, total: stages.length })}</small>
     </span>
   {/if}
-  <span class="clock">{format(left)}</span>
-  {#if paused}
-    <span class="badge">{t('stage.paused')}</span>
-  {:else if resting}
-    <span class="badge rest">{t('stage.rest')}</span>
-  {:else if countdownSec !== null}
-    <span class="badge count">{t('stage.countdown', { sec: countdownSec })}</span>
-  {/if}
-  {#if session.demoSpeed > 1}
-    <span class="badge speed">×{session.demoSpeed}</span>
-  {/if}
+  <span class="line">
+    <span class="clock">{format(left)}</span>
+    {#if paused}
+      <span class="badge">{t('stage.paused')}</span>
+    {:else if resting}
+      <span class="badge rest">{t('stage.rest')}</span>
+    {:else if countdownSec !== null}
+      <span class="badge count">{t('stage.countdown', { sec: countdownSec })}</span>
+    {/if}
+    {#if session.demoSpeed > 1}
+      <span class="badge speed">×{session.demoSpeed}</span>
+    {/if}
+  </span>
 </div>
 
 <style>
@@ -74,19 +76,26 @@
     gap: var(--space-2);
     white-space: nowrap;
   }
+  .timer:not(.compact) {
+    /* On the teacher's panel the time left is the most important number on the screen. */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
   .stage {
-    color: var(--c-dark);
+    color: var(--c-muted);
     font-weight: 600;
+    font-size: var(--text-sm);
   }
   .stage small {
-    color: var(--c-muted);
     font-weight: 400;
-    margin-left: 4px;
+    margin-left: var(--space-1);
   }
   .clock {
     font-variant-numeric: tabular-nums;
     font-weight: 800;
-    font-size: var(--text-lg);
+    font-size: var(--text-xl);
+    line-height: var(--leading-tight);
     color: var(--c-dark);
   }
   .compact .clock {
@@ -97,8 +106,9 @@
   }
   .badge {
     font-size: var(--text-sm);
-    border-radius: 999px;
-    padding: 2px 10px;
+    font-weight: 600;
+    border-radius: var(--radius-pill);
+    padding: 2px var(--space-2);
     background: var(--c-bg-2);
     color: var(--c-muted);
   }
@@ -115,5 +125,10 @@
   .badge.speed {
     background: var(--c-teal);
     color: #fff;
+  }
+  .line {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
   }
 </style>
