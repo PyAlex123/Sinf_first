@@ -38,6 +38,20 @@
   const scenarioUrl = $derived(
     bundle ? `${bundle.lesson.teacherScenario}#stage-${stageNumber}` : '',
   );
+  /**
+   * The Paint practice of a club lesson (S1.11): which screens are its steps, where each child is,
+   * and from which stage the teacher may start giving stars for the drawing.
+   */
+  const stepScreens = $derived(
+    bundle ? bundle.lesson.screens.flatMap((screen, i) => (screen.kind === 'step' ? [i] : [])) : [],
+  );
+  const practiceStage = $derived(stages.findIndex((stage) => stage.key === 'practice'));
+  const showStars = $derived(
+    stepScreens.length > 0 && practiceStage >= 0 && (session?.stage.index ?? 0) >= practiceStage,
+  );
+  /** 1-based number of the step this child is looking at; 0 when it is not a step screen. */
+  const stepOf = (p: Participant): number => stepScreens.indexOf(p.screenIndex) + 1;
+
   const paused = $derived(
     session?.stage.pausedAt !== null && session?.stage.pausedAt !== undefined,
   );
@@ -387,9 +401,25 @@
                     {p.name ?? t('session.participant', { number: p.number })}
                   </div>
                   <div class="tmeta">
-                    <span>{t('session.screenShort', { index: p.screenIndex + 1 })}</span>
+                    <span>
+                      {#if stepScreens.length > 0 && stepOf(p) > 0}
+                        {t('session.step', { n: stepOf(p), total: stepScreens.length })}
+                      {:else}
+                        {t('session.screenShort', { index: p.screenIndex + 1 })}
+                      {/if}
+                    </span>
                     <span class="stars">{t('session.stars', { count: p.stars })}</span>
                   </div>
+                  {#if stepScreens.length > 0}
+                    <div class="tmeta">
+                      <span>
+                        {t('session.steps', {
+                          done: p.steps.length,
+                          total: stepScreens.length,
+                        })}
+                      </span>
+                    </div>
+                  {/if}
                   <div class="flags">
                     {#if p.hand}<span class="flag hand">{t('session.hand')}</span>{/if}
                     {#if p.hidden}<span class="flag away">{t('session.hidden')}</span>{/if}
@@ -427,6 +457,23 @@
                     </button>
                   {/if}
                 </div>
+                {#if showStars}
+                  <!-- Stars for the drawing, right on the tile: the teacher walks the room with them. -->
+                  <div class="give" role="group" aria-label={t('session.practiceStars')}>
+                    {#each [1, 2, 3] as n (n)}
+                      <button
+                        type="button"
+                        class="star"
+                        class:on={(p.practiceStars ?? 0) >= n}
+                        aria-pressed={(p.practiceStars ?? 0) >= n}
+                        aria-label={t('session.stars', { count: n })}
+                        onclick={() => store?.setStars(p.id, p.practiceStars === n ? 0 : n)}
+                      >
+                        <Icon name="star" size={16} />
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
               </div>
             {/each}
           </div>
@@ -668,6 +715,8 @@
   }
   .tile {
     position: relative;
+    display: flex;
+    flex-direction: column;
     background: var(--c-surface);
     border: 1px solid var(--c-line);
     border-radius: var(--radius);
@@ -675,7 +724,8 @@
   }
   .pick {
     width: 100%;
-    height: 100%;
+    /* Fills what the stars leave, instead of covering them: the tile is a column. */
+    flex: 1;
     text-align: left;
     background: none;
     border: 0;
@@ -755,6 +805,26 @@
     justify-content: space-between;
     font-size: var(--text-sm);
     color: var(--c-muted);
+  }
+  .give {
+    display: flex;
+    gap: var(--space-1);
+    padding: 0 var(--space-2) var(--space-2);
+  }
+  .star {
+    display: grid;
+    place-items: center;
+    width: var(--control-sm);
+    height: var(--control-sm);
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius);
+    background: var(--c-surface);
+    color: var(--c-line-strong);
+  }
+  .star.on {
+    background: #fff4e5;
+    border-color: var(--c-star);
+    color: var(--c-star-ink);
   }
   .stars {
     color: var(--c-star-ink);

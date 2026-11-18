@@ -89,6 +89,7 @@ function bundle(overrides: Partial<LessonSyncBundle['session']> = {}): LessonSyn
         lastAt: startedAt,
       },
     ],
+    practiceResults: [{ studentId: 'student-01', stars: 3, stepsDone: 16, at: startedAt }],
     quizAttempts: [],
   };
 }
@@ -161,6 +162,7 @@ describe('a lesson arriving from a school computer', () => {
     expect(LessonSyncResponseSchema.parse(res.json()).counts).toEqual({
       attendance: 2,
       screenResults: 1,
+      practiceResults: 1,
       quizAttempts: 0,
     });
     expect(rows(payload.session.id)).toEqual({ attendance: 2, screens: 1 });
@@ -258,6 +260,7 @@ describe('a lesson arriving from a school computer', () => {
     const hijack = bundle({ id: payload.session.id, classId: secondClass });
     hijack.attendance = [];
     hijack.screenResults = [];
+    hijack.practiceResults = [];
     expect((await send(hijack)).statusCode).toBe(409);
   });
 });

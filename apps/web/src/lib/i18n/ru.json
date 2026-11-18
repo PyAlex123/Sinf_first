@@ -302,5 +302,13 @@
   "sync.now": "Отправить сейчас",
   "sync.lastSync": "Последняя связь: {time}",
   "sync.never": "Связи с платформой ещё не было",
-  "sync.error": "Последняя ошибка: {text}"
+  "sync.error": "Последняя ошибка: {text}",
+  "step.do": "Я сделал этот шаг",
+  "step.done": "Шаг сделан",
+  "step.help": "Помогите",
+  "step.helpCalled": "Жду учителя",
+  "session.step": "шаг {n} из {total}",
+  "session.steps": "шагов: {done} из {total}",
+  "session.practiceStars": "Звёзды за рисунок",
+  "session.practiceStars.clear": "Снять звёзды"
 }

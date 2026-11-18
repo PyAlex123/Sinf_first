@@ -141,6 +141,11 @@ export class SessionStore {
   }
 
   /** The teacher answered the child and puts their raised hand down. */
+  /** Stars for the drawing, from the child's tile; 0 takes them back (S1.11). */
+  setStars(participantId: string, stars: number): void {
+    this.socket?.send({ type: 'teacher.stars.set', participantId, stars });
+  }
+
   clearHand(participantId: string): void {
     this.socket?.send({ type: 'teacher.hand.clear', participantId });
   }
@@ -151,6 +156,11 @@ export class SessionStore {
 
   screenDone(index: number, stars: number): void {
     this.socket?.send({ type: 'student.screen.done', index, stars });
+  }
+
+  /** "Я сделал этот шаг" on a step of the Paint practice, and the same button pressed again (S1.11). */
+  stepDone(index: number, done: boolean): void {
+    this.socket?.send({ type: 'student.step.done', index, done });
   }
 
   hand(up: boolean): void {

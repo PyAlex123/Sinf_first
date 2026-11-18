@@ -250,6 +250,52 @@ describe('websocket room', () => {
     expect(await late.until('error')).toMatchObject({ code: 'not_found' });
   });
 
+  it('carries the Paint practice: steps from the child, stars from the teacher (S1.11)', async () => {
+    // k10 "Радуга": 16 steps of the practice, the first of them is screen 12.
+    const sessionId = await startSession('k10');
+    const teacher = new Client(wsUrl(sessionId, 'teacher'), { cookie });
+    await teacher.until('state.snapshot');
+    const token = await joinStudent(sessionId, 'student-01');
+    const student = new Client(wsUrl(sessionId, 'student', token));
+    await student.until('state.snapshot');
+    await teacher.untilParticipant('student-01');
+
+    student.send({ v: 1, type: 'student.step.done', index: 12, done: true });
+    student.send({ v: 1, type: 'student.step.done', index: 13, done: true });
+    let tile = (await teacher.untilParticipant('student-01')).participant;
+    while (tile.steps.length < 2) tile = (await teacher.untilParticipant('student-01')).participant;
+    expect(tile.steps).toEqual([12, 13]);
+
+    // A screen that is not a step cannot be marked, however the message looks.
+    student.send({ v: 1, type: 'student.step.done', index: 0, done: true });
+    student.send({ v: 1, type: 'student.hand', up: true });
+    expect((await teacher.untilParticipant('student-01')).participant).toMatchObject({
+      hand: true,
+      steps: [12, 13],
+    });
+
+    const practiceRow = () =>
+      t.database.db
+        .select()
+        .from(schemaRef.practiceResults)
+        .all()
+        .find((r) => r.sessionId === sessionId && r.studentId === 'student-01');
+
+    expect(practiceRow()).toBeUndefined();
+    teacher.send({ v: 1, type: 'teacher.stars.set', participantId: 'student-01', stars: 3 });
+    expect((await teacher.untilParticipant('student-01')).participant.practiceStars).toBe(3);
+    // The drawing is graded in the database, with the steps the child had marked by then.
+    expect(practiceRow()).toMatchObject({ stars: 3, stepsDone: 2 });
+
+    teacher.send({ v: 1, type: 'teacher.stars.set', participantId: 'student-01', stars: 0 });
+    expect((await teacher.untilParticipant('student-01')).participant.practiceStars).toBeNull();
+    expect(practiceRow()).toBeUndefined();
+
+    teacher.send({ v: 1, type: 'teacher.session.end' });
+    await student.closed;
+    await teacher.closed;
+  });
+
   it('refuses a teacher socket without the cookie and a projector on a missing session', async () => {
     const sessionId = await startSession('g11');
     const fake = new Client(wsUrl(sessionId, 'teacher'));

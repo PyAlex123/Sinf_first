@@ -52,6 +52,7 @@ export function receiveLessonBundle(
     ...new Set([
       ...bundle.attendance.map((a) => a.studentId),
       ...bundle.screenResults.map((r) => r.studentId),
+      ...bundle.practiceResults.map((r) => r.studentId),
       ...bundle.quizAttempts.map((a) => a.studentId),
     ]),
   ];
@@ -132,6 +133,22 @@ export function receiveLessonBundle(
         .run();
     }
 
+    for (const row of bundle.practiceResults) {
+      tx.insert(schema.practiceResults)
+        .values({
+          sessionId: session.id,
+          studentId: row.studentId,
+          stars: row.stars,
+          stepsDone: row.stepsDone,
+          at: row.at,
+        })
+        .onConflictDoUpdate({
+          target: [schema.practiceResults.sessionId, schema.practiceResults.studentId],
+          set: { stars: row.stars, stepsDone: row.stepsDone, at: row.at },
+        })
+        .run();
+    }
+
     for (const row of bundle.quizAttempts) {
       tx.insert(schema.quizAttempts)
         .values({
@@ -156,6 +173,7 @@ export function receiveLessonBundle(
     counts: {
       attendance: bundle.attendance.length,
       screenResults: bundle.screenResults.length,
+      practiceResults: bundle.practiceResults.length,
       quizAttempts: bundle.quizAttempts.length,
     },
   };

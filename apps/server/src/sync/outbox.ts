@@ -48,6 +48,11 @@ export function buildLessonBundle(db: Db, sessionId: string): LessonSyncBundle |
     .from(schema.screenResults)
     .where(eq(schema.screenResults.sessionId, sessionId))
     .all();
+  const practiceResults = db
+    .select()
+    .from(schema.practiceResults)
+    .where(eq(schema.practiceResults.sessionId, sessionId))
+    .all();
   const quizAttempts = db
     .select()
     .from(schema.quizAttempts)
@@ -76,6 +81,12 @@ export function buildLessonBundle(db: Db, sessionId: string): LessonSyncBundle |
       attempts: r.attempts,
       firstAt: r.firstAt,
       lastAt: r.lastAt,
+    })),
+    practiceResults: practiceResults.map((p) => ({
+      studentId: p.studentId,
+      stars: p.stars,
+      stepsDone: p.stepsDone,
+      at: p.at,
     })),
     quizAttempts: quizAttempts.map((a) => ({
       id: a.id,

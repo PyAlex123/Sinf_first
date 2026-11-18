@@ -432,6 +432,37 @@ export class SessionStore {
         })),
       )
       .run();
+    // Stars for the drawing go to practice_results: one row per child per lesson (S1.11).
+    for (const r of records) {
+      const studentId = studentOf(r.participantId);
+      if (r.type !== 'practice_stars' || !studentId) continue;
+      const stars = Number(r.data?.['stars']);
+      if (!Number.isInteger(stars)) continue;
+      const stepsDone = r.participantId
+        ? (session.state.participants[r.participantId]?.steps.length ?? 0)
+        : 0;
+      if (stars === 0) {
+        // The teacher took the stars back: the row goes away with them.
+        this.db
+          .delete(schema.practiceResults)
+          .where(
+            and(
+              eq(schema.practiceResults.sessionId, id),
+              eq(schema.practiceResults.studentId, studentId),
+            ),
+          )
+          .run();
+        continue;
+      }
+      this.db
+        .insert(schema.practiceResults)
+        .values({ sessionId: id, studentId, stars, stepsDone, at })
+        .onConflictDoUpdate({
+          target: [schema.practiceResults.sessionId, schema.practiceResults.studentId],
+          set: { stars, stepsDone, at },
+        })
+        .run();
+    }
     // Stars per screen go to screen_results for logged-in students (STAGE1 S1.7).
     for (const r of records) {
       const studentId = studentOf(r.participantId);
@@ -493,6 +524,7 @@ export class SessionStore {
     return {
       stages: lesson.stages,
       screenStages: lesson.screens.map((screen) => screen.stage),
+      stepScreens: lesson.screens.flatMap((screen, i) => (screen.kind === 'step' ? [i] : [])),
     };
   }
 

@@ -31,6 +31,17 @@
   const free = $derived(session?.mode === 'free');
   /** During the rest part of practice the screen is covered (STAGE1 S1.8). */
   const resting = $derived(session?.stage.part === 'rest');
+  /**
+   * A step of the Paint practice (S1.11): the child works in Paint and tells the teacher when the
+   * step is done. It is shown whoever drives the screens, because the work happens off-screen.
+   */
+  const step = $derived.by(() => {
+    if (!bundle) return null;
+    const screen = bundle.lesson.screens[index];
+    return screen?.kind === 'step' ? screen : null;
+  });
+  const stepDone = $derived(!!me?.steps.includes(index));
+
   /** In free mode a student walks through the screens of the current stage only (S1.9). */
   const range = $derived.by(() => {
     if (!session || !bundle || session.mode !== 'free') return null;
@@ -135,7 +146,29 @@
       {#if resting}
         <RestScreen />
       {/if}
-      <div class="hud">
+      {#if step && !lock && !resting}
+        <div class="steps">
+          <button
+            type="button"
+            class="did"
+            class:on={stepDone}
+            onclick={() => store?.stepDone(index, !stepDone)}
+          >
+            <Icon name={stepDone ? 'check' : 'forward'} size={20} />
+            {stepDone ? t('step.done') : t('step.do')}
+          </button>
+          <button
+            type="button"
+            class="help"
+            class:up={me?.hand}
+            onclick={() => store?.hand(!me?.hand)}
+          >
+            <Icon name="hand" size={20} />
+            {me?.hand ? t('step.helpCalled') : t('step.help')}
+          </button>
+        </div>
+      {/if}
+      <div class="hud" class:raised={!!step}>
         {#if session && bundle}
           <span class="num">
             <StageTimer
@@ -154,15 +187,18 @@
           </span>
         {/if}
         {#if store?.status !== 'open'}<span class="conn">{t('student.reconnecting')}</span>{/if}
-        <button
-          type="button"
-          class="hand"
-          class:up={me?.hand}
-          onclick={() => store?.hand(!me?.hand)}
-        >
-          <Icon name="hand" />
-          {me?.hand ? t('student.handDown') : t('student.hand')}
-        </button>
+        {#if !step}
+          <!-- On a step the child has their own "Помогите" button below; one hand is enough. -->
+          <button
+            type="button"
+            class="hand"
+            class:up={me?.hand}
+            onclick={() => store?.hand(!me?.hand)}
+          >
+            <Icon name="hand" />
+            {me?.hand ? t('student.handDown') : t('student.hand')}
+          </button>
+        {/if}
       </div>
       {#if lock}
         <div class="lock" role="alert">
@@ -199,6 +235,10 @@
     position: fixed;
     right: var(--space-3);
     bottom: 92px;
+  }
+  /* The practice buttons take the bottom strip, so the badges move above them. */
+  .hud.raised {
+    bottom: calc(var(--tap) * 2 + var(--space-6));
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -233,6 +273,50 @@
   }
   .hand.up {
     background: var(--c-accent);
+  }
+  /* The two buttons of the practice: big, low on the screen, away from the lesson itself. */
+  .steps {
+    position: fixed;
+    left: 50%;
+    /* Above the lesson's own "Назад / Дальше" bar, which is one tap target tall. */
+    bottom: calc(var(--tap) + var(--space-5));
+    transform: translateX(-50%);
+    display: flex;
+    gap: var(--space-3);
+    z-index: 45;
+  }
+  .steps button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap);
+    padding: 0 var(--space-5);
+    border-radius: var(--radius-pill);
+    border: 2px solid #fff;
+    font-weight: 700;
+    font-size: var(--text-lg);
+    color: #fff;
+    box-shadow: var(--shadow-lg);
+  }
+  .did {
+    background: var(--c-accent);
+  }
+  .did.on {
+    background: var(--c-ok);
+  }
+  .help {
+    background: var(--c-teal);
+  }
+  .help.up {
+    background: var(--c-star);
+    color: var(--c-dark);
+  }
+  @media (max-width: 560px) {
+    .steps button {
+      min-height: var(--control-lg);
+      padding: 0 var(--space-4);
+      font-size: var(--text-md);
+    }
   }
   .lock {
     position: fixed;

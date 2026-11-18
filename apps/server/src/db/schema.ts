@@ -262,6 +262,27 @@ export const screenResults = sqliteTable(
   (t) => [primaryKey({ columns: [t.sessionId, t.studentId, t.screenIndex] })],
 );
 
+/**
+ * Stars the teacher gave for the drawing itself at the end of the Paint practice (S1.11). One row per
+ * lesson per child: the drawing is one piece of work, however many steps it took.
+ */
+export const practiceResults = sqliteTable(
+  'practice_results',
+  {
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id),
+    studentId: text('student_id')
+      .notNull()
+      .references(() => students.id),
+    stars: integer('stars').notNull(),
+    /** How many steps of the practice the child marked as done, as it stood at that moment. */
+    stepsDone: integer('steps_done').notNull().default(0),
+    at: timestamp('at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.sessionId, t.studentId] })],
+);
+
 export const quizAttempts = sqliteTable(
   'quiz_attempts',
   {
@@ -320,6 +341,7 @@ export const syncState = sqliteTable('sync_state', {
 export const TABLES_FOR_RESET = [
   grades,
   quizAttempts,
+  practiceResults,
   screenResults,
   activityEvents,
   attendance,

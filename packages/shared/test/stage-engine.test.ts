@@ -52,7 +52,8 @@ const SCREEN_STAGES = [
   'summary',
 ];
 
-const PLAN: LessonPlan = { stages: STAGES, screenStages: SCREEN_STAGES };
+// Screens 4 and 5 are the practice; in a club lesson those are the Paint steps (S1.11).
+const PLAN: LessonPlan = { stages: STAGES, screenStages: SCREEN_STAGES, stepScreens: [4, 5] };
 const T0 = 1_000_000;
 
 function start(demoSpeed = 1): SessionState {
@@ -290,5 +291,72 @@ describe('free mode stays inside the stage (S1.9)', () => {
     expect(next.state.screenIndex).toBe(8);
     expect(next.state.participants['p1']?.screenIndex).toBe(8);
     expect(next.broadcast.some((m) => m.type === 'participant.updated')).toBe(true);
+  });
+});
+
+describe('the Paint practice (S1.11)', () => {
+  it('marks a step as done and takes it back', () => {
+    let state = withStudent(start());
+    state = teacher(state, { v: 1, type: 'teacher.stage.set', index: 3 }, T0).state;
+
+    const done = student(state, { v: 1, type: 'student.step.done', index: 4, done: true });
+    expect(done.state.participants['p1']?.steps).toEqual([4]);
+    expect(done.activity.map((a) => a.type)).toContain('step_done');
+    expect(done.broadcast.some((m) => m.type === 'participant.updated')).toBe(true);
+
+    // The same press again says nothing new.
+    const again = student(done.state, { v: 1, type: 'student.step.done', index: 4, done: true });
+    expect(again.broadcast).toEqual([]);
+
+    const undone = student(done.state, { v: 1, type: 'student.step.done', index: 4, done: false });
+    expect(undone.state.participants['p1']?.steps).toEqual([]);
+  });
+
+  it('counts only the real steps of this lesson', () => {
+    const state = withStudent(start());
+    // Screen 9 is the summary slide, not a step: nothing to mark there.
+    const result = student(state, { v: 1, type: 'student.step.done', index: 9, done: true });
+    expect(result.state.participants['p1']?.steps).toEqual([]);
+    expect(result.broadcast).toEqual([]);
+  });
+
+  it('lets the teacher give stars for the drawing and take them back', () => {
+    const state = withStudent(start());
+    const given = teacher(
+      state,
+      { v: 1, type: 'teacher.stars.set', participantId: 'p1', stars: 3 },
+      T0,
+    );
+    expect(given.state.participants['p1']?.practiceStars).toBe(3);
+    expect(given.activity.map((a) => a.type)).toContain('practice_stars');
+
+    const changed = teacher(
+      given.state,
+      { v: 1, type: 'teacher.stars.set', participantId: 'p1', stars: 2 },
+      T0,
+    );
+    expect(changed.state.participants['p1']?.practiceStars).toBe(2);
+
+    const taken = teacher(
+      changed.state,
+      { v: 1, type: 'teacher.stars.set', participantId: 'p1', stars: 0 },
+      T0,
+    );
+    expect(taken.state.participants['p1']?.practiceStars).toBeNull();
+
+    // Stars for the drawing are the teacher's; the trainer stars are not touched.
+    expect(taken.state.participants['p1']?.stars).toBe(0);
+  });
+
+  it('does not let a student give themselves stars for the drawing', () => {
+    const state = withStudent(start());
+    const result = student(state, {
+      v: 1,
+      type: 'teacher.stars.set',
+      participantId: 'p1',
+      stars: 3,
+    });
+    expect(result.state.participants['p1']?.practiceStars).toBeNull();
+    expect(result.reply.some((m) => m.type === 'error')).toBe(true);
   });
 });

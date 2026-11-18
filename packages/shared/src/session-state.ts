@@ -34,9 +34,11 @@ export interface LessonPlan {
   stages: readonly Stage[];
   /** `screenStages[i]` is the stage key of screen i. */
   screenStages: readonly string[];
+  /** Indexes of the step-by-step practice screens, in lesson order (S1.11). */
+  stepScreens: readonly number[];
 }
 
-export const EMPTY_PLAN: LessonPlan = { stages: [], screenStages: [] };
+export const EMPTY_PLAN: LessonPlan = { stages: [], screenStages: [], stepScreens: [] };
 
 export type SessionEvent =
   | {
@@ -68,6 +70,8 @@ export interface ActivityRecord {
     | 'tab_hidden'
     | 'fullscreen_exit'
     | 'screen_done'
+    | 'step_done'
+    | 'practice_stars'
     | 'lock'
     | 'unlock'
     | 'mode'
@@ -218,6 +222,8 @@ function join(
         screenIndex: r.state.mode === 'presentation' ? r.state.screenIndex : 0,
         stars: 0,
         doneScreens: [],
+        steps: [],
+        practiceStars: null,
         hand: false,
         hidden: false,
         fullscreen: false,
@@ -304,6 +310,18 @@ function command(
         },
       );
     }
+    case 'teacher.stars.set': {
+      const target = r.state.participants[m.participantId];
+      if (!target) return r;
+      // Zero takes the stars back; the tile then looks as it did before they were given.
+      const stars = m.stars === 0 ? null : m.stars;
+      if (target.practiceStars === stars) return r;
+      return updateParticipant(
+        r,
+        { ...target, practiceStars: stars },
+        { type: 'practice_stars', participantId: target.id, data: { stars: m.stars } },
+      );
+    }
     case 'teacher.stage.set':
       return goToStage(r, clampStage(plan, m.index), e.now, plan);
     case 'teacher.stage.skip':
@@ -367,6 +385,7 @@ function command(
       return r;
     case 'student.screen.set':
     case 'student.screen.done':
+    case 'student.step.done':
     case 'student.hand':
     case 'student.visibility':
       return studentCommand(r, e, m, plan);
@@ -410,6 +429,18 @@ function studentCommand(
           lastSeenAt: e.now,
         },
         { type: 'screen_done', participantId: p.id, data: { index, stars: m.stars } },
+      );
+    }
+    case 'student.step.done': {
+      // Only a real step of this lesson, so a stray message cannot invent progress.
+      if (!plan.stepScreens.includes(m.index)) return r;
+      const has = p.steps.includes(m.index);
+      if (has === m.done) return r;
+      const steps = m.done ? [...p.steps, m.index] : p.steps.filter((i) => i !== m.index);
+      return updateParticipant(
+        r,
+        { ...p, steps, lastSeenAt: e.now },
+        { type: 'step_done', participantId: p.id, data: { index: m.index, done: m.done } },
       );
     }
     case 'student.hand': {

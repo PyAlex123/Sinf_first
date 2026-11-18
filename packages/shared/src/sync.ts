@@ -104,6 +104,14 @@ export const LessonSyncQuizAttemptSchema = z.strictObject({
   at,
 });
 
+/** Stars the teacher gave for the drawing at the end of the Paint practice (S1.11). */
+export const LessonSyncPracticeResultSchema = z.strictObject({
+  studentId: id,
+  stars: z.number().int().min(1).max(3),
+  stepsDone: z.number().int().nonnegative(),
+  at,
+});
+
 /**
  * One lesson as a whole. Attendance and stars are what the journal is made of (the author's choice
  * for this step); what happened during the lesson — raised hands, leaving the tab, "Attention!" —
@@ -113,6 +121,7 @@ export const LessonSyncBundleSchema = z.strictObject({
   session: LessonSyncSessionSchema,
   attendance: z.array(LessonSyncAttendanceSchema),
   screenResults: z.array(LessonSyncScreenResultSchema),
+  practiceResults: z.array(LessonSyncPracticeResultSchema),
   quizAttempts: z.array(LessonSyncQuizAttemptSchema),
 });
 export type LessonSyncBundle = z.infer<typeof LessonSyncBundleSchema>;
@@ -123,6 +132,7 @@ export const LessonSyncResponseSchema = z.strictObject({
   counts: z.strictObject({
     attendance: z.number().int().nonnegative(),
     screenResults: z.number().int().nonnegative(),
+    practiceResults: z.number().int().nonnegative(),
     quizAttempts: z.number().int().nonnegative(),
   }),
 });

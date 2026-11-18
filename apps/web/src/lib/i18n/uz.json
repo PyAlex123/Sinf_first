@@ -278,5 +278,13 @@
   "sync.now": "Hozir yuborish",
   "sync.lastSync": "Oxirgi aloqa: {time}",
   "sync.never": "Platforma bilan hali aloqa boʻlmadi",
-  "sync.error": "Oxirgi xato: {text}"
+  "sync.error": "Oxirgi xato: {text}",
+  "step.do": "Men bu qadamni bajardim",
+  "step.done": "Qadam bajarildi",
+  "step.help": "Yordam bering",
+  "step.helpCalled": "Oʻqituvchini kutyapman",
+  "session.step": "{total} qadamdan {n}-si",
+  "session.steps": "qadamlar: {total} dan {done}",
+  "session.practiceStars": "Rasm uchun yulduzlar",
+  "session.practiceStars.clear": "Yulduzlarni olib tashlash"
 }

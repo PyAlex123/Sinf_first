@@ -47,6 +47,13 @@ export const ParticipantSchema = z.strictObject({
   stars: z.number().int().nonnegative(),
   /** Screens already rewarded with stars (each screen counts once). */
   doneScreens: z.array(screenIndex),
+  /**
+   * Steps of the Paint practice the child has marked as done (S1.11). Screen indexes, in the order
+   * they were pressed. `default` keeps snapshots written before this field readable.
+   */
+  steps: z.array(screenIndex).default([]),
+  /** Stars the teacher gave for the drawing itself, 1–3; null while nothing is given (S1.11). */
+  practiceStars: z.number().int().min(1).max(3).nullable().default(null),
   hand: z.boolean(),
   /** Tab hidden or another window focused (`visibilitychange`). */
   hidden: z.boolean(),
@@ -128,6 +135,13 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({ v, type: z.literal('teacher.unlock'), targets: LockTargetsSchema }),
   /** The teacher answered the child and puts the raised hand down. */
   z.strictObject({ v, type: z.literal('teacher.hand.clear'), participantId: id }),
+  /** Stars for the drawing, straight from the child's tile; 0 takes them back (S1.11). */
+  z.strictObject({
+    v,
+    type: z.literal('teacher.stars.set'),
+    participantId: id,
+    stars: z.number().int().min(0).max(3),
+  }),
   z.strictObject({ v, type: z.literal('teacher.session.end') }),
   z.strictObject({ v, type: z.literal('student.screen.set'), index: screenIndex }),
   z.strictObject({
@@ -135,6 +149,13 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('student.screen.done'),
     index: screenIndex,
     stars: z.number().int().min(0).max(3),
+  }),
+  /** "Я сделал этот шаг" on a step of the Paint practice, and the same button pressed again (S1.11). */
+  z.strictObject({
+    v,
+    type: z.literal('student.step.done'),
+    index: screenIndex,
+    done: z.boolean(),
   }),
   z.strictObject({ v, type: z.literal('student.hand'), up: z.boolean() }),
   z.strictObject({
