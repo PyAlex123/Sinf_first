@@ -263,6 +263,30 @@ export const DeviceStateResponseSchema = z.strictObject({
 });
 export type DeviceStateResponse = z.infer<typeof DeviceStateResponseSchema>;
 
+// ---------- lesson material for a school computer (S2.5)
+
+export const ContentManifestFileSchema = z.strictObject({
+  /** `<course>/lessons/g10.json`, always with forward slashes. */
+  path: z.string().min(1),
+  sha256: z.string().length(64),
+  size: z.number().int().nonnegative(),
+});
+export type ContentManifestFile = z.infer<typeof ContentManifestFileSchema>;
+
+export const ContentManifestCourseSchema = z.strictObject({
+  id,
+  /** Changes whenever any file of the course changes. */
+  version: z.string().min(1),
+  files: z.array(ContentManifestFileSchema),
+});
+export type ContentManifestCourse = z.infer<typeof ContentManifestCourseSchema>;
+
+export const ContentManifestSchema = z.strictObject({
+  courses: z.array(ContentManifestCourseSchema),
+  totalBytes: z.number().int().nonnegative(),
+});
+export type ContentManifest = z.infer<typeof ContentManifestSchema>;
+
 // ---------- content
 
 export const CourseListResponseSchema = z.strictObject({ courses: z.array(CourseSchema) });

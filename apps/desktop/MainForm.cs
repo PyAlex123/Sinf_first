@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
@@ -24,6 +25,7 @@ internal sealed class MainForm : Form
     private readonly Button fullScreenButton = new() { Text = "Во весь экран", AutoSize = true };
     private readonly Button reloadButton = new() { Text = "Обновить", AutoSize = true };
     private readonly Button schoolButton = new() { Text = "Школа", AutoSize = true };
+    private readonly Button updateButton = new() { Text = "Обновить материалы", AutoSize = true };
     private readonly Label splash = new()
     {
         Dock = DockStyle.Fill,
@@ -88,7 +90,7 @@ internal sealed class MainForm : Form
             Padding = new Padding(8, 10, 12, 10),
             WrapContents = false,
         };
-        foreach (var button in new[] { reloadButton, fullScreenButton, schoolButton, copyButton })
+        foreach (var button in new[] { reloadButton, fullScreenButton, updateButton, schoolButton, copyButton })
         {
             button.FlatStyle = FlatStyle.Flat;
             button.BackColor = Color.White;
@@ -101,6 +103,7 @@ internal sealed class MainForm : Form
         reloadButton.Click += (_, _) => view.CoreWebView2?.Reload();
         fullScreenButton.Click += (_, _) => ToggleFullScreen();
         schoolButton.Click += (_, _) => PairWithSchool();
+        updateButton.Click += async (_, _) => await UpdateContentAsync(manual: true).ConfigureAwait(true);
 
         bar.Controls.Add(left);
         bar.Controls.Add(right);
@@ -117,6 +120,13 @@ internal sealed class MainForm : Form
         splash.Text = "Запускаем Sinf…";
         splash.Visible = true;
         view.Visible = false;
+        // Before the server starts, so a lesson that arrived on the platform is there from the first screen.
+        if (config.IsPaired)
+        {
+            splash.Text = "Проверяем материалы уроков…";
+            await UpdateContentAsync(manual: false).ConfigureAwait(true);
+        }
+
         try
         {
             server = await ServerProcess
@@ -158,6 +168,69 @@ internal sealed class MainForm : Form
         bar.Visible = true;
         ShowSchool();
         platform.StartHeartbeat(config);
+    }
+
+    /// <summary>
+    /// Fetches whatever lesson material this computer lacks (S2.5). No internet is not a failure: the
+    /// lesson runs from the copy already here.
+    /// </summary>
+    private async Task UpdateContentAsync(bool manual)
+    {
+        if (!config.IsPaired)
+        {
+            if (manual)
+            {
+                MessageBox.Show(
+                    this,
+                    "Сначала привяжите компьютер к школе.",
+                    "Sinf",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+
+            return;
+        }
+
+        updateButton.Enabled = false;
+        try
+        {
+            var sync = new ContentSync(platform.Http, paths);
+            var result = await sync.SyncAsync(config, CancellationToken.None).ConfigureAwait(true);
+            if (manual)
+            {
+                MessageBox.Show(
+                    this,
+                    result.Downloaded == 0
+                        ? "Материалы уже свежие."
+                        : $"Загружено файлов: {result.Downloaded}. Перезапустите Sinf, чтобы новые уроки появились в списке.",
+                    "Sinf",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException)
+        {
+            if (manual)
+            {
+                MessageBox.Show(
+                    this,
+                    "Нет связи с платформой. Урок идёт на материалах, которые уже есть на этом компьютере.",
+                    "Sinf",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception error) when (error is InvalidOperationException or IOException)
+        {
+            if (manual)
+            {
+                MessageBox.Show(this, error.Message, "Sinf", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+        finally
+        {
+            updateButton.Enabled = true;
+        }
     }
 
     /// <summary>Says which school this computer belongs to, or offers to attach it (S2.4).</summary>

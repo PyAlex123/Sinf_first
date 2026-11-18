@@ -29,7 +29,11 @@ internal sealed class AppPaths
 
     public string WebDir => Path.Combine(Root, "web");
 
-    public string ContentDir => Path.Combine(Root, "content");
+    /// <summary>Lessons that came inside the archive: a reserve for a computer that has never been online.</summary>
+    public string BundledContentDir => Path.Combine(Root, "content");
+
+    /// <summary>The copy the server actually reads, kept up to date from the platform (S2.5).</summary>
+    public string ContentDir => Path.Combine(Data, "content");
 
     public string DatabasePath => Path.Combine(Data, "sinf.db");
 
@@ -48,7 +52,34 @@ internal sealed class AppPaths
         var paths = new AppPaths(root, data);
         Directory.CreateDirectory(paths.Data);
         Directory.CreateDirectory(Path.GetDirectoryName(paths.LogFile)!);
+        paths.SeedContentFromPackage();
         return paths;
+    }
+
+    /// <summary>
+    /// On the very first run the working copy is empty, so the lessons from the archive are put there.
+    /// That way a computer that has never seen the internet can hold a lesson straight away (S2.5).
+    /// </summary>
+    private void SeedContentFromPackage()
+    {
+        if (Directory.Exists(ContentDir))
+        {
+            return;
+        }
+
+        // The server refuses to start without the folder, so it exists even when there is nothing to copy.
+        Directory.CreateDirectory(ContentDir);
+        if (!Directory.Exists(BundledContentDir))
+        {
+            return;
+        }
+
+        foreach (var source in Directory.EnumerateFiles(BundledContentDir, "*", SearchOption.AllDirectories))
+        {
+            var target = Path.Combine(ContentDir, Path.GetRelativePath(BundledContentDir, source));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(source, target, overwrite: true);
+        }
     }
 
     /// <summary>Names the first missing part of the package, or null when everything is in place.</summary>
@@ -57,7 +88,8 @@ internal sealed class AppPaths
         if (!File.Exists(NodeExe)) return NodeExe;
         if (!File.Exists(ServerEntry)) return ServerEntry;
         if (!Directory.Exists(WebDir)) return WebDir;
-        if (!Directory.Exists(ContentDir)) return ContentDir;
+        // The working copy of the lessons is ours to create; the archive only has to carry the reserve.
+        if (!Directory.Exists(BundledContentDir)) return BundledContentDir;
         return null;
     }
 }

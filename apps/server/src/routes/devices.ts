@@ -13,8 +13,8 @@ import {
   type PairDeviceResponse,
   type Teacher,
 } from '@sinf/shared';
-import { requireSchoolAdmin, requireSchoolMember } from '../auth/access.js';
-import { hashSecret, verifySecret } from '../auth/password.js';
+import { deviceFromHeader, requireSchoolAdmin, requireSchoolMember } from '../auth/access.js';
+import { hashSecret } from '../auth/password.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
@@ -70,18 +70,10 @@ export const deviceRoutes: FastifyPluginCallback<{ pairGuard?: AttemptGuard }> =
       .map((row) => toDevice(row, withCodes)),
   });
 
-  /** The device row behind `Authorization: Device <deviceId>.<token>`, or 401. */
+  /** The device row behind the token header (auth/access.ts), or 401. */
   async function deviceOf(request: FastifyRequest): Promise<DeviceRow> {
-    const header = request.headers.authorization ?? '';
-    const raw = header.startsWith('Device ') ? header.slice('Device '.length).trim() : '';
-    const dot = raw.indexOf('.');
-    const deviceId = dot > 0 ? raw.slice(0, dot) : '';
-    const token = dot > 0 ? raw.slice(dot + 1) : '';
-    const row = deviceId
-      ? db.select().from(schema.devices).where(eq(schema.devices.id, deviceId)).get()
-      : undefined;
-    const ok = row?.tokenHash ? await verifySecret(token, row.tokenHash) : false;
-    if (!row || !ok) {
+    const row = await deviceFromHeader(db, request.headers.authorization);
+    if (!row) {
       throw new ApiHttpError(401, 'unauthorized', 'Pair this computer with a school first');
     }
     return row;

@@ -1,6 +1,7 @@
 import { and, eq, inArray, or, type SQL } from 'drizzle-orm';
 import type { Teacher } from '@sinf/shared';
 import { schema, type Db } from '../db/index.js';
+import { verifySecret } from './password.js';
 import { ApiHttpError } from '../errors.js';
 
 /**
@@ -14,11 +15,49 @@ import { ApiHttpError } from '../errors.js';
  */
 
 export type ClassRow = typeof schema.classes.$inferSelect;
+export type DeviceRow = typeof schema.devices.$inferSelect;
 export type SchoolRow = typeof schema.schools.$inferSelect;
 export type SchoolRole = 'admin' | 'teacher';
 
 function notFound(what: string): ApiHttpError {
   return new ApiHttpError(404, 'not_found', `${what} not found`);
+}
+
+/**
+ * The school computer behind `Authorization: Device <deviceId>.<token>` (S2.4), or null when the header
+ * is missing or wrong. Used both by the device's own routes and by the lesson material it downloads.
+ */
+export async function deviceFromHeader(
+  db: Db,
+  authorization: string | undefined,
+): Promise<DeviceRow | null> {
+  const header = authorization ?? '';
+  const raw = header.startsWith('Device ') ? header.slice('Device '.length).trim() : '';
+  const dot = raw.indexOf('.');
+  if (dot <= 0) return null;
+  const row = db
+    .select()
+    .from(schema.devices)
+    .where(eq(schema.devices.id, raw.slice(0, dot)))
+    .get();
+  if (!row?.tokenHash) return null;
+  return (await verifySecret(raw.slice(dot + 1), row.tokenHash)) ? row : null;
+}
+
+/**
+ * May this request read the lesson material (S2.5)? A logged-in teacher may, and so may a school
+ * computer that has paired. **This is the single place a licence check will go** (ADR-009): the
+ * material itself is still served openly at `/content/`, because a student's browser loads it with no
+ * login at all — closing that down needs short-lived lesson tokens and is a step of its own.
+ */
+export async function requireContentAccess(
+  db: Db,
+  teacher: Teacher | null,
+  authorization: string | undefined,
+): Promise<void> {
+  if (teacher) return;
+  if (await deviceFromHeader(db, authorization)) return;
+  throw new ApiHttpError(401, 'unauthorized', 'Log in or pair this computer with a school');
 }
 
 /** Only we run this part; a teacher must not even learn that it exists, hence 404. */

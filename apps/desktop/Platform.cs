@@ -156,6 +156,9 @@ internal sealed class Platform : IDisposable
         }
     }
 
+    /// <summary>The shared client, so content sync does not open a second one.</summary>
+    public HttpClient Http => http;
+
     public void Dispose()
     {
         beating?.Cancel();

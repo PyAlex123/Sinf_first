@@ -14,6 +14,8 @@ import { authRoutes } from './routes/auth.js';
 import { classRoutes } from './routes/classes.js';
 import { contentRoutes } from './routes/content.js';
 import { demoRoutes } from './routes/demo.js';
+import { buildContentManifest } from './content/manifest.js';
+import { contentSyncRoutes } from './routes/content-sync.js';
 import { deviceRoutes } from './routes/devices.js';
 import { healthRoutes } from './routes/health.js';
 import { schoolRoutes } from './routes/schools.js';
@@ -79,6 +81,10 @@ export async function buildApp(
   await app.register(classRoutes, { prefix: '/api' });
   await app.register(schoolRoutes, { prefix: '/api' });
   await app.register(deviceRoutes, { prefix: '/api' });
+  await app.register(contentSyncRoutes, {
+    prefix: '/api',
+    manifest: buildContentManifest(ctx.config.contentDir),
+  });
   await app.register(sessionRoutes, { prefix: '/api', store });
   await app.register(joinRoutes, { prefix: '/api', store });
   await app.register(realtimePlugin, { store });
