@@ -25,6 +25,7 @@
   import Icon from '../../lib/ui/Icon.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
   import StudentList from '../../lib/ui/StudentList.svelte';
+  import SyncBox from '../../lib/ui/SyncBox.svelte';
 
   let { params: _params }: PageProps = $props();
   let teacher = $state<Teacher | null>(null);
@@ -279,6 +280,8 @@
             {/if}
           </div>
         </Card>
+
+        <SyncBox />
 
         <p class="muted small hint">
           {platform.lanUrl

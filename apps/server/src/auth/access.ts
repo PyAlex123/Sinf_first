@@ -50,6 +50,19 @@ export async function deviceFromHeader(
  * material itself is still served openly at `/content/`, because a student's browser loads it with no
  * login at all — closing that down needs short-lived lesson tokens and is a step of its own.
  */
+/**
+ * The school computer itself, for the routes that only a paired machine may use (S2.6): the school's
+ * roster going down and the lesson results coming up. Unpaired or a stale token — 401, so the app
+ * can tell the school that this computer was unpaired instead of knocking forever.
+ */
+export async function requireDevice(db: Db, authorization: string | undefined): Promise<DeviceRow> {
+  const device = await deviceFromHeader(db, authorization);
+  if (!device) {
+    throw new ApiHttpError(401, 'unauthorized', 'Pair this computer with a school');
+  }
+  return device;
+}
+
 export async function requireContentAccess(
   db: Db,
   teacher: Teacher | null,

@@ -21,6 +21,8 @@ import { healthRoutes } from './routes/health.js';
 import { schoolRoutes } from './routes/schools.js';
 import { joinRoutes } from './routes/join.js';
 import { sessionRoutes } from './routes/sessions.js';
+import { syncRoutes } from './routes/sync.js';
+import { SyncWorker } from './sync/worker.js';
 
 export interface AppContext {
   config: Config;
@@ -32,6 +34,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     ctx: AppContext;
     sessions: SessionStore;
+    /** Set only on a school computer (S2.6); null when this server is the platform. */
+    sync: SyncWorker | null;
   }
 }
 
@@ -39,7 +43,13 @@ const YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 export async function buildApp(
   ctx: AppContext,
-  options: { logger?: FastifyServerOptions['logger'] } = {},
+  options: {
+    logger?: FastifyServerOptions['logger'];
+    /** Tests pass their own, so they can drive the ticks themselves. */
+    sync?: SyncWorker | null;
+    /** How a school computer reaches the platform when a teacher logs in (S2.6); tests replace it. */
+    platformFetch?: typeof fetch;
+  } = {},
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: options.logger ?? false });
   app.decorate('ctx', ctx);
@@ -54,6 +64,29 @@ export async function buildApp(
 
   const store = new SessionStore(ctx.db, ctx.content, app.log);
   app.decorate('sessions', store);
+
+  /*
+   * School-computer mode (S2.6): this server was told where the platform is, so it mirrors the
+   * school's roster down and sends lesson results up. On the platform itself nothing is created and
+   * no timer runs.
+   */
+  const worker =
+    options.sync !== undefined
+      ? options.sync
+      : ctx.config.platformConfigFile || ctx.config.platformLink
+        ? new SyncWorker(ctx.db, ctx.config, app.log)
+        : null;
+  app.decorate('sync', worker);
+  if (worker) {
+    // A lesson that has just ended should not wait a minute for its turn.
+    store.onSessionEnded = () => void worker.push();
+    app.addHook('onReady', () => {
+      worker.start();
+    });
+    app.addHook('onClose', () => {
+      worker.stop();
+    });
+  }
 
   // Imported lesson content. Media files are named by content hash (ADR-005), so they are cached for a year;
   // JSON, CSS and scenarios are revalidated.
@@ -75,7 +108,10 @@ export async function buildApp(
   });
 
   await app.register(healthRoutes);
-  await app.register(authRoutes, { prefix: '/api' });
+  await app.register(authRoutes, {
+    prefix: '/api',
+    ...(options.platformFetch ? { platformFetch: options.platformFetch } : {}),
+  });
   await app.register(contentRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api' });
   await app.register(classRoutes, { prefix: '/api' });
@@ -85,6 +121,7 @@ export async function buildApp(
     prefix: '/api',
     manifest: buildContentManifest(ctx.config.contentDir),
   });
+  await app.register(syncRoutes, { prefix: '/api', worker });
   await app.register(sessionRoutes, { prefix: '/api', store });
   await app.register(joinRoutes, { prefix: '/api', store });
   await app.register(realtimePlugin, { store });

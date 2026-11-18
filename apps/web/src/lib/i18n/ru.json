@@ -292,5 +292,15 @@
   "session.scenario.open": "Открыть в новой вкладке",
   "session.scenario.show": "Сценарий",
   "session.scenario.hide": "Скрыть сценарий",
-  "admin.none.hint": "Создайте школу выше, затем назначьте её администратора по адресу почты учителя."
+  "admin.none.hint": "Создайте школу выше, затем назначьте её администратора по адресу почты учителя.",
+  "sync.title": "Результаты уроков",
+  "sync.allSent": "Всё отправлено",
+  "sync.pending": "{count} уроков ждут связи",
+  "sync.pending#one": "{count} урок ждёт связи",
+  "sync.pending#few": "{count} урока ждут связи",
+  "sync.pending#many": "{count} уроков ждут связи",
+  "sync.now": "Отправить сейчас",
+  "sync.lastSync": "Последняя связь: {time}",
+  "sync.never": "Связи с платформой ещё не было",
+  "sync.error": "Последняя ошибка: {text}"
 }

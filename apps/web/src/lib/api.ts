@@ -33,6 +33,7 @@ import {
   type TeacherLogin,
   type UpdateStudent,
   type TeacherRegister,
+  SyncStatusSchema,
 } from '@sinf/shared';
 import { z } from 'zod';
 
@@ -173,6 +174,8 @@ export const api = {
     request('POST', '/api/admin/schools', z.strictObject({ school: SchoolBriefSchema }), body),
   assignSchoolAdmin: (id: string, email: string) =>
     request('POST', `/api/admin/schools/${encodeURIComponent(id)}/admins`, OkSchema, { email }),
+  syncStatus: () => request('GET', '/api/sync/status', SyncStatusSchema),
+  syncNow: () => request('POST', '/api/sync/now', SyncStatusSchema),
   joinClasses: () => request('GET', '/api/join/classes', JoinClassesResponseSchema),
   joinLookup: (code: string) =>
     request('POST', '/api/join/lookup', JoinLookupResponseSchema, { code }),

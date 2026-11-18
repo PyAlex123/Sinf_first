@@ -64,6 +64,9 @@ internal sealed class ServerProcess : IAsyncDisposable
         start.Environment["DATABASE_PATH"] = paths.DatabasePath;
         start.Environment["CONTENT_DIR"] = paths.ContentDir;
         start.Environment["WEB_DIR"] = paths.WebDir;
+        // S2.6: the server reads the same settings file, so pairing with a school in the middle of
+        // the day is picked up without restarting it.
+        start.Environment["PLATFORM_CONFIG_FILE"] = paths.ConfigFile;
         start.Environment["SESSION_SECRET"] = config.SessionSecret;
         start.Environment["DEMO_TEACHER_PASSWORD"] = config.TeacherPassword;
         start.Environment["LOG_LEVEL"] = "info";

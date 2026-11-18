@@ -65,6 +65,12 @@ export class SessionStore {
     private readonly now: () => number = Date.now,
   ) {}
 
+  /**
+   * Called right after a lesson ends, so the school computer can offer its results to the platform
+   * at once instead of waiting for the next tick (S2.6). Nothing on the platform sets it.
+   */
+  onSessionEnded: ((sessionId: string) => void) | null = null;
+
   /** Starts a session for a class; the previous active session of the class is ended. */
   create(input: {
     classId: string;
@@ -536,6 +542,7 @@ export class SessionStore {
     session.sockets.clear();
     this.live.delete(id);
     this.log.info({ sessionId: id }, 'session ended');
+    this.onSessionEnded?.(id);
   }
 
   /** Students of the class who never logged in are marked absent (CLAUDE.md §4.1). */

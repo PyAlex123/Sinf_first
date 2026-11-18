@@ -198,6 +198,12 @@ export const sessions = sqliteTable(
     startedAt: timestamp('started_at').notNull(),
     endedAt: timestamp('ended_at'),
     demoSpeed: integer('demo_speed').notNull().default(1),
+    /**
+     * School-computer mode (S2.6): when the platform accepted this lesson. Empty means "still
+     * waiting for a connection", so this column is the queue — it survives any crash, and a lesson
+     * can only leave the queue after the platform has said it has it.
+     */
+    syncedAt: timestamp('synced_at'),
     /** Snapshot of the in-memory session state (ADR-006). */
     stateJson: text('state_json', { mode: 'json' }).$type<Record<string, unknown>>(),
   },
@@ -298,6 +304,17 @@ export const grades = sqliteTable(
   },
   (t) => [index('grades_class_date_idx').on(t.classId, t.date)],
 );
+
+/**
+ * Small persistent notes of the sync worker (S2.6): which roster version this computer holds, when
+ * the platform last answered, what went wrong last time. A key-value table, because this is state of
+ * the machine, not data of the school.
+ */
+export const syncState = sqliteTable('sync_state', {
+  key: text('key').primaryKey(),
+  value: text('value'),
+  updatedAt: timestamp('updated_at').notNull(),
+});
 
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [

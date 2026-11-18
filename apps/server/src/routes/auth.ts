@@ -8,17 +8,19 @@ import {
   type Teacher,
 } from '@sinf/shared';
 import { visibleClassWhere } from '../auth/access.js';
+import { readPlatformLink } from '../config.js';
+import { verifyOnPlatform } from '../sync/platform-login.js';
 import { hashSecret, verifySecret } from '../auth/password.js';
 import { clearTeacherCookie, requireTeacher, setTeacherCookie } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
 import { ApiHttpError } from '../errors.js';
 import { AttemptGuard } from '../services/attempt-guard.js';
 
-export const authRoutes: FastifyPluginCallback<{ loginGuard?: AttemptGuard }> = (
-  app,
-  opts,
-  done,
-) => {
+export const authRoutes: FastifyPluginCallback<{
+  loginGuard?: AttemptGuard;
+  /** Tests point this at their own platform; in production it is the global `fetch`. */
+  platformFetch?: typeof fetch;
+}> = (app, opts, done) => {
   const { db, config } = app.ctx;
   // Slows a password search down; per process, like the student code guard (ADR-009).
   const guard = opts.loginGuard ?? new AttemptGuard();
@@ -63,7 +65,26 @@ export const authRoutes: FastifyPluginCallback<{ loginGuard?: AttemptGuard }> = 
       });
     }
     const user = db.select().from(schema.users).where(eq(schema.users.email, email)).get();
-    const ok = user ? await verifySecret(body.password, user.passwordHash) : false;
+    let ok = user ? await verifySecret(body.password, user.passwordHash) : false;
+    /*
+     * School computer (S2.6): the roster came from the platform without password hashes, so the
+     * first login of a teacher is checked there and then remembered here. Every later lesson can
+     * then start with no internet at all — which is the whole point (CLAUDE.md §3.3).
+     */
+    if (!ok && user) {
+      const link = readPlatformLink(config);
+      const onPlatform = link
+        ? await verifyOnPlatform(link, email, body.password, opts.platformFetch)
+        : null;
+      // Only the teacher this computer already knows from its school's roster, and no one else.
+      if (onPlatform && onPlatform.id === user.id) {
+        db.update(schema.users)
+          .set({ passwordHash: await hashSecret(body.password) })
+          .where(eq(schema.users.id, user.id))
+          .run();
+        ok = true;
+      }
+    }
     if (!user || !ok) {
       const failed = guard.fail(email, now);
       throw new ApiHttpError(401, 'invalid_credentials', 'Wrong email or password', {
