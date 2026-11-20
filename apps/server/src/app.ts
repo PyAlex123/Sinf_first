@@ -20,6 +20,7 @@ import { deviceRoutes } from './routes/devices.js';
 import { healthRoutes } from './routes/health.js';
 import { schoolRoutes } from './routes/schools.js';
 import { joinRoutes } from './routes/join.js';
+import { resultRoutes } from './routes/results.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { syncRoutes } from './routes/sync.js';
 import { SyncWorker } from './sync/worker.js';
@@ -123,6 +124,7 @@ export async function buildApp(
   });
   await app.register(syncRoutes, { prefix: '/api', worker });
   await app.register(sessionRoutes, { prefix: '/api', store });
+  await app.register(resultRoutes, { prefix: '/api' });
   await app.register(joinRoutes, { prefix: '/api', store });
   await app.register(realtimePlugin, { store });
 

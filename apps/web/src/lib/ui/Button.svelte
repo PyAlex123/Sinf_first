@@ -14,6 +14,7 @@
     variant = 'primary',
     size = 'md',
     href,
+    download = false,
     disabled = false,
     block = false,
     type = 'button',
@@ -23,6 +24,8 @@
     variant?: Variant;
     size?: Size;
     href?: string;
+    /** The link is a file to save (the journal in Excel); the router then leaves it alone. */
+    download?: boolean;
     disabled?: boolean;
     /** Fills the width of its container: forms on a phone, the student's big buttons. */
     block?: boolean;
@@ -31,7 +34,13 @@
 </script>
 
 {#if href && !disabled}
-  <a class="btn {variant} {size}" class:block {href} role="button">{@render children()}</a>
+  <a
+    class="btn {variant} {size}"
+    class:block
+    {href}
+    download={download ? '' : undefined}
+    role="button">{@render children()}</a
+  >
 {:else}
   <button class="btn {variant} {size}" class:block {type} {disabled} {...rest}>
     {@render children()}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    DEFAULT_GRADE_THRESHOLDS,
     MAX_STUDENTS_PER_CLASS,
     parseRoster,
     type ClassSummary,
@@ -32,6 +33,8 @@
   let busy = $state(false);
   let pasted = $state('');
   let report = $state<{ added: number; skipped: string[] } | null>(null);
+  let canEditSettings = $state(false);
+  let savingSettings = $state(false);
 
   /** What the paste holds, shown before anything is sent. */
   const preview = $derived(pasted.trim() ? parseRoster(pasted) : null);
@@ -42,6 +45,7 @@
       const [details, p] = await Promise.all([api.classDetails(classId), loadPics()]);
       cls = details.class;
       students = details.students;
+      canEditSettings = details.canEditSettings;
       pics = p;
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
@@ -84,6 +88,21 @@
     cls = details.class;
   }
 
+  /** Grades are worked out when results are read, so the switch applies to past lessons too. */
+  async function setStarsToGrade(value: boolean): Promise<void> {
+    savingSettings = true;
+    error = null;
+    try {
+      const details = await api.setStarsToGrade(classId, value);
+      cls = details.class;
+      canEditSettings = details.canEditSettings;
+    } catch {
+      error = t('common.error');
+    } finally {
+      savingSettings = false;
+    }
+  }
+
   onMount(() => void load());
 </script>
 
@@ -102,6 +121,9 @@
       }`}
     >
       {#snippet actions()}
+        <Button variant="secondary" href={`/teacher/journal/${cls?.id}`}>
+          {t('teacher.journal')}
+        </Button>
         <Button variant="secondary" href={`/teacher/class/${cls?.id}/cards`}>
           {t('teacher.cards')}
         </Button>
@@ -129,7 +151,24 @@
         {/if}
       </section>
 
-      <aside>
+      <aside class="stack">
+        <Card>
+          <h2>{t('class.settings.title')}</h2>
+          <label class="switch">
+            <input
+              type="checkbox"
+              checked={cls.settings.starsToGrade}
+              disabled={!canEditSettings || savingSettings}
+              onchange={(e) => void setStarsToGrade(e.currentTarget.checked)}
+            />
+            <span>{t('class.settings.starsToGrade')}</span>
+          </label>
+          <p class="muted small">
+            {canEditSettings
+              ? t('class.settings.hint', cls.settings.gradeThresholds ?? DEFAULT_GRADE_THRESHOLDS)
+              : t('class.settings.locked')}
+          </p>
+        </Card>
         <Card>
           <h2>{t('class.add.title')}</h2>
           <p class="muted small">{t('class.add.hint')}</p>
@@ -218,6 +257,22 @@
   }
   .go {
     margin-top: var(--space-4);
+  }
+  .switch {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    font-weight: 600;
+    color: var(--c-dark);
+    cursor: pointer;
+  }
+  .switch input {
+    width: 20px;
+    height: 20px;
+    margin: 2px 0 0;
+    flex: none;
+    accent-color: var(--c-accent);
   }
   @media (max-width: 900px) {
     .cols {

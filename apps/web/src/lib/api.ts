@@ -35,6 +35,9 @@ import {
   type TeacherRegister,
   SyncStatusSchema,
   QuizResponseSchema,
+  JournalSchema,
+  SessionResultsSchema,
+  type Locale,
 } from '@sinf/shared';
 import { z } from 'zod';
 
@@ -98,6 +101,20 @@ export const api = {
     request('GET', `/api/sessions/${encodeURIComponent(id)}`, SessionWithStateSchema),
   endSession: (id: string) =>
     request('POST', `/api/sessions/${encodeURIComponent(id)}/end`, SessionResponseSchema),
+  sessionResults: (id: string) =>
+    request('GET', `/api/sessions/${encodeURIComponent(id)}/results`, SessionResultsSchema),
+  journal: (classId: string) =>
+    request('GET', `/api/journal/${encodeURIComponent(classId)}`, JournalSchema),
+  /** A plain link, not a request: the browser downloads the file itself. */
+  journalExportUrl: (classId: string, lang: Locale) =>
+    `/api/journal/${encodeURIComponent(classId)}/export.xlsx?lang=${lang}`,
+  setStarsToGrade: (classId: string, starsToGrade: boolean) =>
+    request(
+      'PATCH',
+      `/api/classes/${encodeURIComponent(classId)}/settings`,
+      ClassDetailsResponseSchema,
+      { starsToGrade },
+    ),
   classDetails: (id: string) =>
     request('GET', `/api/classes/${encodeURIComponent(id)}`, ClassDetailsResponseSchema),
   createClass: (body: CreateClass) =>

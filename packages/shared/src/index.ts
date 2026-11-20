@@ -12,3 +12,4 @@ export * from './stage-timer.js';
 export * from './session-state.js';
 export * from './sync.js';
 export * from './quiz.js';
+export * from './results.js';

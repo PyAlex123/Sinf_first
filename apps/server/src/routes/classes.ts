@@ -6,6 +6,7 @@ import {
   AddStudentsSchema,
   CreateClassSchema,
   MAX_STUDENTS_PER_CLASS,
+  UpdateClassSettingsSchema,
   UpdateStudentSchema,
   type AddStudentsResponse,
   type ClassDetailsResponse,
@@ -96,9 +97,34 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
     schoolName: schoolNameOf(cls.schoolId),
   });
 
-  const details = (cls: ClassRow): ClassDetailsResponse => {
+  /**
+   * Settings belong to the teachers of the class, not to everyone at its school; and on a school
+   * computer they come down from the platform with the roster, so a change there would not last.
+   */
+  const canEditSettings = (cls: ClassRow, teacher: Teacher): boolean => {
+    if (app.sync) return false;
+    if (cls.ownerId === teacher.id) return true;
+    return Boolean(
+      db
+        .select({ userId: schema.classTeachers.userId })
+        .from(schema.classTeachers)
+        .where(
+          and(
+            eq(schema.classTeachers.classId, cls.id),
+            eq(schema.classTeachers.userId, teacher.id),
+          ),
+        )
+        .get(),
+    );
+  };
+
+  const details = (cls: ClassRow, teacher: Teacher): ClassDetailsResponse => {
     const students = studentsOf(cls.id);
-    return { class: summaryOf(cls, students.length), students: students.map(toStudent) };
+    return {
+      class: summaryOf(cls, students.length),
+      students: students.map(toStudent),
+      canEditSettings: canEditSettings(cls, teacher),
+    };
   };
 
   /** Keeps the register in alphabetical order after every change (S2.2). */
@@ -118,8 +144,37 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
 
   app.get('/classes/:id', { preHandler: requireTeacher }, (request): ClassDetailsResponse => {
     const { id } = Params.parse(request.params);
-    return details(requireClass(db, request.teacher as Teacher, id));
+    const teacher = request.teacher as Teacher;
+    return details(requireClass(db, teacher, id), teacher);
   });
+
+  /** "Turn stars into a 2–5 grade" (S1.13). Grades are worked out on reading, so past lessons follow. */
+  app.patch(
+    '/classes/:id/settings',
+    { preHandler: requireTeacher },
+    (request): ClassDetailsResponse => {
+      const { id } = Params.parse(request.params);
+      const body = UpdateClassSettingsSchema.parse(request.body);
+      const teacher = request.teacher as Teacher;
+      const cls = requireClass(db, teacher, id);
+      if (!canEditSettings(cls, teacher)) {
+        throw new ApiHttpError(
+          403,
+          'settings_locked',
+          app.sync
+            ? 'Class settings are changed on the platform'
+            : 'Only a teacher of this class changes its settings',
+        );
+      }
+      const settings: ClassSettings = { ...cls.settings, starsToGrade: body.starsToGrade };
+      db.update(schema.classes).set({ settings }).where(eq(schema.classes.id, cls.id)).run();
+      request.log.info(
+        { classId: cls.id, starsToGrade: body.starsToGrade },
+        'class settings changed',
+      );
+      return details({ ...cls, settings }, teacher);
+    },
+  );
 
   app.post('/classes', { preHandler: requireTeacher }, (request): { class: ClassSummary } => {
     const body = CreateClassSchema.parse(request.body);
@@ -217,7 +272,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
         { classId: cls.id, added: fresh.length, skipped: skipped.length },
         'roster added',
       );
-      return { ...details(cls), added: fresh.length, skipped };
+      return { ...details(cls, request.teacher as Teacher), added: fresh.length, skipped };
     },
   );
 
@@ -234,7 +289,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
       .where(eq(schema.students.id, id))
       .run();
     renumber(cls.id);
-    return details(cls);
+    return details(cls, request.teacher as Teacher);
   });
 
   /**
@@ -268,7 +323,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
       request.log.info({ studentId: id }, 'student removed');
     }
     renumber(cls.id);
-    return details(cls);
+    return details(cls, request.teacher as Teacher);
   });
 
   /** Issues a new code; the old card stops working. */

@@ -104,7 +104,8 @@
     } catch {
       // the socket command already ended it
     }
-    router.navigate('/teacher');
+    // Right after the lesson the teacher sees how it went (S1.13).
+    router.navigate(`/teacher/session/${sessionId}/results`);
   }
 
   function onKey(event: KeyboardEvent): void {
@@ -156,7 +157,12 @@
   {:else if ended || summary?.status === 'ended'}
     <main class="page">
       <Notice>{t('teacher.session.ended')}</Notice>
-      <p><Button href="/teacher">{t('common.back')}</Button></p>
+      <p class="row">
+        <Button href={`/teacher/session/${sessionId}/results`}>
+          {t('teacher.session.results')}
+        </Button>
+        <Button variant="ghost" href="/teacher">{t('common.back')}</Button>
+      </p>
     </main>
   {:else if !bundle || !session}
     <main class="page" aria-busy="true">{t('common.loading')}</main>

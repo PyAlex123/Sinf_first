@@ -182,6 +182,9 @@
               <Button variant="secondary" size="sm" href={`/teacher/class/${cls.id}`}>
                 {t('class.manage')}
               </Button>
+              <Button variant="secondary" size="sm" href={`/teacher/journal/${cls.id}`}>
+                {t('teacher.journal')}
+              </Button>
               <Button variant="secondary" size="sm" href={`/teacher/class/${cls.id}/cards`}>
                 {t('teacher.cards')}
               </Button>

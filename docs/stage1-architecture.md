@@ -77,7 +77,7 @@ SQLite через Drizzle. Схема переносимая: текстовые
 | `practice_marks` | sessionId, studentId, stars (1–3), screenshotId?, at | звёзды учителя за рисунок в Paint |
 | `quiz_attempts` | id, sessionId, studentId, questionIndex, optionIndex, correct, timeMs, points | |
 | `screenshots` | id, sessionId, studentId, kind (`auto` / `manual`), takenAt, fileKey, width, height | миниатюры в базу не пишем |
-| `grades` | id, studentId, classId, sessionId, date, stars, value (2–5)?, source, comment | строка журнала, создаётся при завершении сеанса |
+| `grades` | id, studentId, classId, sessionId, date, stars, value (2–5)?, source, comment | строка журнала. **С S1.13 не заполняется**: итоги считаются при чтении (ADR-012). Понадобится для оценок, подтверждённых учителем |
 
 ---
 
@@ -251,9 +251,14 @@ scripts/check-bundle.mjs       проверка бюджета после vite b
 
 ## 12. Итоги и журнал (S1.13)
 
+> Сделано. Решения — в ADR-012.
+
 - Итоги сеанса — одна таблица класса: присутствие, ★ тренажёр, ★ Paint, очки викторины, итого. Оценка 2–5 считается только если в классе включено `starsToGrade` (для 1А выключено).
 - Журнал класса: ученики × даты сеансов, в ячейке звёзды или оценка и отметка присутствия.
 - Выгрузка в Excel: `services/xlsx.ts` пишет минимальный OOXML (строки и числа, один лист) и собирает zip через `fflate`. Тест распаковывает файл и проверяет XML; открыть в Excel проверяет автор.
+- **Итоги и журнал не хранятся, а считаются при чтении** из `attendance`, `screen_results`, `practice_results`, `quiz_attempts` (`services/results.ts`). Это те же строки, что уходят со школьного ПК в облако. Таблица `grades` пока не заполняется: она понадобится для оценок, подтверждённых учителем.
+- **Оценка** — процент от максимума урока: тренажёры, рисунок и викторина. Пороги 90 / 70 / 50, хранятся в `classes.settings.gradeThresholds`. Подробности — ADR-012.
+- Маршруты: `GET /api/sessions/:id/results`, `GET /api/journal/:classId`, `GET /api/journal/:classId/export.xlsx?lang=ru|uz`, `PATCH /api/classes/:id/settings` (переключатель «звёзды → оценка»).
 
 ---
 

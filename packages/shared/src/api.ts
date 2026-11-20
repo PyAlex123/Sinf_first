@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CourseSchema } from './lesson.js';
 import { LocaleSchema } from './locale.js';
 import { MAX_STUDENTS_PER_CLASS } from './roster.js';
+import { GradeThresholdsSchema } from './results.js';
 
 /** HTTP API contracts (`/api/…`). The server validates requests with these schemas; the web client uses the types. */
 
@@ -52,6 +53,11 @@ export const ClassSettingsSchema = z.strictObject({
   starsToGrade: z.boolean(),
   /** PICS keys used for picture codes of this class (6 pictures). */
   codePics: z.array(z.string().min(1)).length(6),
+  /**
+   * Where 5, 4 and 3 begin, in per cent of the lesson's stars (S1.13). Optional, so classes made
+   * before it keep reading; missing means `DEFAULT_GRADE_THRESHOLDS`.
+   */
+  gradeThresholds: GradeThresholdsSchema.optional(),
 });
 export type ClassSettings = z.infer<typeof ClassSettingsSchema>;
 
@@ -363,6 +369,11 @@ export type Student = z.infer<typeof StudentSchema>;
 export const ClassDetailsResponseSchema = z.strictObject({
   class: ClassSummarySchema,
   students: z.array(StudentSchema),
+  /**
+   * May this teacher change the class settings here (S1.13)? Only a teacher of the class, and not on
+   * a school computer, where the settings come down from the platform and would be overwritten.
+   */
+  canEditSettings: z.boolean(),
 });
 export type ClassDetailsResponse = z.infer<typeof ClassDetailsResponseSchema>;
 
