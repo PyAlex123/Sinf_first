@@ -1,7 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, notInArray } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
-import type { WebSocket } from 'ws';
 import {
   COUNTDOWN_SEC,
   createSessionState,
@@ -29,6 +28,19 @@ import { ApiHttpError, notFound } from '../errors.js';
  * `activity_events`. One store per server process.
  */
 
+/**
+ * What the room needs from a socket. A real `ws` socket has all of it; a virtual student (S1.15)
+ * brings its own, so it goes through exactly the same handlers as a child at a computer.
+ */
+export interface RoomSocket {
+  readonly readyState: number;
+  readonly OPEN: number;
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  ping(): void;
+  terminate(): void;
+}
+
 export interface Connection {
   role: Role;
   participantId: string | null;
@@ -41,7 +53,7 @@ interface LiveSession {
   plan: LessonPlan;
   /** Next scheduled timer step. */
   timer: NodeJS.Timeout | null;
-  sockets: Map<WebSocket, Connection>;
+  sockets: Map<RoomSocket, Connection>;
   /** participantToken → participantId. Anonymous participants reconnect with their token. */
   tokens: Map<string, string>;
   saveTimer: NodeJS.Timeout | null;
@@ -185,7 +197,7 @@ export class SessionStore {
    */
   attach(
     id: string,
-    socket: WebSocket,
+    socket: RoomSocket,
     role: Role,
     participantToken: string | null,
   ): { connection: Connection; participantToken: string | null } {
@@ -227,7 +239,13 @@ export class SessionStore {
    */
   loginStudent(
     id: string,
-    student: { id: string; firstName: string; lastName: string; sortOrder: number },
+    student: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      sortOrder: number;
+      isVirtual?: boolean;
+    },
   ): { token: string; participantId: string } {
     const session = this.get(id);
     if (!session) throw notFound('Session not found');
@@ -259,6 +277,7 @@ export class SessionStore {
         number: existing?.number ?? student.sortOrder,
         studentId: student.id,
         name: `${student.lastName} ${student.firstName}`,
+        virtual: student.isVirtual ?? false,
         now,
       },
       session.plan,
@@ -291,7 +310,7 @@ export class SessionStore {
     return { token, participantId };
   }
 
-  detach(id: string, socket: WebSocket): void {
+  detach(id: string, socket: RoomSocket): void {
     const session = this.live.get(id);
     if (!session) return;
     const connection = session.sockets.get(socket);
@@ -310,7 +329,7 @@ export class SessionStore {
   }
 
   /** Applies a client message and sends replies to the sender, broadcasts to the room. */
-  dispatch(id: string, socket: WebSocket, message: SessionEvent & { kind: 'command' }): void {
+  dispatch(id: string, socket: RoomSocket, message: SessionEvent & { kind: 'command' }): void {
     const session = this.live.get(id);
     if (!session) return;
     const result = reduce(session.state, message, session.plan);
@@ -322,8 +341,13 @@ export class SessionStore {
   }
 
   /** Sockets of a session (for heartbeat and shutdown). */
-  sockets(id: string): Map<WebSocket, Connection> {
-    return this.live.get(id)?.sockets ?? new Map<WebSocket, Connection>();
+  sockets(id: string): Map<RoomSocket, Connection> {
+    return this.live.get(id)?.sockets ?? new Map<RoomSocket, Connection>();
+  }
+
+  /** Stages, screens and quiz of a running lesson — what a virtual student plays by (S1.15). */
+  planOfSession(id: string): LessonPlan | undefined {
+    return this.get(id)?.plan;
   }
 
   liveSessionIds(): string[] {
@@ -383,7 +407,7 @@ export class SessionStore {
     id: string,
     session: LiveSession,
     result: ReturnType<typeof reduce>,
-    sender: WebSocket | null,
+    sender: RoomSocket | null,
   ): void {
     session.state = result.state;
     if (sender) {
@@ -405,7 +429,7 @@ export class SessionStore {
     this.schedule(id, session);
   }
 
-  private send(socket: WebSocket, message: ServerMessage): void {
+  private send(socket: RoomSocket, message: ServerMessage): void {
     if (socket.readyState === socket.OPEN) {
       socket.send(JSON.stringify(message));
     }
@@ -602,7 +626,10 @@ export class SessionStore {
     this.onSessionEnded?.(id);
   }
 
-  /** Students of the class who never logged in are marked absent (CLAUDE.md §4.1). */
+  /**
+   * Students of the class who never logged in are marked absent (CLAUDE.md §4.1). Virtual students
+   * are not: they are only ever in the lessons they were added to (S1.15).
+   */
   private markAbsent(id: string, classId: string): void {
     const present = this.db
       .select({ studentId: schema.attendance.studentId })
@@ -615,8 +642,12 @@ export class SessionStore {
       .from(schema.students)
       .where(
         present.length > 0
-          ? and(eq(schema.students.classId, classId), notInArray(schema.students.id, present))
-          : eq(schema.students.classId, classId),
+          ? and(
+              eq(schema.students.classId, classId),
+              eq(schema.students.isVirtual, false),
+              notInArray(schema.students.id, present),
+            )
+          : and(eq(schema.students.classId, classId), eq(schema.students.isVirtual, false)),
       )
       .all();
     if (missing.length === 0) return;

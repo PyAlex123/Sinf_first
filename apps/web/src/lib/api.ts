@@ -37,6 +37,9 @@ import {
   QuizResponseSchema,
   JournalSchema,
   SessionResultsSchema,
+  DemoStatusSchema,
+  DemoResetResponseSchema,
+  type AddVirtual,
   type Locale,
 } from '@sinf/shared';
 import { z } from 'zod';
@@ -101,6 +104,9 @@ export const api = {
     request('GET', `/api/sessions/${encodeURIComponent(id)}`, SessionWithStateSchema),
   endSession: (id: string) =>
     request('POST', `/api/sessions/${encodeURIComponent(id)}/end`, SessionResponseSchema),
+  demoStatus: () => request('GET', '/api/demo', DemoStatusSchema),
+  addVirtual: (body: AddVirtual) => request('POST', '/api/demo/virtual', DemoStatusSchema, body),
+  resetDemo: () => request('POST', '/api/demo/reset', DemoResetResponseSchema),
   sessionResults: (id: string) =>
     request('GET', `/api/sessions/${encodeURIComponent(id)}/results`, SessionResultsSchema),
   journal: (classId: string) =>

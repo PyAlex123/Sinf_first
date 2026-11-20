@@ -84,7 +84,14 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
     const students = db
       .select()
       .from(schema.students)
-      .where(and(eq(schema.students.classId, cls.id), eq(schema.students.isActive, true)))
+      .where(
+        and(
+          eq(schema.students.classId, cls.id),
+          eq(schema.students.isActive, true),
+          // Virtual students are played by the server; a child must not pick one (S1.15).
+          eq(schema.students.isVirtual, false),
+        ),
+      )
       .orderBy(schema.students.sortOrder)
       .all();
     return {
@@ -111,7 +118,7 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
       .from(schema.students)
       .where(eq(schema.students.id, body.studentId))
       .get();
-    if (!student || student.classId !== summary.classId || !student.isActive) {
+    if (!student || student.classId !== summary.classId || !student.isActive || student.isVirtual) {
       throw notFound('Student not found in this class');
     }
     const key = `${summary.id}:${student.id}`;

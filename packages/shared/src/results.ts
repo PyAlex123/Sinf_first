@@ -125,6 +125,8 @@ export const ResultRowSchema = z.strictObject({
   name: z.string().min(1),
   /** Switched off after the lesson (left the class); kept so old lessons stay whole. */
   isActive: z.boolean(),
+  /** A demo student played by the server (S1.15). */
+  isVirtual: z.boolean(),
   present: z.boolean(),
   trainerStars: count,
   /** Trainer screens finished. */
@@ -189,6 +191,7 @@ export const JournalSchema = z.strictObject({
       id,
       name: z.string().min(1),
       isActive: z.boolean(),
+      isVirtual: z.boolean(),
       cells: z.array(JournalCellSchema.nullable()),
     }),
   ),

@@ -59,6 +59,8 @@ export type SessionEvent =
       number: number;
       studentId: string | null;
       name: string | null;
+      /** A demo student played by the server (S1.15). */
+      virtual?: boolean;
       now: number;
     }
   | { kind: 'participant.leave'; participantId: string; now: number }
@@ -344,6 +346,7 @@ function join(
         hidden: false,
         fullscreen: false,
         escapes: 0,
+        virtual: e.virtual ?? false,
         lastSeenAt: e.now,
       };
   return updateParticipant(r, participant, { type: 'join', participantId: participant.id });

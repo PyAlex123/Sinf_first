@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Participant, SessionSummary } from '@sinf/shared';
+  import { DEMO_CLASS_ID, type Participant, type SessionSummary } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { loadLessonBundle, type LessonBundle } from '../../lib/content.js';
@@ -144,6 +144,9 @@
 <div class="screen">
   <Header back="/teacher" title={summary?.lessonTitle ?? ''} lang={false}>
     {#if summary && !ended}
+      {#if summary.classId === DEMO_CLASS_ID}
+        <a class="proj" href="/teacher/demo">{t('session.demo')}</a>
+      {/if}
       <span class="joincode">{t('present.code')}: <b>{summary.joinCode}</b></span>
       <a class="proj" href={`/present/${summary.id}`} target="_blank" rel="noopener">
         {t('session.projector')} ↗
@@ -436,6 +439,9 @@
                   <div class="tname">
                     <span class="dot" class:on={p.online}></span>
                     {p.name ?? t('session.participant', { number: p.number })}
+                    {#if p.virtual}<span class="virt" title={t('virtual.badge')}
+                        >{t('virtual.short')}</span
+                      >{/if}
                   </div>
                   <div class="tmeta">
                     <span>
@@ -829,6 +835,16 @@
   }
   .tile.offline {
     opacity: 0.55;
+  }
+  /* Small and quiet: the class is the point, not which child the server plays. */
+  .virt {
+    margin-left: var(--space-1);
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-sm);
+    background: var(--c-info-soft);
+    color: var(--c-info);
+    font-size: var(--text-xs);
+    font-weight: 600;
   }
   .tname {
     font-weight: 700;

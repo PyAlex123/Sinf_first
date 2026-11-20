@@ -64,6 +64,11 @@ export const ParticipantSchema = z.strictObject({
    * `default` keeps snapshots written before this field readable (`sessions.state_json`).
    */
   escapes: z.number().int().nonnegative().default(0),
+  /**
+   * Played by the server for a demo (S1.15), not a child at a computer. `default` keeps older
+   * snapshots readable.
+   */
+  virtual: z.boolean().default(false),
   lastSeenAt: serverTime,
 });
 export type Participant = z.infer<typeof ParticipantSchema>;

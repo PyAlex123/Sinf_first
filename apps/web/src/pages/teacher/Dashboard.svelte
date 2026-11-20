@@ -10,6 +10,7 @@
     Student,
     Teacher,
   } from '@sinf/shared';
+  import { DEMO_CLASS_ID, DEMO_TEACHER_ID } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { loadCourses, loadPics } from '../../lib/content.js';
@@ -185,6 +186,11 @@
               <Button variant="secondary" size="sm" href={`/teacher/journal/${cls.id}`}>
                 {t('teacher.journal')}
               </Button>
+              {#if cls.id === DEMO_CLASS_ID && teacher?.id === DEMO_TEACHER_ID}
+                <Button variant="secondary" size="sm" href="/teacher/demo">
+                  {t('teacher.demo.open')}
+                </Button>
+              {/if}
               <Button variant="secondary" size="sm" href={`/teacher/class/${cls.id}/cards`}>
                 {t('teacher.cards')}
               </Button>

@@ -8,6 +8,7 @@
   import Card from '../../lib/ui/Card.svelte';
   import EmptyState from '../../lib/ui/EmptyState.svelte';
   import Header from '../../lib/ui/Header.svelte';
+  import Badge from '../../lib/ui/Badge.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
 
@@ -101,6 +102,7 @@
                   <td class="num sticky">{i + 1}</td>
                   <td class="who sticky">
                     {student.name}
+                    {#if student.isVirtual}<Badge tone="info">{t('virtual.short')}</Badge>{/if}
                     {#if !student.isActive}<span class="muted small">({t('journal.left')})</span
                       >{/if}
                   </td>

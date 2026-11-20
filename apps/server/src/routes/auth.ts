@@ -117,7 +117,11 @@ export const authRoutes: FastifyPluginCallback<{
         schoolName: schema.schools.name,
       })
       .from(schema.classes)
-      .leftJoin(schema.students, eq(schema.students.classId, schema.classes.id))
+      // Virtual students of the demo (S1.15) are not members of the class.
+      .leftJoin(
+        schema.students,
+        and(eq(schema.students.classId, schema.classes.id), eq(schema.students.isVirtual, false)),
+      )
       .leftJoin(schema.schools, eq(schema.schools.id, schema.classes.schoolId))
       .where(visibleClassWhere(db, teacher.id))
       .groupBy(schema.classes.id)

@@ -18,6 +18,7 @@ interface Labels {
   topic: string;
   absent: string;
   left: string;
+  virtual: string;
   legendStars: string;
   legendGrades: string;
   file: string;
@@ -31,6 +32,7 @@ const LABELS: Record<Locale, Labels> = {
     topic: 'Тема урока',
     absent: 'н',
     left: 'выбыл',
+    virtual: 'виртуальный',
     legendStars: 'В клетке — звёзды за урок; «н» — не был на уроке.',
     legendGrades: 'В клетке — оценка 2–5 по звёздам урока; «н» — не был на уроке.',
     file: 'zhurnal',
@@ -42,6 +44,7 @@ const LABELS: Record<Locale, Labels> = {
     topic: 'Dars mavzusi',
     absent: 'yo‘q',
     left: 'chiqib ketgan',
+    virtual: 'virtual',
     legendStars: 'Katakda — darsdagi yulduzchalar; «yo‘q» — darsda bo‘lmagan.',
     legendGrades: 'Katakda — dars yulduzchalari bo‘yicha 2–5 baho; «yo‘q» — darsda bo‘lmagan.',
     file: 'jurnal',
@@ -70,7 +73,11 @@ export function journalRows(journal: Journal, locale: Locale): Cell[][] {
   ];
   const students: Cell[][] = journal.students.map((student, i) => [
     i + 1,
-    student.isActive ? student.name : `${student.name} (${l.left})`,
+    student.isVirtual
+      ? `${student.name} (${l.virtual})`
+      : student.isActive
+        ? student.name
+        : `${student.name} (${l.left})`,
     ...student.cells.map((cell): Cell => {
       if (!cell) return null;
       if (!cell.present) return { value: l.absent, style: 'center' };

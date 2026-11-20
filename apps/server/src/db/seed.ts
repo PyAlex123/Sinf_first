@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { count, eq } from 'drizzle-orm';
-import type { ClassSettings } from '@sinf/shared';
+import { and, count, eq, inArray } from 'drizzle-orm';
+import { DEMO_CLASS_ID, DEMO_TEACHER_ID, type ClassSettings } from '@sinf/shared';
 import { hashSecretSync } from '../auth/password.js';
 import { CODE_SEPARATOR, DEFAULT_CODE_PICS } from '../services/codes.js';
 import { schema, type Db } from './index.js';
@@ -13,10 +13,10 @@ import { schema, type Db } from './index.js';
 export const DEMO = {
   schoolId: 'school-demo',
   schoolName: 'Demo School',
-  teacherId: 'user-demo-teacher',
+  teacherId: DEMO_TEACHER_ID,
   teacherEmail: 'demo@sinf.local',
   teacherName: 'Демо Учитель',
-  classId: 'class-1a',
+  classId: DEMO_CLASS_ID,
   className: '1А',
   grade: 1,
   academicYear: '2025/2026',
@@ -49,6 +49,33 @@ export const DEMO_STUDENTS: readonly { lastName: string; firstName: string }[] =
 ];
 
 /**
+ * Virtual students of the demo (S1.15): fictional too, and none of them shares a name with the class,
+ * so on the teacher's screen nobody mistakes one for a child at a computer.
+ */
+export const VIRTUAL_STUDENTS: readonly { lastName: string; firstName: string }[] = [
+  { lastName: 'Ахмедов', firstName: 'Санжар' },
+  { lastName: 'Белова', firstName: 'Ксения' },
+  { lastName: 'Валиева', firstName: 'Малика' },
+  { lastName: 'Гусев', firstName: 'Тимофей' },
+  { lastName: 'Давлатов', firstName: 'Ислом' },
+  { lastName: 'Ершова', firstName: 'Ульяна' },
+  { lastName: 'Жураев', firstName: 'Амир' },
+  { lastName: 'Зайцева', firstName: 'Ева' },
+  { lastName: 'Исмоилова', firstName: 'Дилноза' },
+  { lastName: 'Карпов', firstName: 'Лев' },
+  { lastName: 'Латипов', firstName: 'Отабек' },
+  { lastName: 'Морозова', firstName: 'Софья' },
+  { lastName: 'Нуриддинова', firstName: 'Шахзода' },
+  { lastName: 'Осипов', firstName: 'Марк' },
+  { lastName: 'Пулатов', firstName: 'Фарход' },
+  { lastName: 'Родионова', firstName: 'Вера' },
+  { lastName: 'Султанова', firstName: 'Мохира' },
+  { lastName: 'Тихонов', firstName: 'Глеб' },
+  { lastName: 'Усмонов', firstName: 'Жахонгир' },
+  { lastName: 'Чернова', firstName: 'Мила' },
+];
+
+/**
  * Picture code of the n-th student: an ordered pair of two different pictures out of six (30 pairs).
  * Pairs are enumerated and taken with a stride of 7 (coprime with 30), so 20 students get 20 distinct codes
  * that do not look like a sequence on printed cards.
@@ -74,6 +101,30 @@ export interface SeedOptions {
   now?: () => Date;
 }
 
+const demoSettings = (): ClassSettings => ({
+  starsToGrade: false,
+  codePics: [...DEMO.codePics],
+});
+
+/** The 20 children of 1А, with their fixed ids and picture codes. */
+function demoStudentRows() {
+  return DEMO_STUDENTS.map((s, i) => {
+    const code = pictureCode(i).join(CODE_SEPARATOR);
+    return {
+      id: `student-${String(i + 1).padStart(2, '0')}`,
+      classId: DEMO.classId,
+      firstName: s.firstName,
+      lastName: s.lastName,
+      codeKind: 'pics' as const,
+      codeHash: hashSecretSync(code),
+      codePublic: code,
+      isVirtual: false,
+      isActive: true,
+      sortOrder: i + 1,
+    };
+  });
+}
+
 export interface SeedResult {
   students: number;
 }
@@ -81,7 +132,7 @@ export interface SeedResult {
 /** Inserts the demo data into an empty database. */
 export function seedDemo(db: Db, options: SeedOptions): SeedResult {
   const now = (options.now ?? (() => new Date()))().toISOString();
-  const settings: ClassSettings = { starsToGrade: false, codePics: [...DEMO.codePics] };
+  const settings = demoSettings();
   db.transaction((tx) => {
     tx.insert(schema.schools)
       .values({
@@ -124,25 +175,7 @@ export function seedDemo(db: Db, options: SeedOptions): SeedResult {
         createdAt: now,
       })
       .run();
-    tx.insert(schema.students)
-      .values(
-        DEMO_STUDENTS.map((s, i) => {
-          const code = pictureCode(i).join(CODE_SEPARATOR);
-          return {
-            id: `student-${String(i + 1).padStart(2, '0')}`,
-            classId: DEMO.classId,
-            firstName: s.firstName,
-            lastName: s.lastName,
-            codeKind: 'pics' as const,
-            codeHash: hashSecretSync(code),
-            codePublic: code,
-            isVirtual: false,
-            isActive: true,
-            sortOrder: i + 1,
-          };
-        }),
-      )
-      .run();
+    tx.insert(schema.students).values(demoStudentRows()).run();
     tx.insert(schema.classTeachers)
       .values({ classId: DEMO.classId, userId: DEMO.teacherId, createdAt: now })
       .run();
@@ -187,7 +220,89 @@ export function ensureSuperadmin(
   return { created: true };
 }
 
-/** Deletes everything and seeds again (POST /api/demo/reset, `pnpm seed --reset`). */
+/**
+ * Virtual students of the demo class, the first `count` of the pool (S1.15). Rows that already exist
+ * are reused, so adding them lesson after lesson does not grow the class. They never log in by code:
+ * the code columns hold nothing that would let them.
+ */
+export function ensureVirtualStudents(db: Db, howMany: number) {
+  const wanted = VIRTUAL_STUDENTS.slice(0, howMany).map((s, i) => ({
+    id: `virtual-${String(i + 1).padStart(2, '0')}`,
+    classId: DEMO.classId,
+    firstName: s.firstName,
+    lastName: s.lastName,
+    codeKind: 'pics' as const,
+    codeHash: '-',
+    codePublic: '',
+    isVirtual: true,
+    isActive: true,
+    sortOrder: 1000 + i,
+  }));
+  if (wanted.length > 0) db.insert(schema.students).values(wanted).onConflictDoNothing().run();
+  return db
+    .select()
+    .from(schema.students)
+    .where(and(eq(schema.students.classId, DEMO.classId), eq(schema.students.isVirtual, true)))
+    .orderBy(schema.students.sortOrder)
+    .all();
+}
+
+/**
+ * The demo, back to how it started (POST /api/demo/reset, S1.15): the lessons of class 1А and
+ * everything they left, its virtual students, and the class itself with its 20 children. Nothing
+ * outside the demo class is touched — on the platform other teachers and schools live beside it.
+ */
+export function resetDemoClass(db: Db, now = new Date()): SeedResult {
+  return db.transaction((tx) => {
+    const sessionIds = tx
+      .select({ id: schema.sessions.id })
+      .from(schema.sessions)
+      .where(eq(schema.sessions.classId, DEMO.classId))
+      .all()
+      .map((r) => r.id);
+    if (sessionIds.length > 0) {
+      for (const table of [
+        schema.quizAttempts,
+        schema.practiceResults,
+        schema.screenResults,
+        schema.activityEvents,
+        schema.attendance,
+      ]) {
+        tx.delete(table).where(inArray(table.sessionId, sessionIds)).run();
+      }
+    }
+    tx.delete(schema.grades).where(eq(schema.grades.classId, DEMO.classId)).run();
+    tx.delete(schema.sessions).where(eq(schema.sessions.classId, DEMO.classId)).run();
+    tx.delete(schema.students).where(eq(schema.students.classId, DEMO.classId)).run();
+    const cls = tx.select().from(schema.classes).where(eq(schema.classes.id, DEMO.classId)).get();
+    if (cls) {
+      tx.update(schema.classes)
+        .set({ name: DEMO.className, grade: DEMO.grade, settings: demoSettings() })
+        .where(eq(schema.classes.id, DEMO.classId))
+        .run();
+    } else {
+      tx.insert(schema.classes)
+        .values({
+          id: DEMO.classId,
+          schoolId: DEMO.schoolId,
+          ownerId: DEMO.teacherId,
+          name: DEMO.className,
+          grade: DEMO.grade,
+          academicYear: DEMO.academicYear,
+          settings: demoSettings(),
+          createdAt: now.toISOString(),
+        })
+        .run();
+      tx.insert(schema.classTeachers)
+        .values({ classId: DEMO.classId, userId: DEMO.teacherId, createdAt: now.toISOString() })
+        .run();
+    }
+    tx.insert(schema.students).values(demoStudentRows()).run();
+    return { students: DEMO_STUDENTS.length };
+  });
+}
+
+/** Deletes everything and seeds again (`pnpm seed --reset` on a developer's machine only). */
 export function resetDemo(db: Db, options: SeedOptions): SeedResult {
   return db.transaction((tx) => {
     for (const table of schema.TABLES_FOR_RESET) {

@@ -24,6 +24,7 @@ import { resultRoutes } from './routes/results.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { syncRoutes } from './routes/sync.js';
 import { SyncWorker } from './sync/worker.js';
+import { VirtualStudents } from './services/virtual-students.js';
 
 export interface AppContext {
   config: Config;
@@ -35,6 +36,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     ctx: AppContext;
     sessions: SessionStore;
+    /** Virtual students of the demo lesson (S1.15). */
+    virtual: VirtualStudents;
     /** Set only on a school computer (S2.6); null when this server is the platform. */
     sync: SyncWorker | null;
   }
@@ -65,6 +68,12 @@ export async function buildApp(
 
   const store = new SessionStore(ctx.db, ctx.content, app.log);
   app.decorate('sessions', store);
+  const virtual = new VirtualStudents(store, ctx.content, app.log);
+  app.decorate('virtual', virtual);
+  app.addHook('onClose', (_instance, done) => {
+    virtual.close();
+    done();
+  });
 
   /*
    * School-computer mode (S2.6): this server was told where the platform is, so it mirrors the
@@ -114,7 +123,7 @@ export async function buildApp(
     ...(options.platformFetch ? { platformFetch: options.platformFetch } : {}),
   });
   await app.register(contentRoutes, { prefix: '/api' });
-  await app.register(demoRoutes, { prefix: '/api' });
+  await app.register(demoRoutes, { prefix: '/api', store, virtual });
   await app.register(classRoutes, { prefix: '/api' });
   await app.register(schoolRoutes, { prefix: '/api' });
   await app.register(deviceRoutes, { prefix: '/api' });

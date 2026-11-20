@@ -53,6 +53,7 @@
     return participants
       .map((p) => ({
         name: p.name ?? t('session.participant', { number: p.number }),
+        virtual: p.virtual,
         points: quiz.scores[p.id] ?? 0,
       }))
       .sort((a, b) => b.points - a.points);
@@ -146,7 +147,11 @@
             {#each leaders.slice(0, 3) as leader, i (leader.name)}
               <li class="place p{i}">
                 <span class="medal">{i + 1}</span>
-                <span class="who">{leader.name}</span>
+                <span class="who"
+                  >{leader.name}{#if leader.virtual}<small class="virt">
+                      {t('virtual.short')}</small
+                    >{/if}</span
+                >
                 <span class="pts">{t('quiz.points', { count: leader.points })}</span>
               </li>
             {/each}
@@ -156,7 +161,11 @@
           <ol class="board">
             {#each leaders.slice(0, 5) as leader (leader.name)}
               <li>
-                <span class="who">{leader.name}</span>
+                <span class="who"
+                  >{leader.name}{#if leader.virtual}<small class="virt">
+                      {t('virtual.short')}</small
+                    >{/if}</span
+                >
                 <span class="pts">{t('quiz.points', { count: leader.points })}</span>
               </li>
             {/each}
@@ -409,5 +418,11 @@
     color: var(--c-dark);
     font-weight: 600;
     z-index: 40;
+  }
+  .virt {
+    margin-left: 0.4em;
+    font-size: 0.5em;
+    font-weight: 600;
+    opacity: 0.7;
   }
 </style>

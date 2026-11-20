@@ -72,11 +72,12 @@ function byName(
 export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
   const { db } = app.ctx;
 
+  /** The register: virtual students of the demo (S1.15) are not on it and get no cards. */
   const studentsOf = (classId: string): StudentRow[] =>
     db
       .select()
       .from(schema.students)
-      .where(eq(schema.students.classId, classId))
+      .where(and(eq(schema.students.classId, classId), eq(schema.students.isVirtual, false)))
       .orderBy(schema.students.sortOrder)
       .all();
 

@@ -139,6 +139,7 @@ function computeSession(
       studentId: student.id,
       name: fullName(student),
       isActive: student.isActive,
+      isVirtual: student.isVirtual,
       present,
       trainerStars,
       screensDone: ownScreens.length,
@@ -219,9 +220,11 @@ export function classJournal(db: Db, content: ContentStore, classId: string): Jo
   );
   const perSession = sessions.map((s) => computeSession(s, cls, students, rows, content));
 
-  // Everyone on today's list, and anyone who has since left but sat one of these lessons.
+  // Everyone on today's list, and anyone who has since left — or was virtual — but sat a lesson.
   const seen = new Set(perSession.flatMap((r) => r.rows.map((row) => row.studentId)));
-  const listed = students.filter((s) => s.isActive || seen.has(s.id)).sort(byStudentName);
+  const listed = students
+    .filter((s) => (s.isActive && !s.isVirtual) || seen.has(s.id))
+    .sort(byStudentName);
 
   return {
     class: {
@@ -240,6 +243,7 @@ export function classJournal(db: Db, content: ContentStore, classId: string): Jo
       id: student.id,
       name: fullName(student),
       isActive: student.isActive,
+      isVirtual: student.isVirtual,
       cells: perSession.map((r): JournalCell | null => {
         const row = r.rows.find((x) => x.studentId === student.id);
         return row ? { present: row.present, stars: row.totalStars, grade: row.grade } : null;

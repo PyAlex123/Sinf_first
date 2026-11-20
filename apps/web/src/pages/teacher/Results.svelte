@@ -8,6 +8,7 @@
   import Card from '../../lib/ui/Card.svelte';
   import EmptyState from '../../lib/ui/EmptyState.svelte';
   import Header from '../../lib/ui/Header.svelte';
+  import Badge from '../../lib/ui/Badge.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
   import Table from '../../lib/ui/Table.svelte';
@@ -104,7 +105,10 @@
           {#each results.rows as row, i (row.studentId)}
             <tr class:away={!row.present}>
               <td class="num">{i + 1}</td>
-              <td class="name">{row.name}</td>
+              <td class="name">
+                {row.name}
+                {#if row.isVirtual}<Badge tone="info">{t('virtual.short')}</Badge>{/if}
+              </td>
               <td>{row.present ? t('results.here') : t('results.absent')}</td>
               {#if row.present}
                 <td class="n">
