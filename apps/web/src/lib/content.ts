@@ -1,4 +1,4 @@
-import type { Course, Lesson, Pics } from '@sinf/shared';
+import type { Course, Lesson, Pics, Quiz } from '@sinf/shared';
 import { api } from './api.js';
 
 /**
@@ -10,11 +10,14 @@ export interface LessonBundle {
   course: Course;
   lesson: Lesson;
   pics: Pics;
+  /** The live quiz of this lesson (S1.12); most lessons have none. */
+  quiz: Quiz | null;
 }
 
 let coursesPromise: Promise<Course[]> | null = null;
 const picsByUrl = new Map<string, Promise<Pics>>();
 const lessons = new Map<string, Promise<Lesson>>();
+const quizzes = new Map<string, Promise<Quiz | null>>();
 const styles = new Set<string>();
 
 export async function loadCourses(): Promise<Course[]> {
@@ -41,8 +44,22 @@ export async function loadLessonBundle(lessonId: string): Promise<LessonBundle> 
     picsByUrl.set(course.pics, pics);
   }
   ensureStylesheet(course.styles);
-  const [lesson, loadedPics] = await Promise.all([loadLesson(lessonId), pics]);
-  return { course, lesson, pics: loadedPics };
+  const [lesson, loadedPics, quiz] = await Promise.all([
+    loadLesson(lessonId),
+    pics,
+    loadQuiz(lessonId),
+  ]);
+  return { course, lesson, pics: loadedPics, quiz };
+}
+
+/** The lesson's quiz, or null — most lessons have none, and the server says so plainly. */
+export async function loadQuiz(lessonId: string): Promise<Quiz | null> {
+  let pending = quizzes.get(lessonId);
+  if (!pending) {
+    pending = api.quiz(lessonId).then((r) => r.quiz);
+    quizzes.set(lessonId, pending);
+  }
+  return pending;
 }
 
 /** Trainer pictures of the first course (used for picture codes on cards and the class list). */

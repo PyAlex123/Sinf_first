@@ -1,0 +1,46 @@
+{
+  "lessonId": "g10",
+  "questions": [
+    {
+      "text": "Что появилось после дождя?",
+      "say": "Что появилось после дождя?",
+      "options": [{ "pic": "rain" }, { "pic": "rainbow" }, { "pic": "sun" }, { "pic": "snowman" }],
+      "correct": 1
+    },
+    {
+      "text": "Как растёт дерево? Что было сначала?",
+      "say": "Как растёт дерево? Что было сначала?",
+      "options": [{ "pic": "sprout" }, { "pic": "tree" }, { "pic": "seed" }],
+      "correct": 2
+    },
+    {
+      "text": "Что пролилось на ноутбук?",
+      "say": "Что пролилось на ноутбук?",
+      "options": [{ "pic": "juice" }, { "pic": "soap" }, { "pic": "butter" }],
+      "correct": 0
+    },
+    {
+      "text": "История снеговика. Что было сначала?",
+      "say": "История снеговика. Что было сначала?",
+      "options": [
+        { "pic": "snowman" },
+        { "pic": "snowfall" },
+        { "pic": "snowball" },
+        { "pic": "melt" }
+      ],
+      "correct": 1
+    },
+    {
+      "text": "Какое время года после весны?",
+      "say": "Какое время года идёт после весны?",
+      "options": [{ "pic": "winter" }, { "pic": "summer" }, { "pic": "autumn" }],
+      "correct": 1
+    },
+    {
+      "text": "Какое число стоит перед пятью?",
+      "say": "Какое число стоит перед пятью?",
+      "options": [{ "text": "3" }, { "text": "4" }, { "text": "6" }],
+      "correct": 1
+    }
+  ]
+}

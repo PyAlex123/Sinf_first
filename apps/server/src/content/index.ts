@@ -1,6 +1,13 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CourseSchema, LessonSchema, type Course, type Lesson } from '@sinf/shared';
+import {
+  CourseSchema,
+  LessonSchema,
+  QuizSchema,
+  type Course,
+  type Lesson,
+  type Quiz,
+} from '@sinf/shared';
 
 /**
  * Imported lesson content (ADR-005) loaded into memory at startup: `content/<course>/course.json` and
@@ -11,6 +18,11 @@ export interface ContentStore {
   getLesson(id: string): Lesson | undefined;
   /** Course a lesson belongs to. */
   getCourseOf(lessonId: string): Course | undefined;
+  /**
+   * The live quiz of a lesson (S1.12), from `quizzes/<id>.json`. Written by hand, not by the import,
+   * and most lessons have none — a missing file is the normal case, not an error.
+   */
+  getQuiz(lessonId: string): Quiz | undefined;
 }
 
 export function loadContent(contentDir: string): ContentStore {
@@ -20,6 +32,7 @@ export function loadContent(contentDir: string): ContentStore {
   const courses: Course[] = [];
   const lessons = new Map<string, Lesson>();
   const courseOf = new Map<string, Course>();
+  const quizzes = new Map<string, Quiz>();
   for (const entry of readdirSync(contentDir, { withFileTypes: true })) {
     const courseFile = join(contentDir, entry.name, 'course.json');
     if (!entry.isDirectory() || !existsSync(courseFile)) {
@@ -36,6 +49,14 @@ export function loadContent(contentDir: string): ContentStore {
       }
       lessons.set(lesson.id, lesson);
       courseOf.set(lesson.id, course);
+      const quizFile = join(contentDir, entry.name, 'quizzes', `${summary.id}.json`);
+      if (existsSync(quizFile)) {
+        const quiz = QuizSchema.parse(readJson(quizFile));
+        if (quiz.lessonId !== lesson.id) {
+          throw new Error(`${quizFile}: quiz belongs to lesson "${quiz.lessonId}"`);
+        }
+        quizzes.set(lesson.id, quiz);
+      }
     }
     courses.push(course);
   }
@@ -44,6 +65,7 @@ export function loadContent(contentDir: string): ContentStore {
     courses,
     getLesson: (id) => lessons.get(id),
     getCourseOf: (id) => courseOf.get(id),
+    getQuiz: (id) => quizzes.get(id),
   };
 }
 

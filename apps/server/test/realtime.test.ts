@@ -296,6 +296,62 @@ describe('websocket room', () => {
     await teacher.closed;
   });
 
+  it('runs the live quiz and writes every answer down (S1.12)', async () => {
+    // g10 has a quiz of six questions; it belongs to the reflection stage, which is stage 4.
+    const sessionId = await startSession('g10');
+    const teacher = new Client(wsUrl(sessionId, 'teacher'), { cookie });
+    await teacher.until('state.snapshot');
+    const token = await joinStudent(sessionId, 'student-01');
+    const student = new Client(wsUrl(sessionId, 'student', token));
+    await student.until('state.snapshot');
+    await teacher.untilParticipant('student-01');
+
+    teacher.send({ v: 1, type: 'teacher.stage.set', index: 4 });
+    const started = await student.until('quiz.changed');
+    expect(started.quiz).toMatchObject({ questionIndex: 0, phase: 'question' });
+
+    // The first question of g10 is "Что появилось после дождя?", and the rainbow is option Б.
+    student.send({ v: 1, type: 'student.quiz.answer', questionIndex: 0, optionIndex: 1 });
+    // The teacher also heard the quiz start, so wait for the message that carries the answer.
+    let answered = await teacher.until('quiz.changed');
+    for (let i = 0; i < 5 && !answered.quiz?.answers['student-01']; i++) {
+      answered = await teacher.until('quiz.changed');
+    }
+    expect(answered.quiz?.scores['student-01']).toBeGreaterThan(500);
+    // One child is the whole class here, so the answer closes the question at once.
+    expect(answered.quiz?.phase).toBe('reveal');
+
+    const rows = t.database.db
+      .select()
+      .from(schemaRef.quizAttempts)
+      .all()
+      .filter((r) => r.sessionId === sessionId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      studentId: 'student-01',
+      questionIndex: 0,
+      optionIndex: 1,
+      correct: true,
+    });
+    expect(rows[0]?.points).toBeGreaterThan(500);
+
+    // A second press on the same question is not a second row.
+    student.send({ v: 1, type: 'student.quiz.answer', questionIndex: 0, optionIndex: 0 });
+    teacher.send({ v: 1, type: 'teacher.quiz.next' });
+    await teacher.until('quiz.changed');
+    expect(
+      t.database.db
+        .select()
+        .from(schemaRef.quizAttempts)
+        .all()
+        .filter((r) => r.sessionId === sessionId),
+    ).toHaveLength(1);
+
+    teacher.send({ v: 1, type: 'teacher.session.end' });
+    await student.closed;
+    await teacher.closed;
+  });
+
   it('refuses a teacher socket without the cookie and a projector on a missing session', async () => {
     const sessionId = await startSession('g11');
     const fake = new Client(wsUrl(sessionId, 'teacher'));

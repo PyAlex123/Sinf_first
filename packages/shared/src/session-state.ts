@@ -1,4 +1,5 @@
 import type { Stage } from './lesson.js';
+import { scoreAnswer, type Quiz } from './quiz.js';
 import {
   COUNTDOWN_SEC,
   elapsedMs,
@@ -16,6 +17,7 @@ import {
   type LockTargets,
   type Participant,
   type Role,
+  type QuizState,
   type ServerMessage,
   type SessionState,
 } from './protocol.js';
@@ -36,9 +38,19 @@ export interface LessonPlan {
   screenStages: readonly string[];
   /** Indexes of the step-by-step practice screens, in lesson order (S1.11). */
   stepScreens: readonly number[];
+  /** The live quiz of this lesson, if it has one (S1.12). It runs in the reflection stage. */
+  quiz: Quiz | null;
 }
 
-export const EMPTY_PLAN: LessonPlan = { stages: [], screenStages: [], stepScreens: [] };
+export const EMPTY_PLAN: LessonPlan = {
+  stages: [],
+  screenStages: [],
+  stepScreens: [],
+  quiz: null,
+};
+
+/** The stage the quiz takes over: its time is the reflection's (docs/stage1-architecture.md §7). */
+export const QUIZ_STAGE_KEY = 'reflection';
 
 export type SessionEvent =
   | {
@@ -72,6 +84,7 @@ export interface ActivityRecord {
     | 'screen_done'
     | 'step_done'
     | 'practice_stars'
+    | 'quiz_answer'
     | 'lock'
     | 'unlock'
     | 'mode'
@@ -115,6 +128,7 @@ export function createSessionState(input: NewSessionInput): SessionState {
     stage: startStage(0, input.now, partAt(first, 0)),
     demoSpeed: input.demoSpeed ?? 1,
     lock: { all: null, byParticipant: {} },
+    quiz: null,
     participants: {},
   };
 }
@@ -149,6 +163,11 @@ export function reduce(
 
 /** Timer step: start the countdown near the end of a stage, switch when the time is up, follow rest parts. */
 function tick(r: ReduceResult, now: number, plan: LessonPlan): ReduceResult {
+  // The quiz keeps real time: twenty seconds are twenty seconds, whatever the lesson speed.
+  const quiz = r.state.quiz;
+  if (quiz && quiz.phase === 'question' && now - quiz.startedAt >= quiz.limitSec * 1000) {
+    r = setQuiz(r, { ...quiz, phase: 'reveal' }, now);
+  }
   if (r.state.stage.pausedAt !== null) return r;
   const left = remainingMs(r.state, plan.stages, now);
   if (left === null) return r;
@@ -197,7 +216,104 @@ function goToStage(r: ReduceResult, index: number, now: number, plan: LessonPlan
     participantId: null,
     data: { index, key: stage?.key ?? null },
   });
+  // The quiz belongs to one stage: it starts with it and does not outlive it.
+  if (stage?.key === QUIZ_STAGE_KEY && plan.quiz) return startQuiz(r, now, plan);
+  if (r.state.quiz) return setQuiz(r, null, now);
   return r;
+}
+
+// ---------- the live quiz (S1.12)
+
+/**
+ * The quiz runs in its own stage and starts by itself when that stage begins (CLAUDE.md §4.3): a
+ * teacher who has just finished the practice should not have to remember a button. The buttons are
+ * there anyway, because a real lesson never goes exactly to plan.
+ */
+function startQuiz(r: ReduceResult, now: number, plan: LessonPlan): ReduceResult {
+  const quiz = plan.quiz;
+  if (!quiz || r.state.quiz) return r;
+  const first = quiz.questions[0];
+  if (!first) return r;
+  return setQuiz(
+    r,
+    {
+      questionIndex: 0,
+      questionCount: quiz.questions.length,
+      startedAt: now,
+      limitSec: first.limitSec,
+      phase: 'question',
+      answers: {},
+      // Scores survive the whole quiz; answers are only ever about the question on screen.
+      scores: {},
+    },
+    now,
+  );
+}
+
+function setQuiz(r: ReduceResult, quiz: QuizState | null, now: number): ReduceResult {
+  r.state = { ...r.state, quiz };
+  r.broadcast.push({ v, type: 'quiz.changed', quiz, serverNow: now });
+  return r;
+}
+
+/** One step onwards: question → right answer → leaderboard → next question, and finally the podium. */
+function advanceQuiz(r: ReduceResult, now: number, plan: LessonPlan): ReduceResult {
+  const quiz = r.state.quiz;
+  if (!quiz || !plan.quiz) return r;
+  if (quiz.phase === 'question') return setQuiz(r, { ...quiz, phase: 'reveal' }, now);
+  if (quiz.phase === 'reveal') return setQuiz(r, { ...quiz, phase: 'leaderboard' }, now);
+  if (quiz.phase === 'podium') return r;
+  const next = quiz.questionIndex + 1;
+  const question = plan.quiz.questions[next];
+  if (!question) return setQuiz(r, { ...quiz, phase: 'podium' }, now);
+  return setQuiz(
+    r,
+    {
+      ...quiz,
+      questionIndex: next,
+      startedAt: now,
+      limitSec: question.limitSec,
+      phase: 'question',
+      answers: {},
+    },
+    now,
+  );
+}
+
+function answerQuiz(
+  r: ReduceResult,
+  participantId: string,
+  questionIndex: number,
+  optionIndex: number,
+  now: number,
+  plan: LessonPlan,
+): ReduceResult {
+  const quiz = r.state.quiz;
+  const question = plan.quiz?.questions[quiz?.questionIndex ?? -1];
+  if (!quiz || !question || quiz.phase !== 'question') return r;
+  // A late message about the previous question, or a second press: neither counts.
+  if (questionIndex !== quiz.questionIndex || quiz.answers[participantId]) return r;
+  if (optionIndex >= question.options.length) return r;
+  const limitMs = quiz.limitSec * 1000;
+  const timeMs = Math.max(0, now - quiz.startedAt);
+  if (timeMs > limitMs) return r;
+  const correct = optionIndex === question.correct;
+  const points = scoreAnswer(correct, timeMs, limitMs);
+  const answers = { ...quiz.answers, [participantId]: { optionIndex, timeMs, points } };
+  const scores = { ...quiz.scores, [participantId]: (quiz.scores[participantId] ?? 0) + points };
+  r.activity.push({
+    type: 'quiz_answer',
+    participantId,
+    data: { questionIndex, optionIndex, correct, timeMs, points },
+  });
+  // When the last of the class has pressed, nobody should sit watching a timer run down.
+  const everyone = Object.values(r.state.participants).filter((p) => p.online);
+  const answered = everyone.every((p) => answers[p.id]);
+  return setQuiz(
+    r,
+    { ...quiz, answers, scores, phase: answered && everyone.length > 0 ? 'reveal' : quiz.phase },
+    now,
+  );
 }
 
 function setStage(r: ReduceResult, stage: SessionState['stage'], now: number): ReduceResult {
@@ -378,6 +494,18 @@ function command(
         e.now,
       );
     }
+    case 'teacher.quiz.start':
+      return startQuiz(r, e.now, plan);
+    case 'teacher.quiz.reveal': {
+      const quiz = r.state.quiz;
+      return quiz && quiz.phase === 'question'
+        ? setQuiz(r, { ...quiz, phase: 'reveal' }, e.now)
+        : r;
+    }
+    case 'teacher.quiz.next':
+      return advanceQuiz(r, e.now, plan);
+    case 'teacher.quiz.finish':
+      return r.state.quiz ? setQuiz(r, null, e.now) : r;
     case 'teacher.session.end':
       r.state = { ...r.state, status: 'ended' };
       r.broadcast.push({ v, type: 'session.ended' });
@@ -386,6 +514,7 @@ function command(
     case 'student.screen.set':
     case 'student.screen.done':
     case 'student.step.done':
+    case 'student.quiz.answer':
     case 'student.hand':
     case 'student.visibility':
       return studentCommand(r, e, m, plan);
@@ -443,6 +572,8 @@ function studentCommand(
         { type: 'step_done', participantId: p.id, data: { index: m.index, done: m.done } },
       );
     }
+    case 'student.quiz.answer':
+      return answerQuiz(r, p.id, m.questionIndex, m.optionIndex, e.now, plan);
     case 'student.hand': {
       if (m.up === p.hand) return r;
       return updateParticipant(

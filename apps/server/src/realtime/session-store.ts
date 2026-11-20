@@ -432,6 +432,30 @@ export class SessionStore {
         })),
       )
       .run();
+    // Every quiz answer is a row of its own: the journal needs who answered what and how fast (S1.12).
+    for (const r of records) {
+      const studentId = studentOf(r.participantId);
+      if (r.type !== 'quiz_answer' || !studentId) continue;
+      const questionIndex = Number(r.data?.['questionIndex']);
+      const optionIndex = Number(r.data?.['optionIndex']);
+      const timeMs = Number(r.data?.['timeMs']);
+      const points = Number(r.data?.['points']);
+      if (!Number.isInteger(questionIndex) || !Number.isInteger(optionIndex)) continue;
+      this.db
+        .insert(schema.quizAttempts)
+        .values({
+          id: randomUUID(),
+          sessionId: id,
+          studentId,
+          questionIndex,
+          optionIndex,
+          correct: r.data?.['correct'] === true,
+          timeMs: Math.round(timeMs),
+          points: Math.round(points),
+          at,
+        })
+        .run();
+    }
     // Stars for the drawing go to practice_results: one row per child per lesson (S1.11).
     for (const r of records) {
       const studentId = studentOf(r.participantId);
@@ -525,6 +549,7 @@ export class SessionStore {
       stages: lesson.stages,
       screenStages: lesson.screens.map((screen) => screen.stage),
       stepScreens: lesson.screens.flatMap((screen, i) => (screen.kind === 'step' ? [i] : [])),
+      quiz: this.content.getQuiz(lessonId) ?? null,
     };
   }
 

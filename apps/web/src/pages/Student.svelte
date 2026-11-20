@@ -6,8 +6,11 @@
   import { t } from '../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
+  import { QUIZ_OPTION_LETTERS } from '@sinf/shared';
   import Button from '../lib/ui/Button.svelte';
   import Icon from '../lib/ui/Icon.svelte';
+  import QuizOption from '../lib/ui/QuizOption.svelte';
+  import { speak } from '../player/lib/speech.js';
   import Notice from '../lib/ui/Notice.svelte';
   import RestScreen from '../lib/ui/RestScreen.svelte';
   import StageTimer from '../lib/ui/StageTimer.svelte';
@@ -41,6 +44,33 @@
     return screen?.kind === 'step' ? screen : null;
   });
   const stepDone = $derived(!!me?.steps.includes(index));
+
+  /**
+   * The live quiz (S1.12). While it is on, it is the whole screen: the lesson waits, and the child
+   * has four big buttons and nothing else to think about.
+   */
+  const quiz = $derived(session?.quiz ?? null);
+  const question = $derived(
+    quiz && bundle?.quiz ? (bundle.quiz.questions[quiz.questionIndex] ?? null) : null,
+  );
+  const myAnswer = $derived(me && quiz ? (quiz.answers[me.id] ?? null) : null);
+  const myScore = $derived(me && quiz ? (quiz.scores[me.id] ?? 0) : 0);
+
+  // A new question is read aloud once, the way the trainer reads its tasks.
+  let spokenQuestion = $state(-1);
+  $effect(() => {
+    if (!question || !quiz || quiz.phase !== 'question') return;
+    if (spokenQuestion === quiz.questionIndex) return;
+    spokenQuestion = quiz.questionIndex;
+    speak(question.say);
+  });
+
+  function optionState(i: number): 'idle' | 'chosen' | 'correct' | 'wrong' | 'dim' {
+    if (!quiz || !question) return 'idle';
+    if (quiz.phase === 'question') return myAnswer?.optionIndex === i ? 'chosen' : 'idle';
+    if (i === question.correct) return 'correct';
+    return myAnswer?.optionIndex === i ? 'wrong' : 'dim';
+  }
 
   /** In free mode a student walks through the screens of the current stage only (S1.9). */
   const range = $derived.by(() => {
@@ -130,19 +160,65 @@
     </main>
   {:else}
     <div class="play">
-      <LessonPlayer
-        lesson={bundle.lesson}
-        course={bundle.course}
-        pics={bundle.pics}
-        bind:index
-        navigation={free ? 'free' : 'locked'}
-        {range}
-        frozen={!!lock || resting}
-        doneScreens={me?.doneScreens ?? []}
-        stars={me?.stars ?? 0}
-        onNavigate={(i: number) => store?.setScreen(i)}
-        onScreenDone={(i: number, stars: number) => store?.screenDone(i, stars)}
-      />
+      {#if quiz && question}
+        <main class="quiz">
+          <p class="qnum muted">
+            {t('quiz.question', { n: quiz.questionIndex + 1, total: quiz.questionCount })}
+          </p>
+          <h1 class="qtext">{question.text}</h1>
+          <div class="opts" class:two={question.options.length <= 2}>
+            {#each question.options as option, i (i)}
+              <QuizOption
+                {option}
+                index={i}
+                pics={bundle.pics}
+                big
+                state={optionState(i)}
+                onclick={quiz.phase === 'question' && !myAnswer
+                  ? () => store?.answerQuiz(quiz.questionIndex, i)
+                  : undefined}
+              />
+            {/each}
+          </div>
+          <div class="qfoot">
+            {#if quiz.phase === 'question'}
+              {#if myAnswer}
+                <span class="said">{t('quiz.accepted')}</span>
+              {:else}
+                <button type="button" class="say" onclick={() => speak(question.say)}>
+                  🔊 {t('quiz.repeat')}
+                </button>
+              {/if}
+            {:else if myAnswer && myAnswer.optionIndex === question.correct}
+              <span class="said ok">{t('quiz.correct', { points: myAnswer.points })}</span>
+            {:else if myAnswer}
+              <span class="said no">
+                {t('quiz.wrong', { letter: QUIZ_OPTION_LETTERS[question.correct] ?? '' })}
+              </span>
+            {:else}
+              <!-- Не ответил вовсе — упрекать не за что, просто показываем верный. -->
+              <span class="said">
+                {t('quiz.rightIs', { letter: QUIZ_OPTION_LETTERS[question.correct] ?? '' })}
+              </span>
+            {/if}
+            <span class="score">{t('quiz.score', { points: myScore })}</span>
+          </div>
+        </main>
+      {:else}
+        <LessonPlayer
+          lesson={bundle.lesson}
+          course={bundle.course}
+          pics={bundle.pics}
+          bind:index
+          navigation={free ? 'free' : 'locked'}
+          {range}
+          frozen={!!lock || resting}
+          doneScreens={me?.doneScreens ?? []}
+          stars={me?.stars ?? 0}
+          onNavigate={(i: number) => store?.setScreen(i)}
+          onScreenDone={(i: number, stars: number) => store?.screenDone(i, stars)}
+        />
+      {/if}
       {#if resting}
         <RestScreen />
       {/if}
@@ -168,7 +244,7 @@
           </button>
         </div>
       {/if}
-      <div class="hud" class:raised={!!step}>
+      <div class="hud" class:raised={!!step || !!quiz}>
         {#if session && bundle}
           <span class="num">
             <StageTimer
@@ -187,8 +263,9 @@
           </span>
         {/if}
         {#if store?.status !== 'open'}<span class="conn">{t('student.reconnecting')}</span>{/if}
-        {#if !step}
-          <!-- On a step the child has their own "Помогите" button below; one hand is enough. -->
+        {#if !step && !quiz}
+          <!-- On a step the child has their own "Помогите" button below; one hand is enough.
+               During a quiz nothing may sit on top of an answer. -->
           <button
             type="button"
             class="hand"
@@ -236,7 +313,7 @@
     right: var(--space-3);
     bottom: 92px;
   }
-  /* The practice buttons take the bottom strip, so the badges move above them. */
+  /* The practice buttons and the quiz take the bottom strip, so the badges move above them. */
   .hud.raised {
     bottom: calc(var(--tap) * 2 + var(--space-6));
     display: flex;
@@ -274,6 +351,68 @@
   .hand.up {
     background: var(--c-accent);
   }
+  /* The quiz owns the screen while it runs: question on top, four buttons under the thumb. */
+  .quiz {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--c-bg);
+    overflow: auto;
+  }
+  .qnum {
+    margin: 0;
+  }
+  .qtext {
+    margin: 0;
+    font-size: var(--text-xl);
+    text-wrap: balance;
+  }
+  .opts {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+    min-height: 0;
+  }
+  .opts.two {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+  }
+  .qfoot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .say {
+    min-height: var(--tap);
+    padding: 0 var(--space-4);
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius-pill);
+    background: var(--c-surface);
+    font-weight: 700;
+    font-size: var(--text-lg);
+    color: var(--c-dark);
+  }
+  .said {
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: var(--c-dark);
+  }
+  .said.ok {
+    color: var(--c-ok);
+  }
+  .said.no {
+    color: var(--c-danger);
+  }
+  .score {
+    font-weight: 700;
+    color: var(--c-muted);
+  }
+
   /* The two buttons of the practice: big, low on the screen, away from the lesson itself. */
   .steps {
     position: fixed;

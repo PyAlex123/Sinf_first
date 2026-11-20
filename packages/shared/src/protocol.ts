@@ -84,6 +84,35 @@ export const StageStateSchema = z.strictObject({
 });
 export type StageState = z.infer<typeof StageStateSchema>;
 
+/**
+ * The live quiz while it runs (S1.12). Null between lessons and whenever no quiz is on; a snapshot
+ * written before this existed reads as null, so old sessions still open.
+ */
+export const QuizPhaseSchema = z.enum(['question', 'reveal', 'leaderboard', 'podium']);
+export type QuizPhase = z.infer<typeof QuizPhaseSchema>;
+
+export const QuizAnswerSchema = z.strictObject({
+  optionIndex: z.number().int().nonnegative(),
+  /** How long the child took, in real milliseconds: the quiz is about reaction, not lesson time. */
+  timeMs: z.number().int().nonnegative(),
+  points: z.number().int().nonnegative(),
+});
+export type QuizAnswer = z.infer<typeof QuizAnswerSchema>;
+
+export const QuizStateSchema = z.strictObject({
+  questionIndex: z.number().int().nonnegative(),
+  questionCount: z.number().int().positive(),
+  /** Server time when the current question appeared. */
+  startedAt: serverTime,
+  limitSec: z.number().int().positive(),
+  phase: QuizPhaseSchema,
+  /** Answers to the current question only; they are cleared when the next one starts. */
+  answers: z.record(id, QuizAnswerSchema),
+  /** Points for the whole quiz, per participant. */
+  scores: z.record(id, z.number().int().nonnegative()),
+});
+export type QuizState = z.infer<typeof QuizStateSchema>;
+
 export const SessionStateSchema = z.strictObject({
   id,
   lessonId: id,
@@ -97,6 +126,8 @@ export const SessionStateSchema = z.strictObject({
   demoSpeed: z.number().int().positive(),
   screenCount: z.number().int().positive(),
   lock: LockStateSchema,
+  /** The live quiz, while it is on (S1.12). */
+  quiz: QuizStateSchema.nullable().default(null),
   participants: z.record(id, ParticipantSchema),
 });
 export type SessionState = z.infer<typeof SessionStateSchema>;
@@ -142,6 +173,13 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     participantId: id,
     stars: z.number().int().min(0).max(3),
   }),
+  /** The live quiz (S1.12): it starts by itself with its stage, and these move it along. */
+  z.strictObject({ v, type: z.literal('teacher.quiz.start') }),
+  /** Show the right answer now, without waiting for the time to run out. */
+  z.strictObject({ v, type: z.literal('teacher.quiz.reveal') }),
+  /** One step onwards: question → answer → leaderboard → next question (or the podium). */
+  z.strictObject({ v, type: z.literal('teacher.quiz.next') }),
+  z.strictObject({ v, type: z.literal('teacher.quiz.finish') }),
   z.strictObject({ v, type: z.literal('teacher.session.end') }),
   z.strictObject({ v, type: z.literal('student.screen.set'), index: screenIndex }),
   z.strictObject({
@@ -156,6 +194,12 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('student.step.done'),
     index: screenIndex,
     done: z.boolean(),
+  }),
+  z.strictObject({
+    v,
+    type: z.literal('student.quiz.answer'),
+    questionIndex: z.number().int().nonnegative(),
+    optionIndex: z.number().int().nonnegative(),
   }),
   z.strictObject({ v, type: z.literal('student.hand'), up: z.boolean() }),
   z.strictObject({
@@ -198,6 +242,13 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({ v, type: z.literal('demoSpeed.changed'), speed: z.number().int().positive() }),
   z.strictObject({ v, type: z.literal('lock.changed'), lock: LockStateSchema }),
+  /** The whole quiz block at once, the way `stage.changed` carries the whole stage. */
+  z.strictObject({
+    v,
+    type: z.literal('quiz.changed'),
+    quiz: QuizStateSchema.nullable(),
+    serverNow: serverTime,
+  }),
   z.strictObject({ v, type: z.literal('participant.updated'), participant: ParticipantSchema }),
   z.strictObject({ v, type: z.literal('session.ended') }),
   /** The same student logged in from another device; this connection is closed. */

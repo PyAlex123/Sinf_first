@@ -27,3 +27,6 @@ dist-demo/
 apps/desktop/bin/
 apps/desktop/obj/
 /out/
+
+# Снимки и временные базы сквозных сценариев (tools/e2e/README.md)
+tools/e2e/out/

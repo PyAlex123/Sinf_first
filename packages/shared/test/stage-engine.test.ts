@@ -13,6 +13,7 @@ import {
   stageScreenRange,
   type ClientMessage,
   type LessonPlan,
+  type Quiz,
   type SessionState,
   type Stage,
 } from '../src/index.js';
@@ -53,7 +54,12 @@ const SCREEN_STAGES = [
 ];
 
 // Screens 4 and 5 are the practice; in a club lesson those are the Paint steps (S1.11).
-const PLAN: LessonPlan = { stages: STAGES, screenStages: SCREEN_STAGES, stepScreens: [4, 5] };
+const PLAN: LessonPlan = {
+  stages: STAGES,
+  screenStages: SCREEN_STAGES,
+  stepScreens: [4, 5],
+  quiz: null,
+};
 const T0 = 1_000_000;
 
 function start(demoSpeed = 1): SessionState {
@@ -358,5 +364,209 @@ describe('the Paint practice (S1.11)', () => {
     });
     expect(result.state.participants['p1']?.practiceStars).toBeNull();
     expect(result.reply.some((m) => m.type === 'error')).toBe(true);
+  });
+});
+
+describe('the live quiz (S1.12)', () => {
+  const QUIZ: Quiz = {
+    lessonId: 'g10',
+    questions: [
+      {
+        text: 'Что после дождя?',
+        say: 'Что после дождя?',
+        options: [{ pic: 'rain' }, { pic: 'rainbow' }],
+        correct: 1,
+        limitSec: 20,
+      },
+      {
+        text: 'Что сначала?',
+        say: 'Что сначала?',
+        options: [{ pic: 'seed' }, { pic: 'tree' }],
+        correct: 0,
+        limitSec: 20,
+      },
+    ],
+  };
+  const QPLAN: LessonPlan = { ...PLAN, quiz: QUIZ };
+
+  const start = (): SessionState =>
+    createSessionState({
+      id: 's1',
+      lessonId: 'g10',
+      classId: 'class-1a',
+      screenCount: SCREEN_STAGES.length,
+      now: T0,
+      plan: QPLAN,
+    });
+
+  const withTwo = (state: SessionState): SessionState => {
+    for (const [id, number] of [
+      ['p1', 1],
+      ['p2', 2],
+    ] as const) {
+      state = reduce(
+        state,
+        {
+          kind: 'participant.join',
+          participantId: id,
+          number,
+          studentId: id,
+          name: id,
+          now: T0,
+        },
+        QPLAN,
+      ).state;
+    }
+    return state;
+  };
+
+  const run = (state: SessionState, message: ClientMessage, now: number, who?: string) =>
+    reduce(
+      state,
+      {
+        kind: 'command',
+        role: who ? 'student' : 'teacher',
+        participantId: who ?? null,
+        message,
+        now,
+      },
+      QPLAN,
+    );
+
+  /** Reflection is stage 4 in this plan; that is where the quiz lives. */
+  const toQuizStage = (state: SessionState) =>
+    run(state, { v: 1, type: 'teacher.stage.set', index: 4 }, T0);
+
+  it('starts by itself when its stage begins', () => {
+    const result = toQuizStage(withTwo(start()));
+    expect(result.state.quiz).toMatchObject({
+      questionIndex: 0,
+      questionCount: 2,
+      phase: 'question',
+      limitSec: 20,
+    });
+    expect(result.broadcast.some((m) => m.type === 'quiz.changed')).toBe(true);
+  });
+
+  it('counts an answer once, scores speed and ignores a late one', () => {
+    let state = toQuizStage(withTwo(start())).state;
+    const quick = run(
+      state,
+      { v: 1, type: 'student.quiz.answer', questionIndex: 0, optionIndex: 1 },
+      T0 + 2000,
+      'p1',
+    );
+    expect(quick.state.quiz?.scores['p1']).toBe(950);
+    expect(quick.activity.map((a) => a.type)).toContain('quiz_answer');
+    state = quick.state;
+
+    // The same child pressing again changes nothing.
+    const again = run(
+      state,
+      { v: 1, type: 'student.quiz.answer', questionIndex: 0, optionIndex: 0 },
+      T0 + 3000,
+      'p1',
+    );
+    expect(again.state.quiz?.scores['p1']).toBe(950);
+    expect(again.broadcast).toEqual([]);
+
+    // A wrong answer is worth nothing, but it is still an answer.
+    const wrong = run(
+      state,
+      { v: 1, type: 'student.quiz.answer', questionIndex: 0, optionIndex: 0 },
+      T0 + 4000,
+      'p2',
+    );
+    expect(wrong.state.quiz?.scores['p2']).toBe(0);
+    expect(wrong.state.quiz?.answers['p2']).toMatchObject({ optionIndex: 0, points: 0 });
+  });
+
+  it('shows the answer as soon as the whole class has pressed', () => {
+    let state = toQuizStage(withTwo(start())).state;
+    state = run(
+      state,
+      { v: 1, type: 'student.quiz.answer', questionIndex: 0, optionIndex: 1 },
+      T0 + 1000,
+      'p1',
+    ).state;
+    expect(state.quiz?.phase).toBe('question');
+    state = run(
+      state,
+      { v: 1, type: 'student.quiz.answer', questionIndex: 0, optionIndex: 0 },
+      T0 + 1500,
+      'p2',
+    ).state;
+    expect(state.quiz?.phase).toBe('reveal');
+  });
+
+  it('shows the answer when the time runs out, whatever the lesson speed', () => {
+    const state = toQuizStage(withTwo(start())).state;
+    expect(tick(state, T0 + 19_000).state.quiz?.phase).toBe('question');
+    expect(tick(state, T0 + 20_001).state.quiz?.phase).toBe('reveal');
+  });
+
+  it('walks question → answer → leaderboard → next question → podium', () => {
+    let state = toQuizStage(withTwo(start())).state;
+    const next = (now: number) => {
+      state = run(state, { v: 1, type: 'teacher.quiz.next' }, now).state;
+      return state.quiz;
+    };
+    expect(next(T0 + 1000)?.phase).toBe('reveal');
+    expect(next(T0 + 2000)?.phase).toBe('leaderboard');
+    expect(next(T0 + 3000)).toMatchObject({ questionIndex: 1, phase: 'question', answers: {} });
+    expect(next(T0 + 4000)?.phase).toBe('reveal');
+    expect(next(T0 + 5000)?.phase).toBe('leaderboard');
+    expect(next(T0 + 6000)?.phase).toBe('podium');
+    // The podium is the end: pressing on does nothing.
+    expect(next(T0 + 7000)?.phase).toBe('podium');
+  });
+
+  it('keeps the scores across questions and forgets the answers', () => {
+    let state = toQuizStage(withTwo(start())).state;
+    state = run(
+      state,
+      { v: 1, type: 'student.quiz.answer', questionIndex: 0, optionIndex: 1 },
+      T0 + 1000,
+      'p1',
+    ).state;
+    state = run(state, { v: 1, type: 'teacher.quiz.next' }, T0 + 2000).state; // reveal
+    state = run(state, { v: 1, type: 'teacher.quiz.next' }, T0 + 2100).state; // leaderboard
+    state = run(state, { v: 1, type: 'teacher.quiz.next' }, T0 + 2200).state; // question 2
+    expect(state.quiz?.answers).toEqual({});
+    expect(state.quiz?.scores['p1']).toBe(975);
+    state = run(
+      state,
+      { v: 1, type: 'student.quiz.answer', questionIndex: 1, optionIndex: 0 },
+      T0 + 3200,
+      'p1',
+    ).state;
+    expect(state.quiz?.scores['p1']).toBe(975 + 975);
+  });
+
+  it('ends with its stage and can be stopped by hand', () => {
+    let state = toQuizStage(withTwo(start())).state;
+    expect(state.quiz).not.toBeNull();
+    state = run(state, { v: 1, type: 'teacher.quiz.finish' }, T0 + 1000).state;
+    expect(state.quiz).toBeNull();
+
+    state = toQuizStage(state).state;
+    expect(state.quiz).not.toBeNull();
+    state = run(state, { v: 1, type: 'teacher.stage.skip' }, T0 + 5000).state;
+    expect(state.quiz).toBeNull();
+  });
+
+  it('is not started at all by a lesson without one', () => {
+    const plain = reduce(
+      withStudent(start()),
+      {
+        kind: 'command',
+        role: 'teacher',
+        participantId: null,
+        message: { v: 1, type: 'teacher.quiz.start' },
+        now: T0,
+      },
+      PLAN,
+    );
+    expect(plain.state.quiz).toBeNull();
   });
 });

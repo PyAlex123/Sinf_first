@@ -34,6 +34,7 @@ import {
   type UpdateStudent,
   type TeacherRegister,
   SyncStatusSchema,
+  QuizResponseSchema,
 } from '@sinf/shared';
 import { z } from 'zod';
 
@@ -88,6 +89,8 @@ export const api = {
   me: () => request('GET', '/api/me', MeResponseSchema),
   courses: () => request('GET', '/api/courses', CourseListResponseSchema),
   lesson: (id: string) => request('GET', `/api/lessons/${encodeURIComponent(id)}`, LessonSchema),
+  quiz: (id: string) =>
+    request('GET', `/api/lessons/${encodeURIComponent(id)}/quiz`, QuizResponseSchema),
   pics: (url: string) => request('GET', url, PicsSchema),
   createSession: (body: CreateSession) =>
     request('POST', '/api/sessions', SessionResponseSchema, body),

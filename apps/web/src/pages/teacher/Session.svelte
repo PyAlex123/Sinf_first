@@ -52,6 +52,10 @@
   /** 1-based number of the step this child is looking at; 0 when it is not a step screen. */
   const stepOf = (p: Participant): number => stepScreens.indexOf(p.screenIndex) + 1;
 
+  /** The live quiz (S1.12): it starts with its stage, and these buttons move it along. */
+  const quiz = $derived(session?.quiz ?? null);
+  const hasQuiz = $derived(!!bundle?.quiz);
+
   const paused = $derived(
     session?.stage.pausedAt !== null && session?.stage.pausedAt !== undefined,
   );
@@ -189,6 +193,33 @@
               <Icon name="skip" size={16} />
             </Button>
           </div>
+
+          {#if quiz}
+            <div class="group" role="group" aria-label={t('quiz.title')}>
+              <span class="pos">
+                {t('quiz.question', { n: quiz.questionIndex + 1, total: quiz.questionCount })}
+              </span>
+              {#if quiz.phase === 'question'}
+                <Button variant="secondary" size="sm" onclick={() => store?.revealQuiz()}>
+                  {t('quiz.reveal')}
+                </Button>
+              {/if}
+              <Button variant="secondary" size="sm" onclick={() => store?.nextQuiz()}>
+                {t('quiz.next')}
+                <Icon name="forward" size={16} />
+              </Button>
+              <Button variant="danger-ghost" size="sm" onclick={() => store?.finishQuiz()}>
+                {t('quiz.finish')}
+              </Button>
+            </div>
+          {:else if hasQuiz}
+            <div class="group">
+              <Button variant="secondary" size="sm" onclick={() => store?.startQuiz()}>
+                <Icon name="star" size={16} />
+                {t('quiz.start')}
+              </Button>
+            </div>
+          {/if}
 
           <div class="group screens">
             <Button
@@ -410,6 +441,16 @@
                     </span>
                     <span class="stars">{t('session.stars', { count: p.stars })}</span>
                   </div>
+                  {#if quiz}
+                    <div class="tmeta">
+                      <span class="stars">
+                        {t('quiz.score', { points: quiz.scores[p.id] ?? 0 })}
+                      </span>
+                      <span>
+                        {quiz.answers[p.id] ? t('quiz.accepted') : ''}
+                      </span>
+                    </div>
+                  {/if}
                   {#if stepScreens.length > 0}
                     <div class="tmeta">
                       <span>

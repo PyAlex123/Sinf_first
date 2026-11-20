@@ -5,8 +5,11 @@
   import { t } from '../lib/i18n/index.svelte.js';
   import type { PageProps } from '../lib/router.svelte.js';
   import { SessionStore } from '../lib/stores/session.svelte.js';
+  import { QUIZ_OPTION_LETTERS } from '@sinf/shared';
   import Button from '../lib/ui/Button.svelte';
   import Icon from '../lib/ui/Icon.svelte';
+  import QuizOption from '../lib/ui/QuizOption.svelte';
+  import { speak } from '../player/lib/speech.js';
   import Notice from '../lib/ui/Notice.svelte';
   import QrCode from '../lib/ui/QrCode.svelte';
   import RestScreen from '../lib/ui/RestScreen.svelte';
@@ -33,6 +36,49 @@
   );
   /** Before anybody joined the projector shows the code and the QR; then the lesson screen. */
   const showCode = $derived(participants.length === 0);
+
+  /**
+   * The live quiz (S1.12). On the projector it is the whole screen: question, time, four colours —
+   * the children look up from their own screens and answer what they see here.
+   */
+  const quiz = $derived(session?.quiz ?? null);
+  const question = $derived(
+    quiz && bundle?.quiz ? (bundle.quiz.questions[quiz.questionIndex] ?? null) : null,
+  );
+  const answered = $derived(quiz ? Object.keys(quiz.answers).length : 0);
+
+  /** Who is ahead: the whole table, best first; the screen takes the top of it. */
+  const leaders = $derived.by(() => {
+    if (!quiz) return [];
+    return participants
+      .map((p) => ({
+        name: p.name ?? t('session.participant', { number: p.number }),
+        points: quiz.scores[p.id] ?? 0,
+      }))
+      .sort((a, b) => b.points - a.points);
+  });
+
+  // The question is read aloud once, as the trainer reads its tasks.
+  let spokenQuestion = $state(-1);
+  $effect(() => {
+    if (!question || !quiz || quiz.phase !== 'question') return;
+    if (spokenQuestion === quiz.questionIndex) return;
+    spokenQuestion = quiz.questionIndex;
+    speak(question.say);
+  });
+
+  /** Seconds left of this question; it ticks locally, like the stage timer (S1.8). */
+  let tick = $state(Date.now());
+  $effect(() => {
+    const timer = setInterval(() => (tick = Date.now()), 500);
+    return () => clearInterval(timer);
+  });
+  const secondsLeft = $derived.by(() => {
+    void tick;
+    if (!quiz || quiz.phase !== 'question') return 0;
+    const now = store?.now() ?? Date.now();
+    return Math.max(0, Math.ceil((quiz.startedAt + quiz.limitSec * 1000 - now) / 1000));
+  });
 
   $effect(() => {
     if (session) index = session.screenIndex;
@@ -92,16 +138,73 @@
       </div>
     </main>
   {:else}
-    <LessonPlayer
-      lesson={bundle.lesson}
-      course={bundle.course}
-      pics={bundle.pics}
-      bind:index
-      navigation="locked"
-      header={false}
-    />
-    {#if session.stage.part === 'rest'}
-      <RestScreen />
+    {#if quiz && question}
+      <main class="quiz">
+        {#if quiz.phase === 'podium'}
+          <h1 class="big">{t('quiz.podium')}</h1>
+          <ol class="podium">
+            {#each leaders.slice(0, 3) as leader, i (leader.name)}
+              <li class="place p{i}">
+                <span class="medal">{i + 1}</span>
+                <span class="who">{leader.name}</span>
+                <span class="pts">{t('quiz.points', { count: leader.points })}</span>
+              </li>
+            {/each}
+          </ol>
+        {:else if quiz.phase === 'leaderboard'}
+          <h1 class="big">{t('quiz.leaders')}</h1>
+          <ol class="board">
+            {#each leaders.slice(0, 5) as leader (leader.name)}
+              <li>
+                <span class="who">{leader.name}</span>
+                <span class="pts">{t('quiz.points', { count: leader.points })}</span>
+              </li>
+            {/each}
+          </ol>
+        {:else}
+          <p class="qnum">
+            {t('quiz.question', { n: quiz.questionIndex + 1, total: quiz.questionCount })}
+          </p>
+          <h1 class="qtext">{question.text}</h1>
+          <div class="qopts">
+            {#each question.options as option, i (i)}
+              <QuizOption
+                {option}
+                index={i}
+                pics={bundle.pics}
+                big
+                state={quiz.phase === 'reveal'
+                  ? i === question.correct
+                    ? 'correct'
+                    : 'dim'
+                  : 'idle'}
+              />
+            {/each}
+          </div>
+          <div class="qfoot">
+            {#if quiz.phase === 'question'}
+              <span class="clock">{secondsLeft}</span>
+              <span>{t('quiz.answered', { count: answered, total: online })}</span>
+            {:else}
+              <span class="right">
+                {t('quiz.rightIs', { letter: QUIZ_OPTION_LETTERS[question.correct] ?? '' })}
+              </span>
+            {/if}
+          </div>
+        {/if}
+      </main>
+    {:else}
+      <LessonPlayer
+        lesson={bundle.lesson}
+        course={bundle.course}
+        pics={bundle.pics}
+        bind:index
+        navigation="locked"
+        header={false}
+      />
+      {#if session.stage.part === 'rest'}
+        <RestScreen />
+      {/if}
     {/if}
     <div class="hud">
       <span class="stagename">{bundle.lesson.stages[session.stage.index]?.title ?? ''}</span>
@@ -181,6 +284,108 @@
     font-weight: 700;
     color: var(--c-dark);
   }
+  /* The quiz on the projector: readable from the back row. */
+  .quiz {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-6);
+    background: var(--c-bg);
+  }
+  .qnum {
+    margin: 0;
+    font-size: var(--text-xl);
+    color: var(--c-muted);
+  }
+  .qtext {
+    margin: 0;
+    font-size: clamp(32px, 5vw, 64px);
+    text-wrap: balance;
+  }
+  .qopts {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-4);
+    min-height: 0;
+  }
+  .qfoot {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    font-size: var(--text-xl);
+    color: var(--c-muted);
+  }
+  .clock {
+    min-width: 2.5ch;
+    text-align: center;
+    font-size: var(--text-3xl);
+    font-weight: 900;
+    color: var(--c-dark);
+    font-variant-numeric: tabular-nums;
+  }
+  .right {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    color: var(--c-ok);
+  }
+  .big {
+    margin: 0;
+    font-size: clamp(40px, 6vw, 72px);
+    text-align: center;
+  }
+  .board,
+  .podium {
+    list-style: none;
+    margin: 0 auto;
+    padding: 0;
+    width: min(100%, 720px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+  .board li,
+  .place {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    background: var(--c-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    font-size: var(--text-2xl);
+  }
+  .board .who,
+  .place .who {
+    flex: 1;
+    font-weight: 700;
+    color: var(--c-dark);
+  }
+  .pts {
+    color: var(--c-star-ink);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .medal {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-pill);
+    background: var(--c-bg-2);
+    font-weight: 900;
+  }
+  .p0 .medal {
+    background: #f2c14e;
+  }
+  .p1 .medal {
+    background: #d7dde5;
+  }
+  .p2 .medal {
+    background: #e0a46b;
+  }
+
   .hud .code b {
     color: var(--c-dark);
   }

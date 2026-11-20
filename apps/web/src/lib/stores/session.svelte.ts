@@ -167,6 +167,28 @@ export class SessionStore {
     this.socket?.send({ type: 'student.hand', up });
   }
 
+  // ---------- the live quiz (S1.12)
+
+  startQuiz(): void {
+    this.socket?.send({ type: 'teacher.quiz.start' });
+  }
+
+  revealQuiz(): void {
+    this.socket?.send({ type: 'teacher.quiz.reveal' });
+  }
+
+  nextQuiz(): void {
+    this.socket?.send({ type: 'teacher.quiz.next' });
+  }
+
+  finishQuiz(): void {
+    this.socket?.send({ type: 'teacher.quiz.finish' });
+  }
+
+  answerQuiz(questionIndex: number, optionIndex: number): void {
+    this.socket?.send({ type: 'student.quiz.answer', questionIndex, optionIndex });
+  }
+
   visibility(hidden: boolean, fullscreen: boolean): void {
     this.socket?.send({ type: 'student.visibility', hidden, fullscreen });
   }
@@ -200,6 +222,9 @@ export class SessionStore {
         return;
       case 'lock.changed':
         if (this.state) this.state = { ...this.state, lock: m.lock };
+        return;
+      case 'quiz.changed':
+        if (this.state) this.state = { ...this.state, quiz: m.quiz };
         return;
       case 'participant.updated':
         if (this.state) {
