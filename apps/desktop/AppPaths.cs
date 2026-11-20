@@ -108,7 +108,8 @@ internal sealed record HostConfig(
     string? DeviceToken = null,
     string? Role = null,
     string? PcName = null,
-    string? TeacherUrl = null)
+    string? TeacherUrl = null,
+    string? ExitPasswordHash = null)
 {
     public const string TeacherRole = "teacher";
     public const string StudentRole = "student";
@@ -117,6 +118,13 @@ internal sealed record HostConfig(
     public bool HasRole => Role is TeacherRole or StudentRole;
 
     public bool IsStudent => Role == StudentRole;
+
+    /// <summary>
+    /// The exit password of the student kiosks (H3, author's choice: one password, set on the
+    /// teacher's computer). The teacher's computer keeps the hash it hands out; a student's computer
+    /// keeps the one it received. Only the hash, never the password.
+    /// </summary>
+    public bool HasExitPassword => Core.ExitPassword.IsWellFormed(ExitPasswordHash);
 
     private static readonly JsonSerializerOptions Format = new() { WriteIndented = true };
 

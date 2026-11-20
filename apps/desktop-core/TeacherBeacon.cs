@@ -13,13 +13,16 @@ public sealed class TeacherBeacon : IDisposable
     private readonly CancellationTokenSource stop = new();
     private readonly Func<string?> lessonUrl;
     private readonly string? name;
+    private readonly Func<string?> exitHash;
 
     /// <param name="lessonUrl">Read on every question: the address may appear after the network does.</param>
+    /// <param name="exitHash">Read on every question too: a new password reaches students at their next search.</param>
     /// <param name="bind">Where to listen; the whole network by default, loopback in tests.</param>
-    public TeacherBeacon(Func<string?> lessonUrl, string? name, IPEndPoint? bind = null)
+    public TeacherBeacon(Func<string?> lessonUrl, string? name, Func<string?>? exitHash = null, IPEndPoint? bind = null)
     {
         this.lessonUrl = lessonUrl;
         this.name = name;
+        this.exitHash = exitHash ?? (() => null);
         socket = new UdpClient(bind ?? new IPEndPoint(IPAddress.Any, Discovery.Port));
         _ = Task.Run(() => ListenAsync(stop.Token));
     }
@@ -61,7 +64,7 @@ public sealed class TeacherBeacon : IDisposable
 
             try
             {
-                var answer = Discovery.Answer(url, name);
+                var answer = Discovery.Answer(url, name, exitHash());
                 await socket.SendAsync(answer, received.RemoteEndPoint, token).ConfigureAwait(false);
                 Answered++;
             }

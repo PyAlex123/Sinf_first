@@ -9,13 +9,18 @@ namespace Sinf.Desktop;
 /// <summary>
 /// A student's computer (ADR-014): no server of its own. It finds the teacher's computer on the network,
 /// opens the lesson there in WebView2 and stays on it. When the teacher's computer goes away, it goes
-/// back to looking. The kiosk comes in step H3; here the window only covers the screen.
+/// back to looking.
+///
+/// The kiosk (H3, CLAUDE.md §8) is what the shell itself can do: always on top, keys that lead out
+/// swallowed, focus taken back, no closing, only the lesson's own pages, the way out behind the
+/// administrator's password. Ctrl+Alt+Del and Win+L stay open until the agent (6.4).
 /// </summary>
 internal sealed class StudentForm : Form
 {
     private static readonly Color Dark = Color.FromArgb(19, 35, 58);
     private static readonly TimeSpan SearchPause = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan WatchPeriod = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan TakeFocusBack = TimeSpan.FromMilliseconds(300);
 
     private readonly AppPaths paths;
     private HostConfig config;
@@ -43,19 +48,60 @@ internal sealed class StudentForm : Form
     private readonly Button manual = new() { Text = "Ввести адрес вручную", AutoSize = true };
     private readonly System.Windows.Forms.Timer watch = new();
 
+    private readonly bool dev;
+    private readonly KeyboardGuard? keyboard;
+    private readonly AccessibilityGuard? accessibility;
+    private readonly System.Windows.Forms.Timer focusBack = new();
+
     private string? teacherUrl;
     private bool webReady;
     private bool searching;
     private int failedChecks;
+    /// <summary>Our own dialog is up: it may have the focus, and the window must not take it back.</summary>
+    private bool dialogOpen;
+    /// <summary>Set only after the administrator's password (or by Windows shutting down).</summary>
+    private bool closeAllowed;
 
-    public StudentForm(AppPaths paths, HostConfig config)
+    /// <param name="dev">`--dev` (CLAUDE.md §9.9, after the password): a normal window, no kiosk.</param>
+    public StudentForm(AppPaths paths, HostConfig config, bool dev = false)
     {
         this.paths = paths;
         this.config = config;
+        this.dev = dev;
 
-        Text = $"Sinf — {config.PcName ?? "ученик"}";
-        FormBorderStyle = FormBorderStyle.None;
-        WindowState = FormWindowState.Maximized;
+        Text = $"Sinf — {config.PcName ?? "ученик"}" + (dev ? " — РЕЖИМ РАЗРАБОТКИ" : string.Empty);
+        if (dev)
+        {
+            FormBorderStyle = FormBorderStyle.Sizable;
+            WindowState = FormWindowState.Normal;
+            Size = new Size(1280, 800);
+            StartPosition = FormStartPosition.CenterScreen;
+        }
+        else
+        {
+            FormBorderStyle = FormBorderStyle.None;
+            WindowState = FormWindowState.Maximized;
+            TopMost = true;
+            keyboard = new KeyboardGuard(() => BeginInvoke(AskPassword));
+            accessibility = new AccessibilityGuard();
+            focusBack.Interval = (int)TakeFocusBack.TotalMilliseconds;
+            focusBack.Tick += (_, _) =>
+            {
+                focusBack.Stop();
+                if (!dialogOpen && !closeAllowed)
+                {
+                    Activate();
+                }
+            };
+            Deactivate += (_, _) =>
+            {
+                if (!dialogOpen)
+                {
+                    focusBack.Start();
+                }
+            };
+        }
+
         BackColor = Dark;
         Font = new Font("Segoe UI", 12f);
         title.Font = new Font("Segoe UI", 26f, FontStyle.Bold);
@@ -124,7 +170,7 @@ internal sealed class StudentForm : Form
             {
                 var url = config.TeacherUrl is { } remembered && await IsAliveAsync(remembered).ConfigureAwait(true)
                     ? remembered
-                    : await TeacherFinder.FindAsync(token: life.Token).ConfigureAwait(true);
+                    : await FindTeacherAsync().ConfigureAwait(true);
                 if (url is not null && await IsAliveAsync(url).ConfigureAwait(true))
                 {
                     await OpenLessonAsync(url).ConfigureAwait(true);
@@ -143,6 +189,19 @@ internal sealed class StudentForm : Form
         {
             searching = false;
         }
+    }
+
+    /// <summary>One round of the network search; the exit password's hash comes with the answer (H3).</summary>
+    private async Task<string?> FindTeacherAsync()
+    {
+        var found = await TeacherFinder.FindAsync(token: life.Token).ConfigureAwait(true);
+        if (found?.ExitHash is { } hash && hash != config.ExitPasswordHash)
+        {
+            config = config with { ExitPasswordHash = hash };
+            HostConfig.Save(paths, config);
+        }
+
+        return found?.Url;
     }
 
     private async Task<bool> IsAliveAsync(string url)
@@ -197,6 +256,8 @@ internal sealed class StudentForm : Form
             .ConfigureAwait(true);
         await view.EnsureCoreWebView2Async(environment).ConfigureAwait(true);
 
+        // A file dragged onto the window must not be opened by it.
+        view.AllowExternalDrop = false;
         var core = view.CoreWebView2;
         var settings = core.Settings;
         settings.AreDevToolsEnabled = false;
@@ -217,18 +278,19 @@ internal sealed class StudentForm : Form
         });
         await core.AddScriptToExecuteOnDocumentCreatedAsync($"window.sinfHost = {host};").ConfigureAwait(true);
 
-        // Only the teacher's computer: no new windows, no other sites, no downloads.
+        // Only the way into the lesson and the lesson itself, on the teacher's computer (H3): no new
+        // windows, no other sites, not even the teacher's own pages, no downloads.
         core.NewWindowRequested += (_, e) =>
         {
             e.Handled = true;
-            if (teacherUrl is not null && TeacherAddress.IsSameOrigin(teacherUrl, e.Uri))
+            if (teacherUrl is not null && StudentNavigation.IsAllowed(teacherUrl, e.Uri))
             {
                 core.Navigate(e.Uri);
             }
         };
         core.NavigationStarting += (_, e) =>
         {
-            if (teacherUrl is null || !TeacherAddress.IsSameOrigin(teacherUrl, e.Uri))
+            if (teacherUrl is null || !StudentNavigation.IsAllowed(teacherUrl, e.Uri))
             {
                 e.Cancel = true;
             }
@@ -284,7 +346,10 @@ internal sealed class StudentForm : Form
     private async void EnterAddress()
     {
         using var dialog = new ManualAddressDialog(config.TeacherUrl);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
+        dialogOpen = true;
+        var answer = dialog.ShowDialog(this);
+        dialogOpen = false;
+        if (answer != DialogResult.OK)
         {
             return;
         }
@@ -306,10 +371,78 @@ internal sealed class StudentForm : Form
         status.Text = "Подключаемся…";
     }
 
+    /// <summary>
+    /// Ctrl+Alt+Shift+F12 (H3, author's choice). Until this computer has met the teacher's, it knows no
+    /// password: that is setup time, the kiosk guards nothing yet, and the combination simply lets out.
+    /// </summary>
+    private void AskPassword()
+    {
+        if (dialogOpen || closeAllowed)
+        {
+            return;
+        }
+
+        if (!config.HasExitPassword)
+        {
+            LeaveKiosk();
+            return;
+        }
+
+        using var dialog = new ExitPasswordDialog(config.ExitPasswordHash!, offerSetup: true, "Выход из режима ученика.");
+        dialogOpen = true;
+        var answer = dialog.ShowDialog(this);
+        dialogOpen = false;
+        if (answer != DialogResult.OK)
+        {
+            Activate();
+            return;
+        }
+
+        if (dialog.Chosen == ExitPasswordDialog.Choice.Setup)
+        {
+            using var setup = new RoleDialog(config);
+            dialogOpen = true;
+            var chosen = setup.ShowDialog(this);
+            dialogOpen = false;
+            if (chosen != DialogResult.OK)
+            {
+                Activate();
+                return;
+            }
+
+            HostConfig.Save(paths, config with { Role = setup.Role, PcName = setup.PcName });
+            // The new role takes effect in a fresh start of the app.
+            System.Diagnostics.Process.Start(Application.ExecutablePath)?.Dispose();
+        }
+
+        LeaveKiosk();
+    }
+
+    private void LeaveKiosk()
+    {
+        closeAllowed = true;
+        Close();
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        // Windows shutting down or logging off is not a child leaving the lesson.
+        if (!dev && !closeAllowed && e.CloseReason is CloseReason.UserClosing or CloseReason.None)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        base.OnFormClosing(e);
+    }
+
     protected override void OnFormClosed(FormClosedEventArgs e)
     {
         life.Cancel();
         watch.Dispose();
+        focusBack.Dispose();
+        keyboard?.Dispose();
+        accessibility?.Dispose();
         http.Dispose();
         base.OnFormClosed(e);
     }

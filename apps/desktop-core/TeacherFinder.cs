@@ -12,9 +12,9 @@ public static class TeacherFinder
 {
     public static readonly TimeSpan DefaultWait = TimeSpan.FromMilliseconds(1500);
 
-    /// <summary>The lesson address, or null when nobody answered in time.</summary>
+    /// <summary>What the teacher answered, or null when nobody answered in time.</summary>
     /// <param name="targets">Where to ask; every local network by default, a loopback port in tests.</param>
-    public static async Task<string?> FindAsync(
+    public static async Task<TeacherFound?> FindAsync(
         IReadOnlyList<IPEndPoint>? targets = null,
         TimeSpan? wait = null,
         CancellationToken token = default)
@@ -51,10 +51,10 @@ public static class TeacherFinder
                 continue;
             }
 
-            var url = Discovery.ReadAnswer(received.Buffer);
-            if (url is not null)
+            var found = Discovery.ReadAnswer(received.Buffer);
+            if (found is not null)
             {
-                return url;
+                return found;
             }
         }
     }

@@ -27,6 +27,7 @@ internal sealed class MainForm : Form
     private readonly Button reloadButton = new() { Text = "Обновить", AutoSize = true };
     private readonly Button schoolButton = new() { Text = "Школа", AutoSize = true };
     private readonly Button updateButton = new() { Text = "Обновить материалы", AutoSize = true };
+    private readonly Button exitPasswordButton = new() { Text = "Пароль учеников", AutoSize = true };
     private readonly Label splash = new()
     {
         Dock = DockStyle.Fill,
@@ -94,7 +95,7 @@ internal sealed class MainForm : Form
             Padding = new Padding(8, 10, 12, 10),
             WrapContents = false,
         };
-        foreach (var button in new[] { reloadButton, fullScreenButton, updateButton, schoolButton, copyButton })
+        foreach (var button in new[] { reloadButton, fullScreenButton, updateButton, schoolButton, exitPasswordButton, copyButton })
         {
             button.FlatStyle = FlatStyle.Flat;
             button.BackColor = Color.White;
@@ -107,6 +108,7 @@ internal sealed class MainForm : Form
         reloadButton.Click += (_, _) => view.CoreWebView2?.Reload();
         fullScreenButton.Click += (_, _) => ToggleFullScreen();
         schoolButton.Click += (_, _) => PairWithSchool();
+        exitPasswordButton.Click += (_, _) => SetExitPassword();
         updateButton.Click += async (_, _) => await UpdateContentAsync(manual: true).ConfigureAwait(true);
 
         bar.Controls.Add(left);
@@ -173,6 +175,33 @@ internal sealed class MainForm : Form
         bar.Visible = true;
         ShowSchool();
         platform.StartHeartbeat(config);
+        if (!config.HasExitPassword)
+        {
+            // Without it the student kiosks have no way out for the administrator (H3).
+            SetExitPassword();
+        }
+    }
+
+    /// <summary>
+    /// The one exit password of the student kiosks in this room (H3, author's choice). Only the hash
+    /// is kept; the beacon hands it to student computers at their next search.
+    /// </summary>
+    private void SetExitPassword()
+    {
+        using var dialog = new NewExitPasswordDialog();
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        config = config with { ExitPasswordHash = dialog.Hash };
+        HostConfig.Save(paths, config);
+        MessageBox.Show(
+            this,
+            "Пароль сохранён. Компьютеры учеников получат его, когда в следующий раз найдут этот компьютер.",
+            "Sinf",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
     }
 
     /// <summary>
@@ -188,7 +217,7 @@ internal sealed class MainForm : Form
 
         try
         {
-            beacon = new TeacherBeacon(() => lanUrl, Environment.MachineName);
+            beacon = new TeacherBeacon(() => lanUrl, Environment.MachineName, () => config.ExitPasswordHash);
         }
         catch (System.Net.Sockets.SocketException)
         {

@@ -5,6 +5,11 @@ using System.Text.Json.Serialization;
 
 namespace Sinf.Desktop.Core;
 
+/// <summary>What a student computer learns from the teacher's answer.</summary>
+/// <param name="Url">Where the lesson is.</param>
+/// <param name="ExitHash">Hash of the administrator's exit password (H3), when the teacher has set one.</param>
+public sealed record TeacherFound(string Url, string? ExitHash);
+
 /// <summary>
 /// How a student computer finds the teacher's (ADR-014 §3). The student broadcasts a short question on
 /// UDP; the teacher's app answers with the address of its lesson. Both messages are tiny JSON with a
@@ -17,26 +22,30 @@ public static class Discovery
     private const string App = "sinf";
 
     /// <summary>Anything longer is not ours; reading it would only cost time.</summary>
-    public const int MaxMessageBytes = 512;
+    public const int MaxMessageBytes = 1024;
 
     private sealed record Message(
         [property: JsonPropertyName("app")] string? App,
         [property: JsonPropertyName("v")] int V,
         [property: JsonPropertyName("type")] string? Type,
         [property: JsonPropertyName("url")] string? Url = null,
-        [property: JsonPropertyName("name")] string? Name = null);
+        [property: JsonPropertyName("name")] string? Name = null,
+        [property: JsonPropertyName("exit")] string? Exit = null);
 
     public static byte[] Request() =>
         Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Message(App, Version, "find")));
 
     public static bool IsRequest(ReadOnlySpan<byte> data) => Read(data) is { Type: "find" };
 
-    /// <summary>The teacher's answer: where its lesson is and, for people, which computer it is.</summary>
-    public static byte[] Answer(string lessonUrl, string? name) =>
-        Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Message(App, Version, "here", lessonUrl, name)));
+    /// <summary>
+    /// The teacher's answer: where its lesson is, which computer it is, and the hash of the exit
+    /// password for the kiosks (H3) — the hash only, never the password.
+    /// </summary>
+    public static byte[] Answer(string lessonUrl, string? name, string? exitHash = null) =>
+        Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Message(App, Version, "here", lessonUrl, name, exitHash)));
 
-    /// <summary>The lesson address from a teacher's answer, or null when the answer is not one we trust.</summary>
-    public static string? ReadAnswer(ReadOnlySpan<byte> data)
+    /// <summary>What a teacher's answer says, or null when the answer is not one we trust.</summary>
+    public static TeacherFound? ReadAnswer(ReadOnlySpan<byte> data)
     {
         var message = Read(data);
         if (message is not { Type: "here" } || !TeacherAddress.TryNormalize(message.Url, out var url))
@@ -44,7 +53,9 @@ public static class Discovery
             return null;
         }
 
-        return url;
+        // A hash we cannot read is dropped, not passed on: the kiosk would never open with it.
+        var exit = ExitPassword.IsWellFormed(message.Exit) ? message.Exit : null;
+        return new TeacherFound(url, exit);
     }
 
     private static Message? Read(ReadOnlySpan<byte> data)

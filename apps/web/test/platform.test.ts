@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readPlatform } from '../src/lib/platform.js';
+import { allowedInKiosk, readPlatform } from '../src/lib/platform.js';
 
 /** The bridge to the Windows app (CLAUDE.md §5.5, ADR-014): what each host may say about itself. */
 describe('readPlatform', () => {
@@ -45,5 +45,27 @@ describe('readPlatform', () => {
       pcName: 42,
     });
     expect(p).toMatchObject({ isDesktop: true, role: null, lanUrl: null, pcName: null });
+  });
+});
+
+describe('allowedInKiosk', () => {
+  it('lets the way in and the lesson open', () => {
+    expect(allowedInKiosk('/join')).toBe(true);
+    expect(allowedInKiosk('/join?code=1234')).toBe(true);
+    expect(allowedInKiosk('/s/43b489a2-bfde-4555-a9cb-01a246d84826')).toBe(true);
+  });
+
+  it('keeps every other page shut', () => {
+    for (const path of [
+      '/',
+      '/teacher',
+      '/teacher/login',
+      '/present/abc',
+      '/s/',
+      '/s/a/b',
+      '/joined',
+    ]) {
+      expect(allowedInKiosk(path), path).toBe(false);
+    }
   });
 });

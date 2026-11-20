@@ -13,7 +13,7 @@ public class DiscoveryTests
         Assert.True(Discovery.IsRequest(Discovery.Request()));
         var answer = Discovery.Answer("http://192.168.1.15:3000", "Учитель");
         Assert.False(Discovery.IsRequest(answer));
-        Assert.Equal("http://192.168.1.15:3000", Discovery.ReadAnswer(answer));
+        Assert.Equal(new TeacherFound("http://192.168.1.15:3000", null), Discovery.ReadAnswer(answer));
     }
 
     [Theory]
@@ -31,9 +31,19 @@ public class DiscoveryTests
     }
 
     [Fact]
+    public void The_exit_hash_travels_but_a_malformed_one_is_dropped()
+    {
+        var hash = ExitPassword.Hash("parol-uchitelya");
+        Assert.Equal(hash, Discovery.ReadAnswer(Discovery.Answer("http://192.168.1.15:3000", null, hash))?.ExitHash);
+        var forged = Discovery.ReadAnswer(Discovery.Answer("http://192.168.1.15:3000", null, "plain-password"));
+        Assert.NotNull(forged);
+        Assert.Null(forged!.ExitHash);
+    }
+
+    [Fact]
     public void Oversized_messages_are_not_read()
     {
-        var big = Encoding.UTF8.GetBytes("{\"app\":\"sinf\",\"v\":1,\"type\":\"find\",\"pad\":\"" + new string('x', 600) + "\"}");
+        var big = Encoding.UTF8.GetBytes("{\"app\":\"sinf\",\"v\":1,\"type\":\"find\",\"pad\":\"" + new string('x', 1100) + "\"}");
         Assert.False(Discovery.IsRequest(big));
     }
 
@@ -51,21 +61,24 @@ public class DiscoveryTests
     [Fact]
     public async Task A_student_finds_the_teacher_over_udp()
     {
+        var exit = ExitPassword.Hash("parol-uchitelya");
         using var beacon = new TeacherBeacon(
             () => "http://192.168.1.15:3123",
             "ПК учителя",
+            () => exit,
             new IPEndPoint(IPAddress.Loopback, 0));
-        var url = await TeacherFinder.FindAsync(
+        var found = await TeacherFinder.FindAsync(
             [new IPEndPoint(IPAddress.Loopback, beacon.Port)],
             TimeSpan.FromSeconds(3));
-        Assert.Equal("http://192.168.1.15:3123", url);
+        Assert.Equal("http://192.168.1.15:3123", found?.Url);
+        Assert.True(ExitPassword.Verify("parol-uchitelya", found?.ExitHash));
         Assert.Equal(1, beacon.Answered);
     }
 
     [Fact]
     public async Task Nobody_answers_while_the_teacher_has_no_address_yet()
     {
-        using var beacon = new TeacherBeacon(() => null, null, new IPEndPoint(IPAddress.Loopback, 0));
+        using var beacon = new TeacherBeacon(() => null, null, bind: new IPEndPoint(IPAddress.Loopback, 0));
         var url = await TeacherFinder.FindAsync(
             [new IPEndPoint(IPAddress.Loopback, beacon.Port)],
             TimeSpan.FromMilliseconds(400));

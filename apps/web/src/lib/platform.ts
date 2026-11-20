@@ -51,6 +51,16 @@ export function readPlatform(host: unknown): Platform {
   };
 }
 
+/**
+ * Pages a classroom kiosk may show (stage 3, H3): the way into the lesson and the lesson itself.
+ * The Windows app filters real navigations; this covers the app's own links, which never leave the
+ * page and so never reach that filter. The same list lives in C# (`StudentNavigation`).
+ */
+export function allowedInKiosk(path: string): boolean {
+  const clean = path.split('?')[0] ?? '';
+  return clean === '/join' || clean === '/join/' || /^\/s\/[^/]+\/?$/.test(clean);
+}
+
 export const platform: Platform = readPlatform(
   typeof window === 'undefined'
     ? undefined

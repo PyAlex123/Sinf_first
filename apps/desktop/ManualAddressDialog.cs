@@ -19,6 +19,8 @@ internal sealed class ManualAddressDialog : Form
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         Font = new Font("Segoe UI", 11f);
         Padding = new Padding(20);
+        // Opened from the student's window, which stays on top of everything.
+        TopMost = true;
         address.Text = current ?? string.Empty;
 
         var ok = new Button { Text = "Подключиться", AutoSize = true };

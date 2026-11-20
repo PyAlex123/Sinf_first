@@ -25,6 +25,8 @@ internal sealed class RoleDialog : Form
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         Font = new Font("Segoe UI", 11f);
         Padding = new Padding(20);
+        // Also opened from the kiosk, which stays on top of everything.
+        TopMost = true;
 
         teacher.Checked = !current.IsStudent;
         student.Checked = current.IsStudent;

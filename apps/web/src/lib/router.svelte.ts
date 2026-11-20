@@ -1,3 +1,4 @@
+import { allowedInKiosk, platform } from './platform.js';
 import type { Component } from 'svelte';
 
 /**
@@ -96,6 +97,10 @@ class Router {
   }
 
   private async resolve(): Promise<void> {
+    // In a classroom kiosk only the lesson's own pages open; anything else goes back to the way in.
+    if (platform.role === 'student' && !allowedInKiosk(location.pathname)) {
+      history.replaceState(null, '', '/join');
+    }
     const id = ++this.loadId;
     const match = matchPath(this.routes, location.pathname + location.search);
     if (!match) {

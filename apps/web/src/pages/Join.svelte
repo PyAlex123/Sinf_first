@@ -165,7 +165,12 @@
 
 <main class="join">
   <div class="top">
-    <a class="home" href="/">{t('app.name')}</a>
+    {#if platform.role === 'student'}
+      <!-- A kiosk has no home page to go to (H3). -->
+      <span class="home">{t('app.name')}</span>
+    {:else}
+      <a class="home" href="/">{t('app.name')}</a>
+    {/if}
     <!-- On a classroom computer the child sees which one it is (ADR-014): "ПК-05". -->
     {#if platform.pcName}<span class="pc" title={t('join.pc')}>{platform.pcName}</span>{/if}
     <LangSwitch />
