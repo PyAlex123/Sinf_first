@@ -43,6 +43,13 @@ internal sealed class AppPaths
 
     public string ConfigFile => Path.Combine(Data, "config.json");
 
+    /// <summary>
+    /// The teacher's computer's private key (H9). Student computers remember its public half, so a new
+    /// key means walking round the room with the students' password: it is kept apart from the
+    /// settings and never handed out.
+    /// </summary>
+    public string TeacherKeyFile => Path.Combine(Data, "teacher.key");
+
     public static AppPaths Create()
     {
         var root = AppContext.BaseDirectory;
@@ -109,7 +116,8 @@ internal sealed record HostConfig(
     string? Role = null,
     string? PcName = null,
     string? TeacherUrl = null,
-    string? ExitPasswordHash = null)
+    string? ExitPasswordHash = null,
+    string? TeacherKey = null)
 {
     public const string TeacherRole = "teacher";
     public const string StudentRole = "student";
@@ -125,6 +133,12 @@ internal sealed record HostConfig(
     /// keeps the one it received. Only the hash, never the password.
     /// </summary>
     public bool HasExitPassword => Core.ExitPassword.IsWellFormed(ExitPasswordHash);
+
+    /// <summary>
+    /// A student computer's teacher (H9, author's choice: the first one it met). Only answers signed by
+    /// this key are believed; null until the first teacher is found, and again after `--setup`.
+    /// </summary>
+    public bool KnowsTeacher => TeacherKey is not null;
 
     private static readonly JsonSerializerOptions Format = new() { WriteIndented = true };
 

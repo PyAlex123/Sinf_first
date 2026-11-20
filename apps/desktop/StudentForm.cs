@@ -200,9 +200,12 @@ internal sealed class StudentForm : Form
         {
             while (!life.IsCancellationRequested)
             {
-                var url = config.TeacherUrl is { } remembered && await IsAliveAsync(remembered).ConfigureAwait(true)
-                    ? remembered
-                    : await FindTeacherAsync().ConfigureAwait(true);
+                // The remembered address is asked directly, but it too must answer with the teacher's
+                // signature (H9): overnight another machine may have got that address.
+                var url = config.TeacherUrl is { } remembered
+                    ? await ConfirmTeacherAsync(remembered).ConfigureAwait(true)
+                    : null;
+                url ??= await FindTeacherAsync().ConfigureAwait(true);
                 if (url is not null && await IsAliveAsync(url).ConfigureAwait(true))
                 {
                     await OpenLessonAsync(url).ConfigureAwait(true);
@@ -223,17 +226,39 @@ internal sealed class StudentForm : Form
         }
     }
 
-    /// <summary>One round of the network search; the exit password's hash comes with the answer (H3).</summary>
-    private async Task<string?> FindTeacherAsync()
+    /// <summary>
+    /// One round of the network search. Only answers signed by this computer's teacher count (H9); a
+    /// computer that has met none believes the first signed answer and remembers its key (author's
+    /// choice). The exit password's hash comes with the answer (H3).
+    /// </summary>
+    private async Task<string?> FindTeacherAsync() =>
+        Accept(await TeacherFinder.FindAsync(pinnedKey: config.TeacherKey, token: life.Token).ConfigureAwait(true));
+
+    /// <summary>Is the computer at this address still our teacher's? Asked over UDP, signed (H9).</summary>
+    private async Task<string?> ConfirmTeacherAsync(string url) =>
+        Accept(await TeacherFinder.ConfirmAsync(url, config.TeacherKey, token: life.Token).ConfigureAwait(true));
+
+    private string? Accept(TeacherFound? found)
     {
-        var found = await TeacherFinder.FindAsync(token: life.Token).ConfigureAwait(true);
-        if (found?.ExitHash is { } hash && hash != config.ExitPasswordHash)
+        if (found is null)
         {
-            config = config with { ExitPasswordHash = hash };
+            return null;
+        }
+
+        var updated = config with
+        {
+            TeacherKey = config.TeacherKey ?? found.TeacherKey,
+            ExitPasswordHash = found.ExitHash ?? config.ExitPasswordHash,
+        };
+        if (updated != config)
+        {
+            config = updated;
             HostConfig.Save(paths, config);
         }
 
-        return found?.Url;
+        // The same eight characters stand in the teacher's window: an administrator can compare them.
+        status.Text = $"Компьютер учителя найден · ключ {TeacherIdentity.Fingerprint(found.TeacherKey)}";
+        return found.Url;
     }
 
     private async Task<bool> IsAliveAsync(string url)
@@ -607,11 +632,16 @@ internal sealed class StudentForm : Form
             return;
         }
 
-        if (!await IsAliveAsync(dialog.Url).ConfigureAwait(true))
+        // A typed address is believed only when the computer there signs as our teacher (H9): a child
+        // must not lead the kiosk to a laptop of their own.
+        var url = await ConfirmTeacherAsync(dialog.Url).ConfigureAwait(true);
+        if (url is null || !await IsAliveAsync(url).ConfigureAwait(true))
         {
             MessageBox.Show(
                 this,
-                "По этому адресу компьютер учителя не отвечает. Проверьте адрес и что Sinf у учителя запущен.",
+                config.KnowsTeacher
+                    ? "По этому адресу не отвечает компьютер учителя этого класса. Проверьте адрес и что Sinf у учителя запущен."
+                    : "По этому адресу компьютер учителя не отвечает. Проверьте адрес и что Sinf у учителя запущен.",
                 "Sinf",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
@@ -619,7 +649,7 @@ internal sealed class StudentForm : Form
         }
 
         // The remembered address is tried first by the search loop, which is already running.
-        config = config with { TeacherUrl = dialog.Url };
+        config = config with { TeacherUrl = url };
         HostConfig.Save(paths, config);
         status.Text = "Подключаемся…";
     }

@@ -12,15 +12,22 @@ public static class TeacherFinder
 {
     public static readonly TimeSpan DefaultWait = TimeSpan.FromMilliseconds(1500);
 
-    /// <summary>What the teacher answered, or null when nobody answered in time.</summary>
+    /// <summary>
+    /// What the teacher answered, or null when nobody we trust answered in time. Answers with another
+    /// nonce, a bad signature or another key than the remembered one are passed over (H9): the real
+    /// teacher may still answer after a fake one.
+    /// </summary>
     /// <param name="targets">Where to ask; every local network by default, a loopback port in tests.</param>
+    /// <param name="pinnedKey">The teacher this computer met first; null on a computer that has met none.</param>
     public static async Task<TeacherFound?> FindAsync(
         IReadOnlyList<IPEndPoint>? targets = null,
         TimeSpan? wait = null,
+        string? pinnedKey = null,
         CancellationToken token = default)
     {
         using var socket = new UdpClient(new IPEndPoint(IPAddress.Any, 0)) { EnableBroadcast = true };
-        var request = Discovery.Request();
+        var nonce = Discovery.NewNonce();
+        var request = Discovery.Request(nonce);
         foreach (var target in targets ?? BroadcastTargets())
         {
             try
@@ -51,12 +58,32 @@ public static class TeacherFinder
                 continue;
             }
 
-            var found = Discovery.ReadAnswer(received.Buffer);
+            var found = Discovery.ReadAnswer(received.Buffer, nonce, pinnedKey);
             if (found is not null)
             {
                 return found;
             }
         }
+    }
+
+    /// <summary>
+    /// Asks one computer directly — the address remembered from last time or typed by hand — whether it
+    /// is the teacher's (H9). Only a signed answer counts: a web page that answers on that address
+    /// proves nothing, the computer behind it may have changed overnight.
+    /// </summary>
+    public static Task<TeacherFound?> ConfirmAsync(
+        string url,
+        string? pinnedKey,
+        TimeSpan? wait = null,
+        CancellationToken token = default)
+    {
+        if (!TeacherAddress.TryNormalize(url, out var normal)
+            || !IPAddress.TryParse(new Uri(normal).Host, out var host))
+        {
+            return Task.FromResult<TeacherFound?>(null);
+        }
+
+        return FindAsync([new IPEndPoint(host, Discovery.Port)], wait, pinnedKey, token);
     }
 
     /// <summary>The broadcast address of every working IPv4 network here, plus 255.255.255.255.</summary>

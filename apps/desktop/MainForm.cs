@@ -41,6 +41,7 @@ internal sealed class MainForm : Form
     private ServerProcess? server;
     /// <summary>Answers student computers that look for this lesson on the network (ADR-014 §3).</summary>
     private TeacherBeacon? beacon;
+    private TeacherIdentity? identity;
     private FormWindowState beforeFullScreen = FormWindowState.Maximized;
     private bool fullScreen;
 
@@ -153,6 +154,11 @@ internal sealed class MainForm : Form
         accountLabel.Text = $"Учитель: demo@sinf.local · пароль: {config.TeacherPassword}";
         copyButton.Enabled = lanUrl is not null;
         StartBeacon(lanUrl);
+        if (identity is not null)
+        {
+            // Read off this screen and the student's when a student computer meets its teacher (H9).
+            accountLabel.Text += $" · ключ: {TeacherIdentity.Fingerprint(identity.PublicKey)}";
+        }
 
         splash.Text = "Открываем панель учителя…";
         try
@@ -217,7 +223,9 @@ internal sealed class MainForm : Form
 
         try
         {
-            beacon = new TeacherBeacon(() => lanUrl, Environment.MachineName, () => config.ExitPasswordHash);
+            // The key that signs every answer (H9); student computers remember it at their first meeting.
+            identity = TeacherIdentity.LoadOrCreate(paths.TeacherKeyFile);
+            beacon = new TeacherBeacon(() => lanUrl, Environment.MachineName, identity, () => config.ExitPasswordHash);
         }
         catch (System.Net.Sockets.SocketException)
         {
@@ -465,6 +473,8 @@ internal sealed class MainForm : Form
         platform.Dispose();
         beacon?.Dispose();
         beacon = null;
+        identity?.Dispose();
+        identity = null;
         await stopping.DisposeAsync().ConfigureAwait(true);
         Close();
     }

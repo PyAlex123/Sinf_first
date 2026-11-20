@@ -40,7 +40,9 @@ internal static class Program
                 return;
             }
 
-            config = config with { Role = dialog.Role, PcName = dialog.PcName };
+            // A student computer set up again meets its teacher anew (H9): the first signed answer is
+            // remembered. The exit password stays until the new teacher hands over its own.
+            config = config with { Role = dialog.Role, PcName = dialog.PcName, TeacherKey = null, TeacherUrl = null };
             HostConfig.Save(paths, config);
         }
 
