@@ -20,7 +20,8 @@ const check = (name, pass, extra = '') => {
     window.sinfHost = { isDesktop: true, role: 'student', version: '0.1.0.0', pcName: 'ПК-05' };
   });
   await student.goto(`${BASE}/join`);
-  await student.waitForSelector('.codeform');
+  // On a classroom computer the page waits for the lesson (H2) rather than asking for a code.
+  await student.waitForSelector('.top');
   const pc = await student
     .locator('.pc')
     .innerText()

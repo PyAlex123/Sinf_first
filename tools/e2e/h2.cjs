@@ -71,6 +71,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   // ---------- lesson 1: nobody is seated yet
   await startLesson();
   await pc5.waitForSelector('.names button', { timeout: 6000 });
+  // Each computer asks every 3 s on its own: wait for the second one too.
+  await pc6.waitForSelector('.names button', { timeout: 6000 });
   check(
     'урок начался — ПК сами открыли список класса',
     (await pc6.locator('.names button').count()) === 20,
