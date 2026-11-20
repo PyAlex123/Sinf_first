@@ -7,7 +7,7 @@
   import { hostSend, onHostEvent, platform } from '../lib/platform.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
-  import { QUIZ_OPTION_LETTERS } from '@sinf/shared';
+  import { PRACTICE_STAGE_KEY, QUIZ_OPTION_LETTERS } from '@sinf/shared';
   import Button from '../lib/ui/Button.svelte';
   import Icon from '../lib/ui/Icon.svelte';
   import QuizOption from '../lib/ui/QuizOption.svelte';
@@ -51,6 +51,13 @@
     hostSend({ type: 'thumbs', on });
     return () => hostSend({ type: 'thumbs', on: false });
   });
+  // Leaving the practice closes its program; nothing else ever does, so the work is not lost early.
+  let wasInPractice = false;
+  $effect(() => {
+    const now = inPractice && !ended;
+    if (wasInPractice && !now) hostSend({ type: 'closeApps' });
+    wasInPractice = now;
+  });
   $effect(() => {
     const asked = store?.screenshotAsked;
     if (asked) hostSend({ type: 'screenshot', reason: asked.reason });
@@ -59,6 +66,14 @@
     onHostEvent((event) => {
       if (event.type === 'thumb') {
         store?.sendThumb(event.jpeg);
+        return;
+      }
+      if (event.type === 'app') {
+        paintRunning = event.running;
+        return;
+      }
+      if (event.type === 'hand') {
+        store?.hand(true);
         return;
       }
       if (event.type === 'screenshot') {
@@ -101,6 +116,16 @@
     return screen?.kind === 'step' ? screen : null;
   });
   const stepDone = $derived(!!me?.steps.includes(index));
+
+  /**
+   * Paint on the practice of a club lesson (stage 3, H6): in the classroom app the child opens the
+   * real Paint from here, and when the practice is over the app closes it, asking to save first.
+   */
+  const inPractice = $derived(
+    !!session && !!bundle && bundle.lesson.stages[session.stage.index]?.key === PRACTICE_STAGE_KEY,
+  );
+  const paintLesson = $derived(!!bundle?.lesson.screens.some((s) => s.kind === 'step'));
+  let paintRunning = $state(false);
 
   /**
    * The live quiz (S1.12). While it is on, it is the whole screen: the lesson waits, and the child
@@ -283,26 +308,38 @@
       {#if resting}
         <RestScreen />
       {/if}
-      {#if step && !lock && !resting}
+      {#if (step || (inClassroomApp && inPractice && paintLesson)) && !lock && !resting}
         <div class="steps">
-          <button
-            type="button"
-            class="did"
-            class:on={stepDone}
-            onclick={() => store?.stepDone(index, !stepDone)}
-          >
-            <Icon name={stepDone ? 'check' : 'forward'} size={20} />
-            {stepDone ? t('step.done') : t('step.do')}
-          </button>
-          <button
-            type="button"
-            class="help"
-            class:up={me?.hand}
-            onclick={() => store?.hand(!me?.hand)}
-          >
-            <Icon name="hand" size={20} />
-            {me?.hand ? t('step.helpCalled') : t('step.help')}
-          </button>
+          {#if inClassroomApp && inPractice && paintLesson}
+            <button
+              type="button"
+              class="paint"
+              onclick={() => hostSend({ type: 'launch', app: 'paint' })}
+            >
+              <Icon name="screen" size={20} />
+              {paintRunning ? t('student.paint.back') : t('student.paint.open')}
+            </button>
+          {/if}
+          {#if step}
+            <button
+              type="button"
+              class="did"
+              class:on={stepDone}
+              onclick={() => store?.stepDone(index, !stepDone)}
+            >
+              <Icon name={stepDone ? 'check' : 'forward'} size={20} />
+              {stepDone ? t('step.done') : t('step.do')}
+            </button>
+            <button
+              type="button"
+              class="help"
+              class:up={me?.hand}
+              onclick={() => store?.hand(!me?.hand)}
+            >
+              <Icon name="hand" size={20} />
+              {me?.hand ? t('step.helpCalled') : t('step.help')}
+            </button>
+          {/if}
         </div>
       {/if}
       <div class="hud" class:raised={!!step || !!quiz}>
@@ -484,6 +521,12 @@
     display: flex;
     gap: var(--space-3);
     z-index: 45;
+  }
+  /* The real program is the main thing of this practice: the loudest button (H6). */
+  .steps .paint {
+    background: var(--c-accent);
+    color: #fff;
+    border-color: var(--c-accent);
   }
   .steps button {
     display: inline-flex;

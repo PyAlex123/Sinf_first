@@ -397,5 +397,7 @@
   "session.shot.all": "Снимок экрана у всех",
   "session.shot.selected": "Снимок экрана у выбранных",
   "session.thumb": "Экран ученика",
-  "results.gallery.shot": "Снимок экрана: {name}"
+  "results.gallery.shot": "Снимок экрана: {name}",
+  "student.paint.open": "Открыть Paint",
+  "student.paint.back": "Вернуться в Paint"
 }

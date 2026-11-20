@@ -61,6 +61,13 @@ internal sealed class StudentForm : Form
     private readonly System.Windows.Forms.Timer thumbs = new();
     private byte[] lastFingerprint = [];
     private bool capturing;
+
+    /// <summary>A practice program is open (H6): it may have the focus, the lesson steps back.</summary>
+    private bool appMode;
+    private bool appWasRunning;
+    private ProgramPanel? panel;
+    private readonly System.Windows.Forms.Timer appWatch = new() { Interval = 1000 };
+    private readonly System.Windows.Forms.Timer closeDeadline = new();
     private readonly AccessibilityGuard? accessibility;
     private readonly System.Windows.Forms.Timer focusBack = new();
 
@@ -99,7 +106,8 @@ internal sealed class StudentForm : Form
             focusBack.Tick += (_, _) =>
             {
                 focusBack.Stop();
-                if (!dialogOpen && !closeAllowed)
+                // Paint of the practice may keep the focus (H6); nothing else may.
+                if (!dialogOpen && !closeAllowed && !(appMode && AppLauncher.OwnsForegroundWindow()))
                 {
                     Activate();
                 }
@@ -155,6 +163,16 @@ internal sealed class StudentForm : Form
         waiting.Controls.Add(name);
         Controls.Add(view);
         Controls.Add(waiting);
+
+        appWatch.Tick += (_, _) => WatchApp();
+        closeDeadline.Interval = (int)AppCatalog.CloseGrace.TotalMilliseconds;
+        closeDeadline.Tick += (_, _) =>
+        {
+            closeDeadline.Stop();
+            AppLauncher.CloseByForce();
+        };
+        // Back in the lesson: the strip over Paint is not needed.
+        Activated += (_, _) => panel?.Hide();
 
         thumbs.Interval = (int)ThumbPeriod.TotalMilliseconds;
         thumbs.Tick += async (_, _) => await SendThumbAsync().ConfigureAwait(true);
@@ -373,6 +391,12 @@ internal sealed class StudentForm : Form
                 case "thumbs":
                     SetThumbs(root.TryGetProperty("on", out var wanted) && wanted.ValueKind == JsonValueKind.True);
                     break;
+                case "launch":
+                    StartApp(root.TryGetProperty("app", out var app) ? app.GetString() : null);
+                    break;
+                case "closeApps":
+                    CloseApps();
+                    break;
                 case "screenshot":
                     var reason = root.TryGetProperty("reason", out var r) ? r.GetString() : null;
                     _ = SendScreenshotAsync(reason is "before_end" or "stage_end" ? reason : "manual");
@@ -404,6 +428,7 @@ internal sealed class StudentForm : Form
         if (on)
         {
             mouse ??= new MouseGuard();
+            panel?.Hide();
             TopMost = true;
             Activate();
         }
@@ -412,6 +437,61 @@ internal sealed class StudentForm : Form
             mouse?.Dispose();
             mouse = null;
         }
+    }
+
+    /// <summary>Opens Paint for the practice (H6), or brings it back; the lesson steps behind it.</summary>
+    private void StartApp(string? id)
+    {
+        if (lockedByTeacher || !AppLauncher.Launch(id ?? string.Empty))
+        {
+            return;
+        }
+
+        appMode = true;
+        TopMost = false;
+        panel ??= new ProgramPanel(BackToLessonFromApp, () => PostToPage(new { type = "hand" }));
+        panel.ShowOnTop();
+        appWatch.Start();
+    }
+
+    private void BackToLessonFromApp()
+    {
+        Activate();
+        BringToFront();
+    }
+
+    /// <summary>Reports the program's state to the page; when it is gone, the kiosk takes the screen back.</summary>
+    private void WatchApp()
+    {
+        var running = AppLauncher.AnyRunning();
+        if (running != appWasRunning)
+        {
+            appWasRunning = running;
+            PostToPage(new { type = "app", running });
+        }
+
+        if (!running && appMode)
+        {
+            appMode = false;
+            appWatch.Stop();
+            closeDeadline.Stop();
+            panel?.Hide();
+            TopMost = !dev;
+            Activate();
+        }
+    }
+
+    /// <summary>The practice is over (H6): Paint is asked to close — it offers to save — and after the grace, closed.</summary>
+    private void CloseApps()
+    {
+        if (!AppLauncher.AnyRunning())
+        {
+            return;
+        }
+
+        AppLauncher.AskToClose();
+        closeDeadline.Stop();
+        closeDeadline.Start();
     }
 
     private void SetThumbs(bool on)
@@ -619,6 +699,9 @@ internal sealed class StudentForm : Form
         watch.Dispose();
         focusBack.Dispose();
         thumbs.Dispose();
+        appWatch.Dispose();
+        closeDeadline.Dispose();
+        panel?.Dispose();
         keyboard?.Dispose();
         accessibility?.Dispose();
         mouse?.Dispose();

@@ -60,12 +60,20 @@ export type HostCommand =
   /** A teacher's panel is open: send a thumbnail every 3 s when the screen changed (H5). */
   | { type: 'thumbs'; on: boolean }
   /** Photograph the screen now and hand the picture back (H5). */
-  | { type: 'screenshot'; reason: 'manual' | 'before_end' | 'stage_end' };
+  | { type: 'screenshot'; reason: 'manual' | 'before_end' | 'stage_end' }
+  /** Open a program of the practice, or bring it back to the front (H6). Only Paint for now. */
+  | { type: 'launch'; app: 'paint' }
+  /** The practice is over: close its programs, asking to save first (H6). */
+  | { type: 'closeApps' };
 
 /** What the classroom app tells the page. */
 export type HostEvent =
   /** A screen thumbnail: base64 JPEG, 320 px (H5). */
   | { type: 'thumb'; jpeg: string }
+  /** The practice program opened or closed (H6). */
+  | { type: 'app'; running: boolean }
+  /** "Помогите" pressed on the panel over the program (H6). */
+  | { type: 'hand' }
   /** A screenshot asked for: base64 JPEG up to 1920 px (H5). */
   | {
       type: 'screenshot';

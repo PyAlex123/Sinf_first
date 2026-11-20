@@ -370,5 +370,7 @@
   "session.shot.all": "Hammaning ekran surati",
   "session.shot.selected": "Tanlanganlarning ekran surati",
   "session.thumb": "O‘quvchi ekrani",
-  "results.gallery.shot": "Ekran surati: {name}"
+  "results.gallery.shot": "Ekran surati: {name}",
+  "student.paint.open": "Paint’ni ochish",
+  "student.paint.back": "Paint’ga qaytish"
 }
