@@ -427,11 +427,25 @@ export const JoinLookupResponseSchema = z.strictObject({
 });
 export type JoinLookupResponse = z.infer<typeof JoinLookupResponseSchema>;
 
+/** What the school calls a classroom computer, "ПК-05" (ADR-014). */
+export const PcNameSchema = z.string().trim().min(1).max(20);
+
+/**
+ * A student computer in the classroom asks the teacher's computer which lesson to open (stage 3, H2).
+ * No lesson code: the room has one lesson at a time. `seatedStudentId` is who sat here last time.
+ */
+export const JoinRoomResponseSchema = z.strictObject({
+  lesson: JoinLookupResponseSchema.extend({ seatedStudentId: id.nullable() }).nullable(),
+});
+export type JoinRoomResponse = z.infer<typeof JoinRoomResponseSchema>;
+
 export const JoinRequestSchema = z.strictObject({
   sessionId: id,
   studentId: id,
   /** Picture keys in order, or digits. */
   code: z.array(z.string().min(1)).min(1).max(6),
+  /** The classroom computer the child logs in at: their seat is remembered (H2). */
+  pc: PcNameSchema.optional(),
 });
 export type JoinRequest = z.infer<typeof JoinRequestSchema>;
 

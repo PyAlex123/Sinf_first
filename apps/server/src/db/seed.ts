@@ -272,6 +272,7 @@ export function resetDemoClass(db: Db, now = new Date()): SeedResult {
       }
     }
     tx.delete(schema.grades).where(eq(schema.grades.classId, DEMO.classId)).run();
+    tx.delete(schema.seats).where(eq(schema.seats.classId, DEMO.classId)).run();
     tx.delete(schema.sessions).where(eq(schema.sessions.classId, DEMO.classId)).run();
     tx.delete(schema.students).where(eq(schema.students.classId, DEMO.classId)).run();
     const cls = tx.select().from(schema.classes).where(eq(schema.classes.id, DEMO.classId)).get();

@@ -4,6 +4,7 @@
   import { stageScreenRange } from '@sinf/shared';
   import { loadLessonBundle, type LessonBundle } from '../lib/content.js';
   import { t } from '../lib/i18n/index.svelte.js';
+  import { platform } from '../lib/platform.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
   import { QUIZ_OPTION_LETTERS } from '@sinf/shared';
@@ -30,6 +31,17 @@
   const me = $derived(store?.me);
   const lock = $derived(store?.myLock ?? null);
   const ended = $derived(endedBefore || session?.status === 'ended' || store?.status === 'ended');
+
+  /**
+   * On a classroom computer (stage 3, H2) the lesson is not the end: after a moment the screen goes
+   * back to waiting for the next one. In a browser the child sees "the lesson is over" and stays.
+   */
+  const BACK_TO_WAITING_MS = 5000;
+  $effect(() => {
+    if (!ended || platform.role !== 'student') return;
+    const timer = setTimeout(() => router.navigate('/join', { replace: true }), BACK_TO_WAITING_MS);
+    return () => clearTimeout(timer);
+  });
   const kicked = $derived(store?.kicked === true);
   const free = $derived(session?.mode === 'free');
   /** During the rest part of practice the screen is covered (STAGE1 S1.8). */
@@ -87,17 +99,20 @@
     if (session && session.mode === 'presentation') index = session.screenIndex;
   });
 
+  /** The classroom app's window already covers the screen (stage 3): nothing to press there. */
+  const inClassroomApp = platform.role === 'student';
+
   function start(): void {
     started = true;
     const root = document.documentElement;
-    if (root.requestFullscreen) {
+    if (!inClassroomApp && root.requestFullscreen) {
       root.requestFullscreen().catch(() => undefined);
     }
     store?.connect();
   }
 
   function report(): void {
-    store?.visibility(document.hidden, !!document.fullscreenElement);
+    store?.visibility(document.hidden, inClassroomApp || !!document.fullscreenElement);
   }
 
   onMount(() => {
@@ -119,6 +134,7 @@
           return;
         }
         bundle = await loadLessonBundle(info.lessonId);
+        if (inClassroomApp) start();
       } catch (e) {
         error =
           e instanceof ApiError && e.status === 404 ? t('common.notFound') : t('common.error');

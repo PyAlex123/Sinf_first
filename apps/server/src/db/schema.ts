@@ -303,6 +303,27 @@ export const quizAttempts = sqliteTable(
   (t) => [index('quiz_attempts_session_idx').on(t.sessionId)],
 );
 
+/**
+ * Seating (CLAUDE.md §4.1, §6 Seat; stage 3 step H2): who of this class sat at this classroom
+ * computer last time, so the next lesson shows their name straight away. The computer is known by
+ * the name the school gave it ("ПК-05"), because student computers are not registered as devices
+ * yet (ADR-014). It lives on the teacher's computer only: seating is a fact about one room.
+ */
+export const seats = sqliteTable(
+  'seats',
+  {
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id),
+    pc: text('pc').notNull(),
+    studentId: text('student_id')
+      .notNull()
+      .references(() => students.id),
+    lastUsedAt: timestamp('last_used_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.classId, t.pc] }), index('seats_student_idx').on(t.studentId)],
+);
+
 /** Journal row: stars for a lesson and, if the class converts them, a 2–5 grade. */
 export const grades = sqliteTable(
   'grades',
@@ -339,6 +360,7 @@ export const syncState = sqliteTable('sync_state', {
 
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  seats,
   grades,
   quizAttempts,
   practiceResults,

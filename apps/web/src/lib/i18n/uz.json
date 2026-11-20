@@ -363,5 +363,7 @@
   "demo.reset.button": "Demoni qayta tiklash",
   "demo.reset.confirm": "Demo qayta tiklansinmi? 1А sinfining darslari va yakunlari o‘chiriladi.",
   "demo.reset.done": "Demo qayta tiklandi: 1А sinfi boshidagidek.",
-  "join.pc": "Bu kompyuter"
+  "join.pc": "Bu kompyuter",
+  "join.waiting.hint": "O‘qituvchi darsni boshlashi bilan dars o‘zi ochiladi.",
+  "join.byCode": "Dars kodini kiritish"
 }

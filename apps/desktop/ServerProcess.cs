@@ -70,6 +70,8 @@ internal sealed class ServerProcess : IAsyncDisposable
         start.Environment["SESSION_SECRET"] = config.SessionSecret;
         start.Environment["DEMO_TEACHER_PASSWORD"] = config.TeacherPassword;
         start.Environment["LOG_LEVEL"] = "info";
+        // Stage 3 (ADR-014): student computers in this room ask which lesson to open, no code needed.
+        start.Environment["CLASSROOM_MODE"] = "1";
 
         var writer = new StreamWriter(
             new FileStream(paths.LogFile, FileMode.Create, FileAccess.Write, FileShare.Read))

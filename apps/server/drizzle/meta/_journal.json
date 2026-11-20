@@ -43,6 +43,13 @@
       "when": 1795024967450,
       "tag": "0005_colossal_jean_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1795181699984,
+      "tag": "0006_narrow_thanos",
+      "breakpoints": true
     }
   ]
 }

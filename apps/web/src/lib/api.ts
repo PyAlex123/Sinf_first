@@ -6,6 +6,7 @@ import {
   CourseListResponseSchema,
   JoinClassesResponseSchema,
   JoinLookupResponseSchema,
+  JoinRoomResponseSchema,
   JoinResponseSchema,
   JoinSessionResponseSchema,
   LessonSchema,
@@ -203,6 +204,8 @@ export const api = {
   syncStatus: () => request('GET', '/api/sync/status', SyncStatusSchema),
   syncNow: () => request('POST', '/api/sync/now', SyncStatusSchema),
   joinClasses: () => request('GET', '/api/join/classes', JoinClassesResponseSchema),
+  joinRoom: (pc: string) =>
+    request('GET', `/api/join/room?pc=${encodeURIComponent(pc)}`, JoinRoomResponseSchema),
   joinLookup: (code: string) =>
     request('POST', '/api/join/lookup', JoinLookupResponseSchema, { code }),
   join: (body: JoinRequest) => request('POST', '/api/join', JoinResponseSchema, body),

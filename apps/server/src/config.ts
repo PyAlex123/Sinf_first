@@ -29,6 +29,12 @@ const EnvSchema = z.object({
   PLATFORM_URL: z.string().optional(),
   DEVICE_TOKEN: z.string().optional(),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
+  /**
+   * This server is the teacher's computer in a classroom (ADR-014): student computers on the same
+   * network ask it which lesson to open, without a lesson code. Set by the Windows app; never on
+   * the platform, where it would show any running lesson's class list to anyone who asks.
+   */
+  CLASSROOM_MODE: z.enum(['0', '1']).default('0'),
 });
 
 export interface Config {
@@ -48,6 +54,8 @@ export interface Config {
   /** Where to look for this computer's link to the platform; null on the platform itself. */
   platformConfigFile: string | null;
   platformLink: PlatformLink | null;
+  /** The teacher's computer in a classroom: student computers find their lesson here (ADR-014). */
+  classroom: boolean;
 }
 
 /** This computer's link to the platform: where it is and who we are (S2.4). */
@@ -98,6 +106,7 @@ export function loadConfig(
       e.PLATFORM_URL && e.DEVICE_TOKEN
         ? { url: normalizePlatformUrl(e.PLATFORM_URL), deviceToken: e.DEVICE_TOKEN }
         : null,
+    classroom: e.CLASSROOM_MODE === '1',
   };
 }
 
