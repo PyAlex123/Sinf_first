@@ -40,6 +40,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+      - name: Tests of the Windows-free logic (xUnit, ADR-014)
+        run: dotnet test apps/desktop-core.Tests
+
       - name: Our window (self-contained, .NET not required on the school PC)
         run: >
           dotnet publish apps/desktop/Sinf.Desktop.csproj

@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { api, ApiError } from '../lib/api.js';
   import { loadPics } from '../lib/content.js';
+  import { platform } from '../lib/platform.js';
   import { t } from '../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { saveParticipantToken } from '../lib/stores/session.svelte.js';
@@ -118,7 +119,12 @@
 </script>
 
 <main class="join">
-  <div class="top"><a class="home" href="/">{t('app.name')}</a><LangSwitch /></div>
+  <div class="top">
+    <a class="home" href="/">{t('app.name')}</a>
+    <!-- On a classroom computer the child sees which one it is (ADR-014): "ПК-05". -->
+    {#if platform.pcName}<span class="pc" title={t('join.pc')}>{platform.pcName}</span>{/if}
+    <LangSwitch />
+  </div>
 
   {#if step === 'code'}
     <h1>{t('join.code.title')}</h1>
@@ -195,6 +201,12 @@
 </main>
 
 <style>
+  .pc {
+    margin-left: auto;
+    margin-right: var(--space-3);
+    color: var(--c-muted);
+    font-weight: 600;
+  }
   .join {
     min-height: 100vh;
     padding: var(--space-4);

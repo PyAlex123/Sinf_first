@@ -6,3 +6,7 @@ content
 content-src
 pnpm-lock.yaml
 *.md
+# .NET build output
+**/bin
+**/obj
+**/TestResults

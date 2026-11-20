@@ -13,6 +13,8 @@ export default tseslint.config(
       '**/dist/**',
       '**/dist-demo/**',
       '**/coverage/**',
+      '**/bin/**',
+      '**/obj/**',
       'data/**',
       'content/**',
       'content-src/**',

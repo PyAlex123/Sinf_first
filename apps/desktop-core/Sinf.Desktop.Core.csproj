@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Logic of the Windows app that does not need Windows (ADR-014): the discovery protocol, address
+    checks, and later key rules and frame comparison. It builds and its tests run on Linux too, so the
+    cloud container checks it before the author ever starts the app.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Sinf.Desktop.Core</RootNamespace>
+    <AssemblyName>Sinf.Desktop.Core</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

@@ -22,4 +22,9 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
   </ItemGroup>
 
+  <!-- Windows-free logic with its own tests (ADR-014). -->
+  <ItemGroup>
+    <ProjectReference Include="../desktop-core/Sinf.Desktop.Core.csproj" />
+  </ItemGroup>
+
 </Project>

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
+using Sinf.Desktop.Core;
 
 namespace Sinf.Desktop;
 
@@ -16,7 +17,7 @@ internal sealed class MainForm : Form
     private static readonly Color BarColor = Color.FromArgb(19, 35, 58);
     private static readonly Color AccentColor = Color.FromArgb(255, 106, 0);
 
-    private readonly AppPaths paths = AppPaths.Create();
+    private readonly AppPaths paths;
     private readonly WebView2 view = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly Panel bar = new() { Dock = DockStyle.Top, Height = 52, BackColor = BarColor };
     private readonly Label addressLabel = new() { AutoSize = true, ForeColor = Color.White };
@@ -37,12 +38,15 @@ internal sealed class MainForm : Form
     private HostConfig config;
     private readonly Platform platform;
     private ServerProcess? server;
+    /// <summary>Answers student computers that look for this lesson on the network (ADR-014 §3).</summary>
+    private TeacherBeacon? beacon;
     private FormWindowState beforeFullScreen = FormWindowState.Maximized;
     private bool fullScreen;
 
-    public MainForm()
+    public MainForm(AppPaths paths, HostConfig config)
     {
-        config = HostConfig.Load(paths);
+        this.paths = paths;
+        this.config = config;
         platform = new Platform(message => BeginInvoke(() => accountLabel.Text = message));
 
         Text = "Sinf";
@@ -146,6 +150,7 @@ internal sealed class MainForm : Form
             : $"Ученики заходят: {lanUrl}";
         accountLabel.Text = $"Учитель: demo@sinf.local · пароль: {config.TeacherPassword}";
         copyButton.Enabled = lanUrl is not null;
+        StartBeacon(lanUrl);
 
         splash.Text = "Открываем панель учителя…";
         try
@@ -168,6 +173,27 @@ internal sealed class MainForm : Form
         bar.Visible = true;
         ShowSchool();
         platform.StartHeartbeat(config);
+    }
+
+    /// <summary>
+    /// Student computers find this one by a broadcast question (ADR-014 §3). If the port is taken —
+    /// another Sinf already answers on this machine — the lesson still runs; students type the address.
+    /// </summary>
+    private void StartBeacon(string? lanUrl)
+    {
+        if (lanUrl is null)
+        {
+            return;
+        }
+
+        try
+        {
+            beacon = new TeacherBeacon(() => lanUrl, Environment.MachineName);
+        }
+        catch (System.Net.Sockets.SocketException)
+        {
+            accountLabel.Text += " · поиск по сети недоступен: ученики вводят адрес вручную";
+        }
     }
 
     /// <summary>
@@ -408,6 +434,8 @@ internal sealed class MainForm : Form
         splash.Text = "Завершаем урок…";
         splash.Visible = true;
         platform.Dispose();
+        beacon?.Dispose();
+        beacon = null;
         await stopping.DisposeAsync().ConfigureAwait(true);
         Close();
     }

@@ -97,14 +97,27 @@ internal sealed class AppPaths
 /// <summary>
 /// Settings kept between runs. The first two values are generated on the first start: the session secret
 /// signs cookies, the teacher password is shown in the window, because the demo account needs one to log
-/// in. The last two appear when the school pairs this computer with the platform (S2.4).
+/// in. Platform address and token appear when the school pairs this computer with the platform (S2.4).
+/// Role, computer name and the teacher's address belong to stage 3 (ADR-014): a student computer keeps
+/// the address it last found, so the next morning it tries that one first.
 /// </summary>
 internal sealed record HostConfig(
     string SessionSecret,
     string TeacherPassword,
     string? PlatformUrl = null,
-    string? DeviceToken = null)
+    string? DeviceToken = null,
+    string? Role = null,
+    string? PcName = null,
+    string? TeacherUrl = null)
 {
+    public const string TeacherRole = "teacher";
+    public const string StudentRole = "student";
+
+    /// <summary>Has somebody said what this computer is? Until then the role dialog comes first.</summary>
+    public bool HasRole => Role is TeacherRole or StudentRole;
+
+    public bool IsStudent => Role == StudentRole;
+
     private static readonly JsonSerializerOptions Format = new() { WriteIndented = true };
 
     /// <summary>Letters and digits that cannot be confused with one another when read off a screen.</summary>

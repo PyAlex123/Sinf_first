@@ -362,5 +362,6 @@
   "demo.reset.hint": "1А sinfining darslarini, ularning yakunlarini va virtual o‘quvchilarni o‘chiradi hamda 20 o‘quvchini kodlari bilan qaytaradi. Ketayotgan dars tugaydi. Boshqa o‘qituvchilar, sinflar va maktablarga tegmaydi.",
   "demo.reset.button": "Demoni qayta tiklash",
   "demo.reset.confirm": "Demo qayta tiklansinmi? 1А sinfining darslari va yakunlari o‘chiriladi.",
-  "demo.reset.done": "Demo qayta tiklandi: 1А sinfi boshidagidek."
+  "demo.reset.done": "Demo qayta tiklandi: 1А sinfi boshidagidek.",
+  "join.pc": "Bu kompyuter"
 }
