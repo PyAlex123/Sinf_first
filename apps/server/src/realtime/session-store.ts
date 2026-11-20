@@ -3,6 +3,8 @@ import { and, eq, notInArray } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import {
   COUNTDOWN_SEC,
+  PRACTICE_STAGE_KEY,
+  SCREENSHOT_BEFORE_END_MS,
   createSessionState,
   EMPTY_PLAN,
   PROTOCOL_VERSION,
@@ -57,7 +59,12 @@ interface LiveSession {
   /** participantToken → participantId. Anonymous participants reconnect with their token. */
   tokens: Map<string, string>;
   saveTimer: NodeJS.Timeout | null;
+  /** When each child's last thumbnail was relayed: one in three seconds is the budget (H5). */
+  thumbAt: Map<string, number>;
 }
+
+/** Thumbnails faster than this are dropped (CLAUDE.md §3.1: no more than one frame in 3 s). */
+const THUMB_MIN_INTERVAL_MS = 2500;
 
 /** What is persisted in `state_json` (a type alias, so it is assignable to the column's `Record<string, unknown>`). */
 type PersistedState = {
@@ -138,6 +145,7 @@ export class SessionStore {
       sockets: new Map(),
       tokens: new Map(),
       saveTimer: null,
+      thumbAt: new Map(),
     };
     this.live.set(id, session);
     this.schedule(id, session);
@@ -229,7 +237,14 @@ export class SessionStore {
       this.apply(id, session, result, null);
     }
     const connection: Connection = { role, participantId, alive: true };
+    const watchedBefore = this.teacherWatching(session);
     session.sockets.set(socket, connection);
+    if (role === 'student') {
+      // A child who comes in learns at once whether a teacher is watching (H5).
+      this.send(socket, { v: PROTOCOL_VERSION, type: 'thumbs.wanted', on: watchedBefore });
+    } else if (role === 'teacher' && !watchedBefore) {
+      this.tellThumbs(session, true);
+    }
     return { connection, participantToken: role === 'student' ? participantToken : null };
   }
 
@@ -318,6 +333,10 @@ export class SessionStore {
     if (!session) return;
     const connection = session.sockets.get(socket);
     session.sockets.delete(socket);
+    if (connection?.role === 'teacher' && !this.teacherWatching(session)) {
+      // The last teacher's panel closed: the classroom computers stop photographing (CLAUDE.md §3.1).
+      this.tellThumbs(session, false);
+    }
     if (!connection?.participantId) return;
     // Still connected from another tab? Then the participant stays online.
     for (const other of session.sockets.values()) {
@@ -335,8 +354,50 @@ export class SessionStore {
   dispatch(id: string, socket: RoomSocket, message: SessionEvent & { kind: 'command' }): void {
     const session = this.live.get(id);
     if (!session) return;
+    if (message.message.type === 'student.thumb') {
+      this.relayThumb(session, message.participantId, message.message.jpeg);
+      return;
+    }
     const result = reduce(session.state, message, session.plan);
     this.apply(id, session, result, socket);
+  }
+
+  /**
+   * The participant behind a token from `POST /api/join` — how a classroom computer proves who it is
+   * when it uploads a screenshot (H5).
+   */
+  participantByToken(id: string, token: string): string | undefined {
+    const session = this.get(id);
+    return session?.state.status === 'active' ? session.tokens.get(token) : undefined;
+  }
+
+  private teacherWatching(session: LiveSession): boolean {
+    for (const connection of session.sockets.values()) {
+      if (connection.role === 'teacher') return true;
+    }
+    return false;
+  }
+
+  private tellThumbs(session: LiveSession, on: boolean): void {
+    for (const [socket, connection] of session.sockets) {
+      if (connection.role === 'student') {
+        this.send(socket, { v: PROTOCOL_VERSION, type: 'thumbs.wanted', on });
+      }
+    }
+  }
+
+  /** A thumbnail goes to the teachers' screens only, at most one per child in three seconds (H5). */
+  private relayThumb(session: LiveSession, participantId: string | null, jpeg: string): void {
+    if (!participantId || !session.state.participants[participantId]) return;
+    const now = this.now();
+    const last = session.thumbAt.get(participantId) ?? 0;
+    if (now - last < THUMB_MIN_INTERVAL_MS) return;
+    session.thumbAt.set(participantId, now);
+    for (const [socket, connection] of session.sockets) {
+      if (connection.role === 'teacher') {
+        this.send(socket, { v: PROTOCOL_VERSION, type: 'thumb', participantId, jpeg });
+      }
+    }
   }
 
   connections(id: string): Connection[] {
@@ -400,6 +461,7 @@ export class SessionStore {
       sockets: new Map(),
       tokens: new Map(Object.entries(persisted.tokens ?? {})),
       saveTimer: null,
+      thumbAt: new Map(),
     };
     this.live.set(id, session);
     this.log.info({ sessionId: id }, 'session restored from snapshot (paused)');
@@ -555,7 +617,13 @@ export class SessionStore {
       session.state.stage.countdownUntil === null
         ? untilEnd - Math.ceil((COUNTDOWN_SEC * 1000) / session.state.demoSpeed)
         : null;
-    const candidates = [untilEnd, untilPart, untilCountdown].filter(
+    // The practice's screenshots five lesson minutes before its end (H5).
+    const stageKey = session.plan.stages[session.state.stage.index]?.key;
+    const untilShot =
+      stageKey === PRACTICE_STAGE_KEY && !session.state.stage.shotRequested
+        ? untilEnd - Math.ceil(SCREENSHOT_BEFORE_END_MS / session.state.demoSpeed)
+        : null;
+    const candidates = [untilEnd, untilPart, untilCountdown, untilShot].filter(
       (value): value is number => value !== null && value > 0,
     );
     const delay = Math.max(50, Math.min(...candidates, untilEnd));

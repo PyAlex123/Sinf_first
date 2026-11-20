@@ -366,5 +366,9 @@
   "join.pc": "Bu kompyuter",
   "join.waiting.hint": "O‘qituvchi darsni boshlashi bilan dars o‘zi ochiladi.",
   "join.byCode": "Dars kodini kiritish",
-  "session.lock.real": "Sinf kompyuterlarida ({count}) «Diqqat!» haqiqiy: klaviatura va sichqoncha ishlamaydi."
+  "session.lock.real": "Sinf kompyuterlarida ({count}) «Diqqat!» haqiqiy: klaviatura va sichqoncha ishlamaydi.",
+  "session.shot.all": "Hammaning ekran surati",
+  "session.shot.selected": "Tanlanganlarning ekran surati",
+  "session.thumb": "O‘quvchi ekrani",
+  "results.gallery.shot": "Ekran surati: {name}"
 }

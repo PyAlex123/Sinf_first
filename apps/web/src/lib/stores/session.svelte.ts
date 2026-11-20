@@ -1,6 +1,8 @@
 import {
   lockFor,
+  type LockTargets,
   type Participant,
+  type ScreenshotReason,
   type Role,
   type ServerMessage,
   type SessionState,
@@ -39,6 +41,12 @@ export class SessionStore {
   lastError = $state<{ code: string; message: string } | null>(null);
   /** The same student logged in from another device (S1.7). */
   kicked = $state(false);
+  /** Teacher: the latest screen thumbnail of each classroom computer, as data URLs (H5). */
+  thumbs = $state<Record<string, string>>({});
+  /** Student: a teacher's panel is open, so thumbnails are wanted (H5, CLAUDE.md §3.1). */
+  thumbsWanted = $state(false);
+  /** Student: the latest screenshot request that names this child (H5); `n` makes each one new. */
+  screenshotAsked = $state<{ n: number; reason: ScreenshotReason } | null>(null);
   private socket: SessionSocket | null = null;
 
   constructor(
@@ -125,6 +133,18 @@ export class SessionStore {
 
   setDemoSpeed(speed: number): void {
     this.socket?.send({ type: 'teacher.demoSpeed.set', speed });
+  }
+
+  // ---------- screens of classroom computers (H5)
+
+  /** Teacher: photograph these children's screens now, or everybody's. */
+  screenshot(targets: LockTargets): void {
+    this.socket?.send({ type: 'teacher.screenshot', targets });
+  }
+
+  /** Student: a thumbnail of this screen, base64 JPEG from the classroom app. */
+  sendThumb(jpeg: string): void {
+    this.socket?.send({ type: 'student.thumb', jpeg });
   }
 
   /** Server time now, by the offset from the last snapshot or pong. */
@@ -245,6 +265,19 @@ export class SessionStore {
         return;
       case 'pong':
         return;
+      case 'thumb':
+        this.thumbs = { ...this.thumbs, [m.participantId]: `data:image/jpeg;base64,${m.jpeg}` };
+        return;
+      case 'thumbs.wanted':
+        this.thumbsWanted = m.on;
+        return;
+      case 'screenshot.request': {
+        const me = this.you?.participantId;
+        if (me && (m.targets === 'all' || m.targets.includes(me))) {
+          this.screenshotAsked = { n: (this.screenshotAsked?.n ?? 0) + 1, reason: m.reason };
+        }
+        return;
+      }
     }
   }
 }

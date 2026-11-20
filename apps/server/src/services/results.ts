@@ -41,7 +41,7 @@ const fullName = (s: { lastName: string; firstName: string }): string =>
 /** Everything a set of lessons left behind, read in four queries whatever the number of lessons. */
 function loadRows(db: Db, sessionIds: string[]) {
   if (sessionIds.length === 0) {
-    return { attendance: [], screens: [], practice: [], quiz: [] };
+    return { attendance: [], screens: [], practice: [], quiz: [], shots: [] };
   }
   return {
     attendance: db
@@ -63,6 +63,16 @@ function loadRows(db: Db, sessionIds: string[]) {
       .select()
       .from(schema.quizAttempts)
       .where(inArray(schema.quizAttempts.sessionId, sessionIds))
+      .all(),
+    shots: db
+      .select({
+        id: schema.screenshots.id,
+        sessionId: schema.screenshots.sessionId,
+        studentId: schema.screenshots.studentId,
+        takenAt: schema.screenshots.takenAt,
+      })
+      .from(schema.screenshots)
+      .where(inArray(schema.screenshots.sessionId, sessionIds))
       .all(),
   };
 }
@@ -99,6 +109,7 @@ function computeSession(
   const screens = mine(rows.screens);
   const practice = mine(rows.practice);
   const answers = mine(rows.quiz);
+  const shots = mine(rows.shots);
 
   const practiceSteps = lesson ? practiceStepCount(lesson) : 0;
   const maxima = {
@@ -135,9 +146,14 @@ function computeSession(
     const percent = present
       ? scorePercent({ trainerStars, practiceStars: practiceStars ?? 0, quizCorrect }, maxima)
       : null;
+    // The latest photograph is the one that counts: the practice as it ended (H5).
+    const shot = shots
+      .filter((s) => s.studentId === student.id)
+      .reduce<(typeof shots)[number] | null>((a, b) => (!a || b.takenAt > a.takenAt ? b : a), null);
     return {
       studentId: student.id,
       name: fullName(student),
+      screenshotId: shot?.id ?? null,
       isActive: student.isActive,
       isVirtual: student.isVirtual,
       present,

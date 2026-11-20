@@ -304,6 +304,32 @@ export const quizAttempts = sqliteTable(
 );
 
 /**
+ * A photograph of a classroom computer's screen (stage 3, H5; CLAUDE.md §4.8, §6 Screenshot): asked
+ * for by the teacher, five lesson minutes before the practice ends and when it ends. The file lives
+ * in `DATA_DIR/screenshots/<sessionId>/`; the row says whose and why. Thumbnails are never stored.
+ */
+export const screenshots = sqliteTable(
+  'screenshots',
+  {
+    id: id(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id),
+    studentId: text('student_id')
+      .notNull()
+      .references(() => students.id),
+    kind: text('kind', { enum: ['manual', 'before_end', 'stage_end'] }).notNull(),
+    takenAt: timestamp('taken_at').notNull(),
+    /** Path under `DATA_DIR`, e.g. `screenshots/<sessionId>/<id>.jpg`. */
+    fileKey: text('file_key').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    bytes: integer('bytes').notNull(),
+  },
+  (t) => [index('screenshots_session_idx').on(t.sessionId, t.studentId)],
+);
+
+/**
  * Seating (CLAUDE.md §4.1, §6 Seat; stage 3 step H2): who of this class sat at this classroom
  * computer last time, so the next lesson shows their name straight away. The computer is known by
  * the name the school gave it ("ПК-05"), because student computers are not registered as devices
@@ -360,6 +386,7 @@ export const syncState = sqliteTable('sync_state', {
 
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  screenshots,
   seats,
   grades,
   quizAttempts,

@@ -4,7 +4,7 @@
   import { stageScreenRange } from '@sinf/shared';
   import { loadLessonBundle, type LessonBundle } from '../lib/content.js';
   import { t } from '../lib/i18n/index.svelte.js';
-  import { hostSend, platform } from '../lib/platform.js';
+  import { hostSend, onHostEvent, platform } from '../lib/platform.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
   import { QUIZ_OPTION_LETTERS } from '@sinf/shared';
@@ -40,6 +40,41 @@
     hostSend({ type: 'lock', on });
     return () => hostSend({ type: 'lock', on: false });
   });
+
+  /**
+   * Screens of classroom computers (H5): thumbnails only while a teacher's panel is open, and a
+   * screenshot whenever the teacher or the lesson asks. The app takes the pictures; the page sends
+   * thumbnails over the lesson socket and uploads screenshots to the teacher's computer.
+   */
+  $effect(() => {
+    const on = !!store?.thumbsWanted && !ended;
+    hostSend({ type: 'thumbs', on });
+    return () => hostSend({ type: 'thumbs', on: false });
+  });
+  $effect(() => {
+    const asked = store?.screenshotAsked;
+    if (asked) hostSend({ type: 'screenshot', reason: asked.reason });
+  });
+  $effect(() =>
+    onHostEvent((event) => {
+      if (event.type === 'thumb') {
+        store?.sendThumb(event.jpeg);
+        return;
+      }
+      if (event.type === 'screenshot') {
+        const token = readParticipantToken(sessionId);
+        if (!token) return;
+        void api
+          .uploadScreenshot(sessionId, token, {
+            jpeg: event.jpeg,
+            width: event.width,
+            height: event.height,
+            reason: event.reason,
+          })
+          .catch(() => undefined);
+      }
+    }),
+  );
   const ended = $derived(endedBefore || session?.status === 'ended' || store?.status === 'ended');
 
   /**

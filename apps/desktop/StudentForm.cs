@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
@@ -21,6 +22,8 @@ internal sealed class StudentForm : Form
     private static readonly TimeSpan SearchPause = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan WatchPeriod = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan TakeFocusBack = TimeSpan.FromMilliseconds(300);
+    /// <summary>A thumbnail at most every three seconds (CLAUDE.md §3.1).</summary>
+    private static readonly TimeSpan ThumbPeriod = TimeSpan.FromSeconds(3);
 
     private readonly AppPaths paths;
     private HostConfig config;
@@ -54,6 +57,10 @@ internal sealed class StudentForm : Form
     private MouseGuard? mouse;
     /// <summary>What the teacher asked for, so the lock comes back after the administrator's dialog.</summary>
     private bool lockedByTeacher;
+    /// <summary>Thumbnails for the teacher's tiles, only while a teacher's panel is open (H5).</summary>
+    private readonly System.Windows.Forms.Timer thumbs = new();
+    private byte[] lastFingerprint = [];
+    private bool capturing;
     private readonly AccessibilityGuard? accessibility;
     private readonly System.Windows.Forms.Timer focusBack = new();
 
@@ -148,6 +155,9 @@ internal sealed class StudentForm : Form
         waiting.Controls.Add(name);
         Controls.Add(view);
         Controls.Add(waiting);
+
+        thumbs.Interval = (int)ThumbPeriod.TotalMilliseconds;
+        thumbs.Tick += async (_, _) => await SendThumbAsync().ConfigureAwait(true);
 
         watch.Interval = (int)WatchPeriod.TotalMilliseconds;
         watch.Tick += async (_, _) => await CheckTeacherAsync().ConfigureAwait(true);
@@ -360,6 +370,13 @@ internal sealed class StudentForm : Form
                     lockedByTeacher = root.TryGetProperty("on", out var on) && on.ValueKind == JsonValueKind.True;
                     SetLock(lockedByTeacher);
                     break;
+                case "thumbs":
+                    SetThumbs(root.TryGetProperty("on", out var wanted) && wanted.ValueKind == JsonValueKind.True);
+                    break;
+                case "screenshot":
+                    var reason = root.TryGetProperty("reason", out var r) ? r.GetString() : null;
+                    _ = SendScreenshotAsync(reason is "before_end" or "stage_end" ? reason : "manual");
+                    break;
             }
         }
         catch (JsonException)
@@ -397,11 +414,95 @@ internal sealed class StudentForm : Form
         }
     }
 
+    private void SetThumbs(bool on)
+    {
+        if (on)
+        {
+            // The first thumbnail goes at once, then only changes.
+            lastFingerprint = [];
+            thumbs.Start();
+            _ = SendThumbAsync();
+        }
+        else
+        {
+            thumbs.Stop();
+        }
+    }
+
+    /// <summary>One look at the screen; a thumbnail goes to the page only when the picture changed.</summary>
+    private async Task SendThumbAsync()
+    {
+        if (capturing || !view.Visible || view.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        capturing = true;
+        try
+        {
+            using var screen = ScreenCapture.Grab();
+            var fingerprint = ScreenCapture.Fingerprint(screen);
+            if (!FrameDiff.HasChanged(lastFingerprint, fingerprint))
+            {
+                return;
+            }
+
+            lastFingerprint = fingerprint;
+            using var copy = (Bitmap)screen.Clone();
+            var picture = await Task.Run(() => ScreenCapture.Encode(copy, ScreenCapture.ThumbWidth, ScreenCapture.ThumbMaxBytes))
+                .ConfigureAwait(true);
+            PostToPage(new { type = "thumb", jpeg = Convert.ToBase64String(picture.Jpeg) });
+        }
+        catch (Exception error) when (error is ExternalException or ArgumentException or InvalidOperationException)
+        {
+            // A locked workstation or a changing display mode: the next tick tries again.
+        }
+        finally
+        {
+            capturing = false;
+        }
+    }
+
+    /// <summary>A screenshot for the gallery, handed to the page, which uploads it (H5, CLAUDE.md §4.8).</summary>
+    private async Task SendScreenshotAsync(string reason)
+    {
+        if (view.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        try
+        {
+            using var screen = ScreenCapture.Grab();
+            using var copy = (Bitmap)screen.Clone();
+            var picture = await Task.Run(() => ScreenCapture.Encode(copy, ScreenCapture.ShotWidth, ScreenCapture.ShotMaxBytes))
+                .ConfigureAwait(true);
+            PostToPage(new
+            {
+                type = "screenshot",
+                jpeg = Convert.ToBase64String(picture.Jpeg),
+                width = picture.Width,
+                height = picture.Height,
+                reason,
+            });
+        }
+        catch (Exception error) when (error is ExternalException or ArgumentException or InvalidOperationException)
+        {
+            // Nothing to send this time; the teacher can ask again.
+        }
+    }
+
+    private void PostToPage(object message)
+    {
+        view.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(message));
+    }
+
     private void BackToSearch(string reason)
     {
         // No lesson, no "Attention!": a lost teacher must not leave the computer frozen.
         lockedByTeacher = false;
         SetLock(false);
+        SetThumbs(false);
         if (searching)
         {
             return;
@@ -517,6 +618,7 @@ internal sealed class StudentForm : Form
         life.Cancel();
         watch.Dispose();
         focusBack.Dispose();
+        thumbs.Dispose();
         keyboard?.Dispose();
         accessibility?.Dispose();
         mouse?.Dispose();

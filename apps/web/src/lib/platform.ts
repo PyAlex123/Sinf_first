@@ -56,10 +56,24 @@ export function readPlatform(host: unknown): Platform {
 /** What the page asks the classroom app to do. */
 export type HostCommand =
   /** "Attention!": keyboard and mouse of this computer stop working until unlocked (H4). */
-  { type: 'lock'; on: boolean };
+  | { type: 'lock'; on: boolean }
+  /** A teacher's panel is open: send a thumbnail every 3 s when the screen changed (H5). */
+  | { type: 'thumbs'; on: boolean }
+  /** Photograph the screen now and hand the picture back (H5). */
+  | { type: 'screenshot'; reason: 'manual' | 'before_end' | 'stage_end' };
 
 /** What the classroom app tells the page. */
-export type HostEvent = { type: 'ready' };
+export type HostEvent =
+  /** A screen thumbnail: base64 JPEG, 320 px (H5). */
+  | { type: 'thumb'; jpeg: string }
+  /** A screenshot asked for: base64 JPEG up to 1920 px (H5). */
+  | {
+      type: 'screenshot';
+      jpeg: string;
+      width: number;
+      height: number;
+      reason: 'manual' | 'before_end' | 'stage_end';
+    };
 
 interface WebViewChannel {
   postMessage(message: unknown): void;

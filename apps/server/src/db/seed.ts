@@ -262,6 +262,7 @@ export function resetDemoClass(db: Db, now = new Date()): SeedResult {
       .map((r) => r.id);
     if (sessionIds.length > 0) {
       for (const table of [
+        schema.screenshots,
         schema.quizAttempts,
         schema.practiceResults,
         schema.screenResults,

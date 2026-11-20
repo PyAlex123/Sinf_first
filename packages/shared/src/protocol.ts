@@ -24,6 +24,16 @@ export type SessionMode = z.infer<typeof SessionModeSchema>;
 export const LockTargetsSchema = z.union([z.literal('all'), z.array(id).min(1)]);
 export type LockTargets = z.infer<typeof LockTargetsSchema>;
 
+/** Why a screenshot is taken (CLAUDE.md §4.8, §6 Screenshot.kind). */
+export const ScreenshotReasonSchema = z.enum(['manual', 'before_end', 'stage_end']);
+export type ScreenshotReason = z.infer<typeof ScreenshotReasonSchema>;
+
+/**
+ * A screen thumbnail as base64 JPEG (stage 3, H5): 320 px, at most 30 KB (CLAUDE.md §3.1), which is
+ * about 40 000 base64 characters; the limit leaves a margin and still fits one frame.
+ */
+export const MAX_THUMB_BASE64 = 48_000;
+
 const LockTextSchema = z.string().max(200);
 
 export const LockStateSchema = z.strictObject({
@@ -91,6 +101,11 @@ export const StageStateSchema = z.strictObject({
   countdownUntil: serverTime.nullable(),
   /** Part of a split stage: practice is work → rest → work. */
   part: z.enum(['work', 'rest']).nullable(),
+  /**
+   * The practice's screenshots before its end have been asked for (stage 3, H5): once per stage,
+   * so a teacher pressing "+5 min" does not get a second round. `default` keeps old snapshots readable.
+   */
+  shotRequested: z.boolean().default(false),
 });
 export type StageState = z.infer<typeof StageStateSchema>;
 
@@ -212,6 +227,14 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     optionIndex: z.number().int().nonnegative(),
   }),
   z.strictObject({ v, type: z.literal('student.hand'), up: z.boolean() }),
+  /** A thumbnail of this classroom computer's screen, only while a teacher watches (H5). */
+  z.strictObject({
+    v,
+    type: z.literal('student.thumb'),
+    jpeg: z.string().min(1).max(MAX_THUMB_BASE64),
+  }),
+  /** "Take a screenshot" of chosen children or everybody (H5, CLAUDE.md §4.8). */
+  z.strictObject({ v, type: z.literal('teacher.screenshot'), targets: LockTargetsSchema }),
   z.strictObject({
     v,
     type: z.literal('student.visibility'),
@@ -261,6 +284,17 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({ v, type: z.literal('participant.updated'), participant: ParticipantSchema }),
   z.strictObject({ v, type: z.literal('session.ended') }),
+  /** To teachers only: the latest thumbnail of one child's screen (H5). */
+  z.strictObject({ v, type: z.literal('thumb'), participantId: id, jpeg: z.string().min(1) }),
+  /** To students: send thumbnails or stop — only while a teacher's panel is open (CLAUDE.md §3.1). */
+  z.strictObject({ v, type: z.literal('thumbs.wanted'), on: z.boolean() }),
+  /** To students: take a screenshot and upload it (H5). */
+  z.strictObject({
+    v,
+    type: z.literal('screenshot.request'),
+    targets: LockTargetsSchema,
+    reason: ScreenshotReasonSchema,
+  }),
   /** The same student logged in from another device; this connection is closed. */
   z.strictObject({ v, type: z.literal('session.kicked') }),
   z.strictObject({ v, type: z.literal('error'), code: z.string(), message: z.string() }),

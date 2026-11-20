@@ -29,8 +29,10 @@
    * the children marked steps. Some lessons carry a stray "step" slide that is no Paint at all.
    */
   const hasPractice = $derived(
-    (results?.practiceSteps ?? 0) > 0 &&
-      (results?.rows.some((r) => r.practiceStars !== null || (r.stepsDone ?? 0) > 0) ?? false),
+    ((results?.practiceSteps ?? 0) > 0 &&
+      (results?.rows.some((r) => r.practiceStars !== null || (r.stepsDone ?? 0) > 0) ?? false)) ||
+      // A screenshot of a classroom computer is worth a gallery on any lesson (H5).
+      (results?.rows.some((r) => r.screenshotId !== null) ?? false),
   );
   const hasQuiz = $derived((results?.quizQuestions ?? 0) > 0);
   const present = $derived(results?.rows.filter((r) => r.present) ?? []);
@@ -182,8 +184,23 @@
             {#each present as row (row.studentId)}
               <li>
                 <Card padded={false}>
-                  <!-- Screenshots arrive with S1.14; until then the place says so honestly. -->
-                  <div class="shot"><span>{t('results.gallery.noShot')}</span></div>
+                  {#if row.screenshotId}
+                    <!-- The latest photograph of the classroom computer's screen (H5). -->
+                    <a
+                      class="shot"
+                      href={`/api/screenshots/${row.screenshotId}`}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      <img
+                        src={`/api/screenshots/${row.screenshotId}`}
+                        alt={t('results.gallery.shot', { name: row.name })}
+                        loading="lazy"
+                      />
+                    </a>
+                  {:else}
+                    <div class="shot"><span>{t('results.gallery.noShot')}</span></div>
+                  {/if}
                   <div class="caption">
                     <b>{row.name}</b>
                     {#if row.practiceStars}
@@ -218,6 +235,12 @@
 </main>
 
 <style>
+  .shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
   .n {
     white-space: nowrap;
   }

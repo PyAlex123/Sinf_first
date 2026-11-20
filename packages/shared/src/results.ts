@@ -138,6 +138,8 @@ export const ResultRowSchema = z.strictObject({
   quizPoints: count,
   quizCorrect: count,
   quizAnswered: count,
+  /** The latest photograph of this child's screen in this lesson (H5), when the classroom app took one. */
+  screenshotId: id.nullable(),
   /** Trainer stars plus stars for the drawing: what goes to the journal. */
   totalStars: count,
   /** Share of the lesson's maximum; null when absent or nothing could be scored. */

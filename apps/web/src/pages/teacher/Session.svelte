@@ -432,6 +432,16 @@
             {#if selected.length}<span class="muted"
                 >{t('session.selected', { count: selected.length })}</span
               >{/if}
+            {#if inClassroom > 0}
+              <!-- Screens of classroom computers (H5): the selected ones, or everybody's. -->
+              <button
+                type="button"
+                class="link"
+                onclick={() => store?.screenshot(selected.length ? selected : 'all')}
+              >
+                {selected.length ? t('session.shot.selected') : t('session.shot.all')}
+              </button>
+            {/if}
           </div>
           <div class="tiles">
             {#each participants as p (p.id)}
@@ -447,6 +457,9 @@
                   aria-pressed={selected.includes(p.id)}
                   onclick={() => toggleSelect(p.id)}
                 >
+                  {#if store?.thumbs[p.id]}
+                    <img class="thumb" src={store.thumbs[p.id]} alt={t('session.thumb')} />
+                  {/if}
                   <div class="tname">
                     <span class="dot" class:on={p.online}></span>
                     {p.name ?? t('session.participant', { number: p.number })}
@@ -857,6 +870,15 @@
     color: var(--c-info);
     font-size: var(--text-xs);
     font-weight: 600;
+  }
+  .thumb {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    margin-bottom: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--c-bg-2);
   }
   .pcname {
     margin-left: var(--space-1);

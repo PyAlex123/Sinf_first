@@ -7,6 +7,8 @@ import {
   JoinClassesResponseSchema,
   JoinLookupResponseSchema,
   JoinRoomResponseSchema,
+  ScreenshotUploadResponseSchema,
+  type ScreenshotUpload,
   JoinResponseSchema,
   JoinSessionResponseSchema,
   LessonSchema,
@@ -204,6 +206,16 @@ export const api = {
   syncStatus: () => request('GET', '/api/sync/status', SyncStatusSchema),
   syncNow: () => request('POST', '/api/sync/now', SyncStatusSchema),
   joinClasses: () => request('GET', '/api/join/classes', JoinClassesResponseSchema),
+  /** A classroom computer's screenshot, sent with the child's lesson token (H5). */
+  uploadScreenshot: async (sessionId: string, token: string, body: ScreenshotUpload) => {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/screenshots`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-participant-token': token },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new ApiError(res.status, 'http', `HTTP ${res.status}`);
+    return ScreenshotUploadResponseSchema.parse(await res.json());
+  },
   joinRoom: (pc: string) =>
     request('GET', `/api/join/room?pc=${encodeURIComponent(pc)}`, JoinRoomResponseSchema),
   joinLookup: (code: string) =>

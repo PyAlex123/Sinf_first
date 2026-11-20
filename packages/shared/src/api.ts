@@ -439,6 +439,20 @@ export const JoinRoomResponseSchema = z.strictObject({
 });
 export type JoinRoomResponse = z.infer<typeof JoinRoomResponseSchema>;
 
+/** A screenshot is at most 400 KB of JPEG (CLAUDE.md §3.1); in base64 that is about 546 000 characters. */
+export const MAX_SCREENSHOT_BASE64 = 560_000;
+
+/** A classroom computer uploads a photograph of its screen (stage 3, H5). */
+export const ScreenshotUploadSchema = z.strictObject({
+  jpeg: z.string().min(1).max(MAX_SCREENSHOT_BASE64),
+  width: z.number().int().min(1).max(4096),
+  height: z.number().int().min(1).max(4096),
+  reason: z.enum(['manual', 'before_end', 'stage_end']),
+});
+export type ScreenshotUpload = z.infer<typeof ScreenshotUploadSchema>;
+export const ScreenshotUploadResponseSchema = z.strictObject({ id });
+export type ScreenshotUploadResponse = z.infer<typeof ScreenshotUploadResponseSchema>;
+
 export const JoinRequestSchema = z.strictObject({
   sessionId: id,
   studentId: id,
