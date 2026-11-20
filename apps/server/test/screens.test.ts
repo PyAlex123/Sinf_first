@@ -67,6 +67,7 @@ async function joinChild(
   db: ReturnType<typeof testDatabase>['db'],
   sessionId: string,
   studentId: string,
+  pc = 'ПК-05',
 ) {
   const row = db
     .select()
@@ -77,7 +78,7 @@ async function joinChild(
   const res = await app.inject({
     method: 'POST',
     url: '/api/join',
-    payload: { sessionId, studentId, code: row.codePublic.split('+'), pc: 'ПК-05' },
+    payload: { sessionId, studentId, code: row.codePublic.split('+'), pc },
   });
   return JoinResponseSchema.parse(res.json()).token;
 }
@@ -130,6 +131,36 @@ describe('thumbnails', () => {
 
     store.detach(sessionId, teacher);
     expect(of(child, 'thumbs.wanted').at(-1)).toMatchObject({ on: false });
+  });
+});
+
+describe('a second computer', () => {
+  it('closes the first one and tells the teachers only', async () => {
+    const { app, db, sessionId } = await server();
+    const store = app.sessions;
+    const teacher = socket();
+    store.attach(sessionId, teacher, 'teacher', null);
+    const first = socket();
+    store.attach(sessionId, first, 'student', await joinChild(app, db, sessionId, 'student-01'));
+    const classmate = socket();
+    store.attach(
+      sessionId,
+      classmate,
+      'student',
+      await joinChild(app, db, sessionId, 'student-02', 'ПК-07'),
+    );
+    expect(of(teacher, 'student.moved')).toHaveLength(0);
+
+    await joinChild(app, db, sessionId, 'student-01', 'ПК-06');
+    expect(of(first, 'session.kicked')).toHaveLength(1);
+    expect(of(teacher, 'student.moved')).toEqual([
+      { v: 1, type: 'student.moved', participantId: 'student-01', from: 'ПК-05', to: 'ПК-06' },
+    ]);
+    expect(of(classmate, 'student.moved')).toHaveLength(0);
+
+    // Logging in again with nothing left open (a reload) is no news.
+    await joinChild(app, db, sessionId, 'student-01', 'ПК-06');
+    expect(of(teacher, 'student.moved')).toHaveLength(1);
   });
 });
 

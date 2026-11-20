@@ -14,3 +14,4 @@ export * from './sync.js';
 export * from './quiz.js';
 export * from './results.js';
 export * from './demo.js';
+export * from './seats.js';

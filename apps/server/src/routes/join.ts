@@ -13,6 +13,7 @@ import {
 } from '@sinf/shared';
 import { verifySecret } from '../auth/password.js';
 import { CODE_SEPARATOR } from '../services/codes.js';
+import { rememberSeat, RoomComputers } from '../services/seats.js';
 import { schema } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
 import type { SessionStore } from '../realtime/session-store.js';
@@ -30,6 +31,7 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
   const { store } = opts;
   const guard = opts.guard ?? new AttemptGuard();
   const { db } = app.ctx;
+  const computers = new RoomComputers(db);
 
   /**
    * The class list a student sees without a lesson code (the class test of ADR-007). Public, so it shows
@@ -124,6 +126,7 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
   app.get('/join/room', (request): JoinRoomResponse => {
     if (!app.ctx.config.classroom) throw notFound('Not a classroom computer');
     const { pc } = RoomQuery.parse(request.query);
+    computers.seen(pc);
     // The room runs one lesson at a time; should two be open, the newest is the one going on.
     const row = db
       .select()
@@ -185,7 +188,10 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
       sortOrder: student.sortOrder,
       pc: body.pc && app.ctx.config.classroom ? body.pc : null,
     });
-    if (body.pc && app.ctx.config.classroom) rememberSeat(summary.classId, body.pc, student.id);
+    if (body.pc && app.ctx.config.classroom) {
+      computers.seen(body.pc);
+      rememberSeat(db, summary.classId, body.pc, student.id);
+    }
     request.log.info(
       { sessionId: summary.id, studentId: student.id, pc: body.pc },
       'student joined',
@@ -202,26 +208,6 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
       session: { id: summary.id, lessonId: summary.lessonId },
     };
   });
-
-  /**
-   * The child sits here now (H2). A child is in one place at a time, so their old seat in this class
-   * is given up — next lesson that computer asks "who are you?" instead of showing the wrong name.
-   */
-  const rememberSeat = (classId: string, pc: string, studentId: string): void => {
-    const now = new Date().toISOString();
-    db.transaction((tx) => {
-      tx.delete(schema.seats)
-        .where(and(eq(schema.seats.classId, classId), eq(schema.seats.studentId, studentId)))
-        .run();
-      tx.insert(schema.seats)
-        .values({ classId, pc, studentId, lastUsedAt: now })
-        .onConflictDoUpdate({
-          target: [schema.seats.classId, schema.seats.pc],
-          set: { studentId, lastUsedAt: now },
-        })
-        .run();
-    });
-  };
 
   done();
 };

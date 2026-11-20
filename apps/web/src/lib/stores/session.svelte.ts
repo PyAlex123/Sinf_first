@@ -47,12 +47,21 @@ export class SessionStore {
   thumbsWanted = $state(false);
   /** Student: the latest screenshot request that names this child (H5); `n` makes each one new. */
   screenshotAsked = $state<{ n: number; reason: ScreenshotReason } | null>(null);
+  /** Teacher: children who logged in on a second computer, newest last, until dismissed (H8). */
+  moves = $state<{ n: number; participantId: string; from: string | null; to: string | null }[]>(
+    [],
+  );
+  private moveCount = 0;
   private socket: SessionSocket | null = null;
 
   constructor(
     readonly sessionId: string,
     readonly role: Role,
   ) {}
+
+  dismissMove(n: number): void {
+    this.moves = this.moves.filter((x) => x.n !== n);
+  }
 
   connect(): void {
     const token = this.role === 'student' ? readParticipantToken(this.sessionId) : null;
@@ -267,6 +276,13 @@ export class SessionStore {
         return;
       case 'thumb':
         this.thumbs = { ...this.thumbs, [m.participantId]: `data:image/jpeg;base64,${m.jpeg}` };
+        return;
+      case 'student.moved':
+        this.moveCount += 1;
+        this.moves = [
+          ...this.moves.filter((x) => x.participantId !== m.participantId),
+          { n: this.moveCount, participantId: m.participantId, from: m.from, to: m.to },
+        ];
         return;
       case 'thumbs.wanted':
         this.thumbsWanted = m.on;

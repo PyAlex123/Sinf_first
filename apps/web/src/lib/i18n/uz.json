@@ -372,5 +372,20 @@
   "session.thumb": "O‘quvchi ekrani",
   "results.gallery.shot": "Ekran surati: {name}",
   "student.paint.open": "Paint’ni ochish",
-  "student.paint.back": "Paint’ga qaytish"
+  "student.paint.back": "Paint’ga qaytish",
+  "seats.title": "O‘rindiqlar",
+  "seats.hint": "Kim qaysi kompyuterda o‘tiradi. Keyingi darsda kompyuter o‘quvchi ismini darhol ko‘rsatadi. Ismni boshqa kompyuterga suring — o‘quvchilar joy almashadi, yoki ro‘yxatdan o‘quvchini tanlang.",
+  "seats.empty": "Sinf o‘quvchi rejimida ochilgan kompyuterlar shu yerda paydo bo‘ladi.",
+  "seats.free": "bo‘sh",
+  "seats.nobody": "— hech kim —",
+  "seats.unknown": "ro‘yxatda yo‘q o‘quvchi",
+  "seats.drag": "{name}: boshqa kompyuterga surish",
+  "seats.pick": "{pc} da kim o‘tiradi",
+  "session.moved": "{name} boshqa kompyuterda kirdi ({to}). Avvalgisida ({from}) dars yopildi.",
+  "session.moved.browser": "brauzer",
+  "session.order": "Plitkalar tartibi",
+  "session.order.list": "Ro‘yxat bo‘yicha",
+  "session.order.seats": "O‘tirish bo‘yicha",
+  "session.zoom": "Ekranni kattalashtirish",
+  "session.shot.one": "Ekran surati"
 }

@@ -69,20 +69,33 @@
     }
   }
 
-  /** Asks the teacher's computer which lesson is on; until one is, asks again. */
+  /**
+   * Asks the teacher's computer which lesson is on, every few seconds for as long as this screen is
+   * open: a lesson that starts opens the class list, one that ends while a child is still choosing
+   * goes back to waiting (H8), and a new lesson replaces the old list.
+   */
   async function pollRoom(): Promise<void> {
-    if (!pc || step !== 'waiting') return;
+    clearTimeout(roomTimer);
+    if (!pc || step === 'code') return;
     try {
       const { lesson } = await api.joinRoom(pc);
-      if (lesson) {
+      if (!lesson) {
+        if (step !== 'waiting') {
+          lookup = null;
+          student = null;
+          entered = [];
+          error = null;
+          step = 'waiting';
+        }
+      } else if (step === 'waiting' || lesson.session.id !== lookup?.session.id) {
         const { seatedStudentId, ...found } = lesson;
         pics = await loadPics();
         lookup = found;
         const seated = found.students.find((s) => s.id === seatedStudentId);
         student = seated ?? null;
         entered = [];
+        error = null;
         step = seated ? 'personal' : 'name';
-        return;
       }
     } catch (e) {
       // An older teacher's computer does not know rooms: fall back to the lesson code.

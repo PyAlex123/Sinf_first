@@ -8,6 +8,7 @@ import {
   JoinLookupResponseSchema,
   JoinRoomResponseSchema,
   ScreenshotUploadResponseSchema,
+  SeatPlanSchema,
   type ScreenshotUpload,
   JoinResponseSchema,
   JoinSessionResponseSchema,
@@ -63,7 +64,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   url: string,
   schema: ZodType<T>,
   body?: unknown,
@@ -124,6 +125,14 @@ export const api = {
       ClassDetailsResponseSchema,
       { starsToGrade },
     ),
+  /** The class's seating on the classroom's teacher computer; 404 anywhere else (H8). */
+  seatPlan: (classId: string) =>
+    request('GET', `/api/classes/${encodeURIComponent(classId)}/seats`, SeatPlanSchema),
+  moveSeat: (classId: string, pc: string, studentId: string | null) =>
+    request('PUT', `/api/classes/${encodeURIComponent(classId)}/seats`, SeatPlanSchema, {
+      pc,
+      studentId,
+    }),
   classDetails: (id: string) =>
     request('GET', `/api/classes/${encodeURIComponent(id)}`, ClassDetailsResponseSchema),
   createClass: (body: CreateClass) =>

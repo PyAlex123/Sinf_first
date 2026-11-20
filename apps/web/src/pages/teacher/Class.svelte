@@ -20,6 +20,7 @@
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
   import StudentList from '../../lib/ui/StudentList.svelte';
+  import SeatPlan from './SeatPlan.svelte';
 
   /** Class page (S2.2): the register, pasting a roster, fixing names, cards for printing. */
 
@@ -149,6 +150,8 @@
             onRemove={remove}
           />
         {/if}
+        <!-- Only on the classroom's teacher computer; elsewhere it shows nothing (H8). -->
+        {#if students.length > 0}<SeatPlan {classId} {students} />{/if}
       </section>
 
       <aside class="stack">

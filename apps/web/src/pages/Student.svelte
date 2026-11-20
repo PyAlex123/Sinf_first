@@ -103,6 +103,12 @@
     return () => clearTimeout(timer);
   });
   const kicked = $derived(store?.kicked === true);
+  // Logged in on another computer (H8): this one goes back to waiting as well, for whoever sits here.
+  $effect(() => {
+    if (!kicked || platform.role !== 'student') return;
+    const timer = setTimeout(() => router.navigate('/join', { replace: true }), BACK_TO_WAITING_MS);
+    return () => clearTimeout(timer);
+  });
   const free = $derived(session?.mode === 'free');
   /** During the rest part of practice the screen is covered (STAGE1 S1.8). */
   const resting = $derived(session?.stage.part === 'rest');

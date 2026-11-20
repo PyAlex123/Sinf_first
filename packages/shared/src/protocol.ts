@@ -295,6 +295,18 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     targets: LockTargetsSchema,
     reason: ScreenshotReasonSchema,
   }),
+  /**
+   * To teachers only: a child logged in on another device while still connected on the first one;
+   * the first one is closed (CLAUDE.md §4.1 item 7, H8). `from`/`to` are classroom computers, null
+   * for a browser.
+   */
+  z.strictObject({
+    v,
+    type: z.literal('student.moved'),
+    participantId: id,
+    from: z.string().nullable(),
+    to: z.string().nullable(),
+  }),
   /** The same student logged in from another device; this connection is closed. */
   z.strictObject({ v, type: z.literal('session.kicked') }),
   z.strictObject({ v, type: z.literal('error'), code: z.string(), message: z.string() }),

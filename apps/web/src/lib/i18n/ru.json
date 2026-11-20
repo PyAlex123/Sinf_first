@@ -399,5 +399,20 @@
   "session.thumb": "Экран ученика",
   "results.gallery.shot": "Снимок экрана: {name}",
   "student.paint.open": "Открыть Paint",
-  "student.paint.back": "Вернуться в Paint"
+  "student.paint.back": "Вернуться в Paint",
+  "seats.title": "Рассадка",
+  "seats.hint": "Кто за каким компьютером сидит. На следующем уроке компьютер сразу покажет имя ученика. Перетащите имя на другой компьютер — ученики поменяются местами, или выберите ученика в списке.",
+  "seats.empty": "Компьютеры класса появятся здесь, когда на них откроется Sinf в режиме ученика.",
+  "seats.free": "свободно",
+  "seats.nobody": "— никого —",
+  "seats.unknown": "ученик не из списка",
+  "seats.drag": "{name}: перетащить на другой компьютер",
+  "seats.pick": "Кто сидит за {pc}",
+  "session.moved": "{name} вошёл на другом компьютере ({to}). На прежнем ({from}) урок закрыт.",
+  "session.moved.browser": "браузер",
+  "session.order": "Порядок плиток",
+  "session.order.list": "По списку",
+  "session.order.seats": "Как сидят",
+  "session.zoom": "Экран крупно",
+  "session.shot.one": "Снимок экрана"
 }

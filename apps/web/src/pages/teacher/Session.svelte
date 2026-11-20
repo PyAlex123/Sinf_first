@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { DEMO_CLASS_ID, type Participant, type SessionSummary } from '@sinf/shared';
+  import {
+    comparePcNames,
+    DEMO_CLASS_ID,
+    type Participant,
+    type SessionSummary,
+  } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { loadLessonBundle, type LessonBundle } from '../../lib/content.js';
@@ -36,6 +41,55 @@
    */
   const inBrowser = $derived(participants.filter((p) => !p.pc && !p.virtual).length);
   const inClassroom = $derived(participants.filter((p) => !!p.pc).length);
+
+  /**
+   * Tiles in register order, or the way the class sits (H8): by classroom computer, the room's own
+   * numbering, children in a browser last. The choice is the teacher's habit, kept on this computer.
+   */
+  const ORDER_KEY = 'sinf.tiles.order';
+  let order = $state<'list' | 'seats'>(readOrder());
+  function readOrder(): 'list' | 'seats' {
+    try {
+      return localStorage.getItem(ORDER_KEY) === 'seats' ? 'seats' : 'list';
+    } catch {
+      return 'list';
+    }
+  }
+  function setOrder(value: 'list' | 'seats'): void {
+    order = value;
+    try {
+      localStorage.setItem(ORDER_KEY, value);
+    } catch {
+      // private mode: the order lasts for this page only
+    }
+  }
+  const tiles = $derived(
+    order === 'seats'
+      ? [...participants].sort((a, b) =>
+          a.pc && b.pc ? comparePcNames(a.pc, b.pc) : a.pc ? -1 : b.pc ? 1 : a.number - b.number,
+        )
+      : participants,
+  );
+
+  /** One child's screen, large (H8): the live thumbnail, with the lock and a screenshot at hand. */
+  let zoomed = $state<string | null>(null);
+  let zoomDialog = $state<HTMLDialogElement | null>(null);
+  const zoomedP = $derived(zoomed ? (session?.participants[zoomed] ?? null) : null);
+  $effect(() => {
+    if (!zoomDialog) return;
+    if (zoomed && !zoomDialog.open) zoomDialog.showModal();
+    if (!zoomed && zoomDialog.open) zoomDialog.close();
+  });
+
+  /** "Logged in on another computer" (§4.1 item 7, H8): the child's name and both computers. */
+  function moveText(m: { participantId: string; from: string | null; to: string | null }): string {
+    const name = session?.participants[m.participantId]?.name ?? '';
+    return t('session.moved', {
+      name,
+      from: m.from ?? t('session.moved.browser'),
+      to: m.to ?? t('session.moved.browser'),
+    });
+  }
   const count = $derived(bundle?.lesson.screens.length ?? 0);
   const next = $derived(bundle?.lesson.screens[(session?.screenIndex ?? 0) + 1]);
   const stages = $derived(bundle?.lesson.stages ?? []);
@@ -418,6 +472,20 @@
             text={t('session.joinHint')}
           />
         {:else}
+          {#each store?.moves ?? [] as m (m.n)}
+            <div class="moved">
+              <Notice kind="warn">{moveText(m)}</Notice>
+              <button
+                type="button"
+                class="act"
+                aria-label={t('common.close')}
+                title={t('common.close')}
+                onclick={() => store?.dismissMove(m.n)}
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+          {/each}
           <div class="selbar">
             <button
               type="button"
@@ -443,8 +511,24 @@
               </button>
             {/if}
           </div>
+          {#if inClassroom > 0}
+            <div class="order" role="group" aria-label={t('session.order')}>
+              <button
+                type="button"
+                class="link"
+                aria-pressed={order === 'list'}
+                onclick={() => setOrder('list')}>{t('session.order.list')}</button
+              >
+              <button
+                type="button"
+                class="link"
+                aria-pressed={order === 'seats'}
+                onclick={() => setOrder('seats')}>{t('session.order.seats')}</button
+              >
+            </div>
+          {/if}
           <div class="tiles">
-            {#each participants as p (p.id)}
+            {#each tiles as p (p.id)}
               <div
                 class="tile"
                 class:offline={!p.online}
@@ -508,6 +592,17 @@
                   </div>
                 </button>
                 <div class="acts">
+                  {#if store?.thumbs[p.id]}
+                    <button
+                      type="button"
+                      class="act"
+                      title={t('session.zoom')}
+                      aria-label={t('session.zoom')}
+                      onclick={() => (zoomed = p.id)}
+                    >
+                      <Icon name="screen" size={16} />
+                    </button>
+                  {/if}
                   <button
                     type="button"
                     class="act"
@@ -561,7 +656,98 @@
   {/if}
 </div>
 
+<!-- One screen, large (H8). Esc closes it as well: the dialog's own "cancel". -->
+<dialog
+  class="zoom"
+  bind:this={zoomDialog}
+  aria-label={t('session.zoom')}
+  onclose={() => (zoomed = null)}
+>
+  {#if zoomedP}
+    <div class="zhead">
+      <b>{zoomedP.name ?? t('session.participant', { number: zoomedP.number })}</b>
+      {#if zoomedP.pc}<span class="pcname">{zoomedP.pc}</span>{/if}
+      <button
+        type="button"
+        class="act"
+        aria-label={t('common.close')}
+        title={t('common.close')}
+        onclick={() => (zoomed = null)}
+      >
+        <Icon name="close" size={16} />
+      </button>
+    </div>
+    {#if store?.thumbs[zoomedP.id]}
+      <img class="zimg" src={store.thumbs[zoomedP.id]} alt={t('session.thumb')} />
+    {/if}
+    <div class="zacts">
+      <Button
+        variant={isLocked(zoomedP) ? 'secondary' : 'danger'}
+        disabled={isLocked(zoomedP) && lockedAll}
+        onclick={() => zoomedP && toggleLockOne(zoomedP)}
+      >
+        {isLocked(zoomedP) ? t('session.unlock.one') : t('session.lock.one')}
+      </Button>
+      {#if zoomedP.pc}
+        <Button variant="secondary" onclick={() => zoomedP && store?.screenshot([zoomedP.id])}>
+          {t('session.shot.one')}
+        </Button>
+      {/if}
+    </div>
+  {/if}
+</dialog>
+
 <style>
+  .zoom {
+    width: min(92vw, 960px);
+    padding: var(--space-4);
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-lg);
+    background: var(--c-surface);
+  }
+  .zoom::backdrop {
+    background: rgb(0 0 0 / 0.45);
+  }
+  .zhead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .zhead .act {
+    margin-left: auto;
+  }
+  .zimg {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    background: var(--c-bg-2);
+  }
+  .zacts {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+  .moved {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .moved > :global(.notice) {
+    flex: 1;
+  }
+  .order {
+    display: flex;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+  }
+  .order [aria-pressed='true'] {
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--c-dark);
+  }
   .screen {
     height: 100vh;
     display: flex;

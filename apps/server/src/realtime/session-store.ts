@@ -271,11 +271,27 @@ export class SessionStore {
     }
     const participantId = student.id;
     // Other devices of the same student: tell them and close.
+    let kicked = false;
     for (const [socket, connection] of session.sockets) {
       if (connection.participantId === participantId) {
         this.send(socket, { v: PROTOCOL_VERSION, type: 'session.kicked' });
         session.sockets.delete(socket);
         socket.close(4001, 'kicked');
+        kicked = true;
+      }
+    }
+    // The teacher hears of it when a live lesson really was closed somewhere (§4.1 item 7, H8):
+    // a page reloaded on the same device has no socket left by the time it logs in again.
+    if (kicked) {
+      const moved = {
+        v: PROTOCOL_VERSION,
+        type: 'student.moved',
+        participantId,
+        from: session.state.participants[participantId]?.pc ?? null,
+        to: student.pc ?? null,
+      } as const;
+      for (const [socket, connection] of session.sockets) {
+        if (connection.role === 'teacher') this.send(socket, moved);
       }
     }
     for (const [token, pid] of [...session.tokens]) {

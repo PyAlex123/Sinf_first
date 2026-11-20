@@ -350,6 +350,16 @@ export const seats = sqliteTable(
   (t) => [primaryKey({ columns: [t.classId, t.pc] }), index('seats_student_idx').on(t.studentId)],
 );
 
+/**
+ * The room's computers as the teacher's computer has heard of them (stage 3, H8): every student
+ * computer that asked for the lesson. The seating editor lists them, so a computer stays there when
+ * its child moves away, and shows up before anybody has logged in at it.
+ */
+export const roomComputers = sqliteTable('room_computers', {
+  pc: text('pc').primaryKey(),
+  lastSeenAt: timestamp('last_seen_at').notNull(),
+});
+
 /** Journal row: stars for a lesson and, if the class converts them, a 2–5 grade. */
 export const grades = sqliteTable(
   'grades',
@@ -388,6 +398,7 @@ export const syncState = sqliteTable('sync_state', {
 export const TABLES_FOR_RESET = [
   screenshots,
   seats,
+  roomComputers,
   grades,
   quizAttempts,
   practiceResults,
