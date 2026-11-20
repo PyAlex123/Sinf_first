@@ -1,0 +1,90 @@
+/*
+ * Design tokens of the platform UI. Lesson content keeps the author's own CSS (ADR-010).
+ *
+ * The rules behind the numbers:
+ * — every step is a multiple of 4, so blocks line up without eyeballing;
+ * — the type scale has real steps, so a glance tells a title from a caption;
+ * — colours are named by the job they do, not by how they look, and an action colour never doubles
+ *   as a decoration.
+ */
+:root {
+  /* ---------- colour: surfaces and text */
+  --c-bg: #f6f4ee;
+  --c-bg-2: #eceff3;
+  --c-surface: #ffffff;
+  --c-line: #dfe3e9;
+  --c-line-strong: #c3cad4;
+  /* A text field is recognised by its frame alone, so the frame carries 3:1 (WCAG 1.4.11). */
+  --c-field-line: #7e8897;
+  --c-dark: #13233a;
+  --c-text: #3f4a5c;
+  --c-muted: #5e6878;
+
+  /* ---------- colour: meaning
+   * accent        — the action on the screen (one primary button per screen)
+   * accent-strong — the same action pressed or hovered; darker, never lighter
+   * accent-soft   — a tint to carry the accent behind text
+   */
+  --c-accent: #b04a12;
+  --c-accent-strong: #8c3a0d;
+  --c-accent-soft: #fbeee5;
+  --c-danger: #b3261e;
+  --c-danger-strong: #8e1d17;
+  --c-danger-soft: #fdecea;
+  --c-ok: #2a7430;
+  --c-ok-soft: #e8f3e9;
+  --c-info: #186b5e;
+  --c-info-soft: #e4efed;
+  /* The glyph stays gold; the number beside it needs ink that reads at 4.5:1 (ADR-010). */
+  --c-star: #e0940a;
+  --c-star-ink: #9c6700;
+
+  /* Teal survives as the lesson-mode colour; nothing else uses it. */
+  --c-teal: #186b5e;
+
+  /* ---------- shape */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgba(19, 35, 58, 0.06);
+  --shadow: 0 2px 8px rgba(19, 35, 58, 0.08);
+  --shadow-lg: 0 8px 24px rgba(19, 35, 58, 0.12);
+
+  /* ---------- rhythm: one 4px grid for everything */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* ---------- type */
+  --font:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 26px;
+  --text-2xl: 34px;
+  --text-3xl: 44px;
+  --leading-tight: 1.15;
+  --leading-normal: 1.45;
+
+  /* ---------- controls */
+  --control-sm: 36px;
+  --control: 44px;
+  --control-lg: 56px;
+  /* Touch targets for first graders: never smaller than this on a student screen. */
+  --tap: 56px;
+
+  /* ---------- layout */
+  --page-max: 1120px;
+  /* A list or a form reads badly across a wide screen, so pages come in three widths. */
+  --page-mid: 720px;
+  --page-narrow: 460px;
+  --focus-ring: 3px;
+}

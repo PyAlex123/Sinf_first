@@ -1,0 +1,114 @@
+{
+  "courseId": "1-klass-2-chetvert",
+  "lessons": 14,
+  "screens": {
+    "slide": 214,
+    "step": 101,
+    "type": 43,
+    "game": 61,
+    "total": 419
+  },
+  "authorSlides": 315,
+  "gameTypes": {
+    "groups": 1,
+    "nbr": 5,
+    "pick": 20,
+    "story": 25,
+    "train": 3,
+    "word": 7
+  },
+  "stagesFound": 14,
+  "media": {
+    "files": 225,
+    "bytes": 5456230,
+    "sourceImages": 225,
+    "sourceBytes": 12213559
+  },
+  "totalBytes": 7373665,
+  "perLesson": [
+    {
+      "id": "g10",
+      "screens": 28,
+      "media": 2,
+      "mediaBytes": 63558
+    },
+    {
+      "id": "g11",
+      "screens": 31,
+      "media": 1,
+      "mediaBytes": 19938
+    },
+    {
+      "id": "g12",
+      "screens": 28,
+      "media": 0,
+      "mediaBytes": 0
+    },
+    {
+      "id": "g13",
+      "screens": 29,
+      "media": 0,
+      "mediaBytes": 0
+    },
+    {
+      "id": "g14",
+      "screens": 27,
+      "media": 0,
+      "mediaBytes": 0
+    },
+    {
+      "id": "g15",
+      "screens": 26,
+      "media": 0,
+      "mediaBytes": 0
+    },
+    {
+      "id": "g16",
+      "screens": 26,
+      "media": 0,
+      "mediaBytes": 0
+    },
+    {
+      "id": "k10",
+      "screens": 33,
+      "media": 13,
+      "mediaBytes": 406632
+    },
+    {
+      "id": "k11",
+      "screens": 34,
+      "media": 13,
+      "mediaBytes": 315472
+    },
+    {
+      "id": "k12",
+      "screens": 32,
+      "media": 13,
+      "mediaBytes": 258810
+    },
+    {
+      "id": "k13",
+      "screens": 35,
+      "media": 14,
+      "mediaBytes": 275014
+    },
+    {
+      "id": "k14",
+      "screens": 30,
+      "media": 10,
+      "mediaBytes": 252300
+    },
+    {
+      "id": "k15",
+      "screens": 30,
+      "media": 8,
+      "mediaBytes": 212982
+    },
+    {
+      "id": "k16",
+      "screens": 30,
+      "media": 10,
+      "mediaBytes": 236352
+    }
+  ]
+}

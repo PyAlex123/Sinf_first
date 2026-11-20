@@ -1,0 +1,25 @@
+{
+  "name": "@sinf/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Svelte 5 + Vite web client (browser; later the desktop WebView2 loads the same build)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/check-bundle.mjs",
+    "preview": "vite preview",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
+    "build:demo": "vite build --config vite.demo.config.ts && node scripts/build-demo-content.mjs g10 k10"
+  },
+  "dependencies": {
+    "@sinf/shared": "workspace:*",
+    "qrcode-generator": "^2.0.4",
+    "svelte": "^5.57.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "svelte-check": "^4.7.8",
+    "vite": "^8.3.8"
+  }
+}

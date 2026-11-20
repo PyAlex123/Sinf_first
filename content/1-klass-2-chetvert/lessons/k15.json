@@ -1,0 +1,279 @@
+{
+  "id": "k15",
+  "group": "krujok",
+  "num": 15,
+  "title": "Снеговик",
+  "sub": "Сохраняем и открываем рисунок",
+  "icon": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#cfe3f5\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#eef4fa\"></rect><path d=\"M0 118 Q60 110 120 118 Q160 124 200 116\" fill=\"none\" stroke=\"#b0c4d6\" stroke-width=\"3\"></path><circle cx=\"100\" cy=\"112\" r=\"30\" fill=\"#fff\" stroke=\"#90a4ae\" stroke-width=\"3\"></circle><circle cx=\"100\" cy=\"66\" r=\"22\" fill=\"#fff\" stroke=\"#90a4ae\" stroke-width=\"3\"></circle><circle cx=\"100\" cy=\"32\" r=\"15\" fill=\"#fff\" stroke=\"#90a4ae\" stroke-width=\"3\"></circle><path d=\"M100 34 L122 38 L100 40 Z\" fill=\"#fb8c00\"></path><circle cx=\"95\" cy=\"29\" r=\"2.5\" fill=\"#263238\"></circle><circle cx=\"106\" cy=\"29\" r=\"2.5\" fill=\"#263238\"></circle><path d=\"M88 20 L112 20 L109 4 L91 4 Z\" fill=\"#e53935\" stroke=\"#b71c1c\" stroke-width=\"2\"></path><circle cx=\"100\" cy=\"60\" r=\"2.5\" fill=\"#263238\"></circle><circle cx=\"100\" cy=\"72\" r=\"2.5\" fill=\"#263238\"></circle></svg>",
+  "stages": [
+    {
+      "key": "greeting",
+      "title": "приветствие",
+      "startMin": 0,
+      "endMin": 2,
+      "place": null
+    },
+    {
+      "key": "goal",
+      "title": "цель",
+      "startMin": 2,
+      "endMin": 5,
+      "place": null
+    },
+    {
+      "key": "theory",
+      "title": "теория",
+      "startMin": 5,
+      "endMin": 15,
+      "place": "projector"
+    },
+    {
+      "key": "practice",
+      "title": "практика",
+      "startMin": 15,
+      "endMin": 37,
+      "place": "computer",
+      "parts": [
+        {
+          "kind": "work",
+          "minutes": 9
+        },
+        {
+          "kind": "rest",
+          "minutes": 4
+        },
+        {
+          "kind": "work",
+          "minutes": 9
+        }
+      ]
+    },
+    {
+      "key": "reflection",
+      "title": "рефлексия",
+      "startMin": 37,
+      "endMin": 42,
+      "place": null
+    },
+    {
+      "key": "summary",
+      "title": "итог",
+      "startMin": 42,
+      "endMin": 45,
+      "place": null
+    }
+  ],
+  "screens": [
+    {
+      "kind": "slide",
+      "stage": "greeting",
+      "layout": "title",
+      "html": "<div class=\"s-title\"><div class=\"s-kicker\">1 класс · Урок 15</div><h1>Снеговик</h1><p>Сохраняем и открываем рисунок</p></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/c2aa88f0659997b2.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "greeting",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Приветствие</div><div class=\"s-num\">Здравствуйте!</div><h2>Здравствуйте, художники!</h2><p class=\"s-big\">Мышку берём только по команде «Художники, за работу!»</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 300\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><g transform=\"translate(60 40) scale(3.4)\"><path d=\"M30 4 C12 4 2 16 2 30 C2 46 16 56 30 56 C36 56 38 52 36 48 C34 44 36 40 42 40 L48 40 C55 40 58 35 58 28 C58 14 46 4 30 4 Z\" fill=\"#f6e2bd\" stroke=\"#a57a3e\" stroke-width=\"2\"></path><circle cx=\"18\" cy=\"22\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"30\" cy=\"14\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"43\" cy=\"20\" r=\"5\" fill=\"#1e63d6\"></circle><circle cx=\"16\" cy=\"38\" r=\"5\" fill=\"#43a047\"></circle><circle cx=\"28\" cy=\"44\" r=\"4\" fill=\"#fff\" stroke=\"#a57a3e\" stroke-width=\"1.5\"></circle></g><g transform=\"translate(430 40)\"><rect x=\"0\" y=\"0\" width=\"70\" height=\"110\" rx=\"35\" fill=\"#fff\" stroke=\"#6b7480\" stroke-width=\"2.5\"></rect><path d=\"M35 0 L35 44 L0 44 L0 35 A35 35 0 0 1 35 0 Z\" fill=\"#e9edf2\" stroke=\"#6b7480\" stroke-width=\"2.5\"></path><line x1=\"35\" y1=\"0\" x2=\"35\" y2=\"44\" stroke=\"#6b7480\" stroke-width=\"2.5\"></line><text x=\"35\" y=\"150\" font-size=\"20\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">только по команде</text></g></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "goal",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Постановка цели</div><div class=\"s-num\">Вспомним</div><h2>Где будут наши рисунки?</h2></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/907ec16d01502717.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "goal",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Постановка цели</div><div class=\"s-num\">Цель урока</div><h2>Сегодня мы научимся</h2><ul class=\"s-list\"><li>сохранять рисунок</li><li>давать файлу имя</li><li>находить свою папку</li><li>открывать свой рисунок</li></ul></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/c2aa88f0659997b2.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Игра</div><h2>Папка с рисунками</h2><p class=\"s-big\">Подписал — положил в папку — нашёл!</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 500 230.0\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><svg x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff8e1\"></rect><path d=\"M60 16 L122 16 L148 42 L148 136 L60 136 Z\" fill=\"#fff\" stroke=\"#546e7a\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><path d=\"M122 16 L122 42 L148 42\" fill=\"#eceff1\" stroke=\"#546e7a\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><rect x=\"72\" y=\"56\" width=\"64\" height=\"48\" fill=\"#b3e5fc\"></rect><circle cx=\"124\" cy=\"66\" r=\"7\" fill=\"#fdd835\"></circle><path d=\"M72 104 L92 78 L108 94 L118 84 L136 104 Z\" fill=\"#43a047\"></path><text x=\"104\" y=\"126\" font-size=\"13\" font-weight=\"700\" fill=\"#37474f\" text-anchor=\"middle\" font-family=\"Arial\">рисунок</text></svg><rect x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><path d=\"M230 95.0 L264 95.0\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\"></path><path d=\"M258 84.0 L272 95.0 L258 106.0\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path><text x=\"120.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">рисунок</text><svg x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff8e1\"></rect><path d=\"M30 40 L78 40 L90 54 L170 54 L170 128 L30 128 Z\" fill=\"#ffca28\" stroke=\"#c79a00\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><path d=\"M30 64 L170 64\" stroke=\"#c79a00\" stroke-width=\"3\"></path></svg><rect x=\"280\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><text x=\"380.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">папка</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Новое</div><h2>Файл → Сохранить</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 700 460\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/42c13ef0c0897bbb.webp\"></image><rect x=\"5\" y=\"29\" width=\"48\" height=\"26\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"51\" cy=\"27\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"51\" y=\"33.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"8\" y=\"186\" width=\"276\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"282\" cy=\"184\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"282\" y=\"190.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Новое</div><h2>Окно «Сохранить как»</h2></div><div class=\"s-fig\"><svg viewBox=\"437 122 735 466\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/570ba7e637e833c7.webp\"></image><rect x=\"578\" y=\"169\" width=\"344\" height=\"30\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"920\" cy=\"167\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"920\" y=\"173.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"563\" y=\"434\" width=\"598\" height=\"26\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1159\" cy=\"432\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1159\" y=\"438.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text><rect x=\"957\" y=\"537\" width=\"96\" height=\"28\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1051\" cy=\"535\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1051\" y=\"541.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">3</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Новое</div><h2>Имя файла</h2></div><div class=\"s-fig\"><svg viewBox=\"437 122 735 466\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/82a70709a0f9a5f6.webp\"></image><rect x=\"563\" y=\"434\" width=\"598\" height=\"26\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1159\" cy=\"432\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1159\" y=\"438.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"957\" y=\"537\" width=\"96\" height=\"28\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1051\" cy=\"535\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1051\" y=\"541.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Новое</div><h2>Paint спрашивает</h2></div><div class=\"s-fig\"><svg viewBox=\"520 280 420 240\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/21a8640a296e9377.webp\"></image><rect x=\"581\" y=\"431\" width=\"98\" height=\"36\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"677\" cy=\"429\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"677\" y=\"435.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"681\" y=\"432\" width=\"106\" height=\"34\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"785\" cy=\"430\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"785\" y=\"436.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text><rect x=\"791\" y=\"432\" width=\"81\" height=\"34\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"870\" cy=\"430\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"870\" y=\"436.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">3</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Новое</div><h2>Файл → Открыть</h2></div><div class=\"s-fig\"><svg viewBox=\"437 122 735 466\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/9560de42ac985802.webp\"></image><rect x=\"596\" y=\"240\" width=\"562\" height=\"258\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1156\" cy=\"238\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1156\" y=\"244.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"966\" y=\"537\" width=\"86\" height=\"28\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1050\" cy=\"535\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1050\" y=\"541.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Запомни</div><h2>Рисунок ходит по кругу</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 520\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><circle cx=\"320\" cy=\"260\" r=\"175\" fill=\"none\" stroke=\"#ffc89e\" stroke-width=\"10\" stroke-dasharray=\"4 16\" stroke-linecap=\"round\"></circle><g transform=\"translate(444 136) rotate(45)\"><path d=\"M-14 -14 L12 0 L-14 14 Z\" fill=\"#ff6a00\"></path></g><g transform=\"translate(444 384) rotate(135)\"><path d=\"M-14 -14 L12 0 L-14 14 Z\" fill=\"#ff6a00\"></path></g><g transform=\"translate(196 384) rotate(225)\"><path d=\"M-14 -14 L12 0 L-14 14 Z\" fill=\"#ff6a00\"></path></g><g transform=\"translate(196 136) rotate(315)\"><path d=\"M-14 -14 L12 0 L-14 14 Z\" fill=\"#ff6a00\"></path></g><svg x=\"235\" y=\"28\" width=\"170\" height=\"127.5\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#cfe3f5\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#eef4fa\"></rect><path d=\"M0 118 Q60 110 120 118 Q160 124 200 116\" fill=\"none\" stroke=\"#b0c4d6\" stroke-width=\"3\"></path><circle cx=\"100\" cy=\"112\" r=\"30\" fill=\"#fff\" stroke=\"#90a4ae\" stroke-width=\"3\"></circle><circle cx=\"100\" cy=\"66\" r=\"22\" fill=\"#fff\" stroke=\"#90a4ae\" stroke-width=\"3\"></circle><circle cx=\"100\" cy=\"32\" r=\"15\" fill=\"#fff\" stroke=\"#90a4ae\" stroke-width=\"3\"></circle><path d=\"M100 34 L122 38 L100 40 Z\" fill=\"#fb8c00\"></path><circle cx=\"95\" cy=\"29\" r=\"2.5\" fill=\"#263238\"></circle><circle cx=\"106\" cy=\"29\" r=\"2.5\" fill=\"#263238\"></circle><path d=\"M88 20 L112 20 L109 4 L91 4 Z\" fill=\"#e53935\" stroke=\"#b71c1c\" stroke-width=\"2\"></path><circle cx=\"100\" cy=\"60\" r=\"2.5\" fill=\"#263238\"></circle><circle cx=\"100\" cy=\"72\" r=\"2.5\" fill=\"#263238\"></circle></svg><rect x=\"235\" y=\"28\" width=\"170\" height=\"127.5\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><rect x=\"262\" y=\"136\" width=\"116\" height=\"30\" rx=\"15\" fill=\"#ff6a00\"></rect><text x=\"320\" y=\"158\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">нарисовал</text><svg x=\"425\" y=\"196\" width=\"170\" height=\"127.5\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff8e1\"></rect><path d=\"M30 40 L78 40 L90 54 L170 54 L170 128 L30 128 Z\" fill=\"#ffca28\" stroke=\"#c79a00\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><path d=\"M30 64 L170 64\" stroke=\"#c79a00\" stroke-width=\"3\"></path><g transform=\"translate(76 4) scale(0.55)\"><rect x=\"0\" y=\"0\" width=\"90\" height=\"70\" fill=\"#b3e5fc\" stroke=\"#546e7a\" stroke-width=\"5\"></rect><circle cx=\"66\" cy=\"18\" r=\"9\" fill=\"#fdd835\"></circle><path d=\"M0 70 L30 36 L52 58 L66 46 L90 70 Z\" fill=\"#43a047\"></path></g><path d=\"M100 66 L100 104 M86 92 L100 106 L114 92\" stroke=\"#e65100\" stroke-width=\"6\" fill=\"none\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></svg><rect x=\"425\" y=\"196\" width=\"170\" height=\"127.5\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><rect x=\"452\" y=\"304\" width=\"116\" height=\"30\" rx=\"15\" fill=\"#ff6a00\"></rect><text x=\"510\" y=\"326\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">сохранил</text><svg x=\"235\" y=\"364\" width=\"170\" height=\"127.5\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff8e1\"></rect><path d=\"M30 40 L78 40 L90 54 L170 54 L170 128 L30 128 Z\" fill=\"#ffca28\" stroke=\"#c79a00\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><path d=\"M30 64 L170 64\" stroke=\"#c79a00\" stroke-width=\"3\"></path></svg><rect x=\"235\" y=\"364\" width=\"170\" height=\"127.5\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><rect x=\"262\" y=\"472\" width=\"116\" height=\"30\" rx=\"15\" fill=\"#ff6a00\"></rect><text x=\"320\" y=\"494\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">в папке</text><svg x=\"45\" y=\"196\" width=\"170\" height=\"127.5\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff8e1\"></rect><path d=\"M60 16 L122 16 L148 42 L148 136 L60 136 Z\" fill=\"#fff\" stroke=\"#546e7a\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><path d=\"M122 16 L122 42 L148 42\" fill=\"#eceff1\" stroke=\"#546e7a\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><rect x=\"72\" y=\"56\" width=\"64\" height=\"48\" fill=\"#b3e5fc\"></rect><circle cx=\"124\" cy=\"66\" r=\"7\" fill=\"#fdd835\"></circle><path d=\"M72 104 L92 78 L108 94 L118 84 L136 104 Z\" fill=\"#43a047\"></path><text x=\"104\" y=\"126\" font-size=\"13\" font-weight=\"700\" fill=\"#37474f\" text-anchor=\"middle\" font-family=\"Arial\">рисунок</text></svg><rect x=\"45\" y=\"196\" width=\"170\" height=\"127.5\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><rect x=\"72\" y=\"304\" width=\"116\" height=\"30\" rx=\"15\" fill=\"#ff6a00\"></rect><text x=\"130\" y=\"326\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">открыл</text><text x=\"320\" y=\"270\" font-size=\"26\" font-weight=\"800\" fill=\"#b84a00\" text-anchor=\"middle\">и снова!</text></svg></div>"
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Куда мы кладём рисунок?",
+      "pic": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#fff8e1\"></rect><path d=\"M30 40 L78 40 L90 54 L170 54 L170 128 L30 128 Z\" fill=\"#ffca28\" stroke=\"#c79a00\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><path d=\"M30 64 L170 64\" stroke=\"#c79a00\" stroke-width=\"3\"></path></svg>",
+      "word": "ПАПКА",
+      "n": 1,
+      "of": 3
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Рисунок в компьютере — это…",
+      "pic": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#fff8e1\"></rect><path d=\"M60 16 L122 16 L148 42 L148 136 L60 136 Z\" fill=\"#fff\" stroke=\"#546e7a\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><path d=\"M122 16 L122 42 L148 42\" fill=\"#eceff1\" stroke=\"#546e7a\" stroke-width=\"4\" stroke-linejoin=\"round\"></path><rect x=\"72\" y=\"56\" width=\"64\" height=\"48\" fill=\"#b3e5fc\"></rect><circle cx=\"124\" cy=\"66\" r=\"7\" fill=\"#fdd835\"></circle><path d=\"M72 104 L92 78 L108 94 L118 84 L136 104 Z\" fill=\"#43a047\"></path><text x=\"104\" y=\"126\" font-size=\"13\" font-weight=\"700\" fill=\"#37474f\" text-anchor=\"middle\" font-family=\"Arial\">рисунок</text></svg>",
+      "word": "ФАЙЛ",
+      "n": 2,
+      "of": 3
+    },
+    {
+      "kind": "type",
+      "stage": "practice",
+      "question": "Кого мы нарисуем?",
+      "pic": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#cfe3f5\"></rect><rect x=\"0\" y=\"118\" width=\"200\" height=\"32\" fill=\"#eef4fa\"></rect><path d=\"M0 118 Q60 110 120 118 Q160 124 200 116\" fill=\"none\" stroke=\"#b0c4d6\" stroke-width=\"3\"></path><circle cx=\"100\" cy=\"112\" r=\"30\" fill=\"#fff\" stroke=\"#90a4ae\" stroke-width=\"3\"></circle><circle cx=\"100\" cy=\"66\" r=\"22\" fill=\"#fff\" stroke=\"#90a4ae\" stroke-width=\"3\"></circle><circle cx=\"100\" cy=\"32\" r=\"15\" fill=\"#fff\" stroke=\"#90a4ae\" stroke-width=\"3\"></circle><path d=\"M100 34 L122 38 L100 40 Z\" fill=\"#fb8c00\"></path><circle cx=\"95\" cy=\"29\" r=\"2.5\" fill=\"#263238\"></circle><circle cx=\"106\" cy=\"29\" r=\"2.5\" fill=\"#263238\"></circle><path d=\"M88 20 L112 20 L109 4 L91 4 Z\" fill=\"#e53935\" stroke=\"#b71c1c\" stroke-width=\"2\"></path><circle cx=\"100\" cy=\"60\" r=\"2.5\" fill=\"#263238\"></circle><circle cx=\"100\" cy=\"72\" r=\"2.5\" fill=\"#263238\"></circle></svg>",
+      "word": "СНЕГОВИК",
+      "n": 3,
+      "of": 3
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 1,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 1</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Открой Paint: щёлк-щёлк!</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 420\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><rect x=\"1\" y=\"1\" width=\"638\" height=\"418\" rx=\"12\" fill=\"url(#dsk)\"></rect><g><rect x=\"34\" y=\"34\" width=\"44\" height=\"50\" rx=\"6\" fill=\"#dfe6ee\" stroke=\"#9aa6b2\"></rect><rect x=\"30\" y=\"28\" width=\"52\" height=\"8\" rx=\"3\" fill=\"#c3ccd6\"></rect><text x=\"56\" y=\"104\" font-size=\"13\" fill=\"#fff\" text-anchor=\"middle\">Корзина</text></g><g transform=\"translate(26 130) scale(1.0)\"><path d=\"M30 4 C12 4 2 16 2 30 C2 46 16 56 30 56 C36 56 38 52 36 48 C34 44 36 40 42 40 L48 40 C55 40 58 35 58 28 C58 14 46 4 30 4 Z\" fill=\"#f6e2bd\" stroke=\"#a57a3e\" stroke-width=\"2\"></path><circle cx=\"18\" cy=\"22\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"30\" cy=\"14\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"43\" cy=\"20\" r=\"5\" fill=\"#1e63d6\"></circle><circle cx=\"16\" cy=\"38\" r=\"5\" fill=\"#43a047\"></circle><circle cx=\"28\" cy=\"44\" r=\"4\" fill=\"#fff\" stroke=\"#a57a3e\" stroke-width=\"1.5\"></circle></g><text x=\"56\" y=\"206\" font-size=\"14\" font-weight=\"700\" fill=\"#fff\" text-anchor=\"middle\">Paint</text><g><path d=\"M28 240 L50 240 L56 248 L86 248 L86 282 L28 282 Z\" fill=\"#ffd54f\" stroke=\"#c79a00\"></path><text x=\"56\" y=\"302\" font-size=\"13\" fill=\"#fff\" text-anchor=\"middle\">Мои рисунки</text></g><rect x=\"1\" y=\"378\" width=\"638\" height=\"41\" fill=\"#1d2633\" opacity=\"0.92\"></rect><circle cx=\"28\" cy=\"398\" r=\"11\" fill=\"#fff\" opacity=\"0.85\"></circle><path d=\"M300 388 L316 388 L320 393 L336 393 L336 410 L300 410 Z\" fill=\"#ffd54f\"></path><g transform=\"translate(350 383) scale(0.5)\"><path d=\"M30 4 C12 4 2 16 2 30 C2 46 16 56 30 56 C36 56 38 52 36 48 C34 44 36 40 42 40 L48 40 C55 40 58 35 58 28 C58 14 46 4 30 4 Z\" fill=\"#f6e2bd\" stroke=\"#a57a3e\" stroke-width=\"2\"></path><circle cx=\"18\" cy=\"22\" r=\"5\" fill=\"#e53935\"></circle><circle cx=\"30\" cy=\"14\" r=\"5\" fill=\"#fdd835\"></circle><circle cx=\"43\" cy=\"20\" r=\"5\" fill=\"#1e63d6\"></circle><circle cx=\"16\" cy=\"38\" r=\"5\" fill=\"#43a047\"></circle><circle cx=\"28\" cy=\"44\" r=\"4\" fill=\"#fff\" stroke=\"#a57a3e\" stroke-width=\"1.5\"></circle></g><circle cx=\"400\" cy=\"398\" r=\"11\" fill=\"none\" stroke=\"#9ad0ff\" stroke-width=\"3\"></circle><rect x=\"18\" y=\"122\" width=\"76\" height=\"92\" rx=\"10\" fill=\"none\" stroke=\"#ffb74d\" stroke-width=\"4\" class=\"hl\"></rect><rect x=\"98\" y=\"150\" width=\"128\" height=\"34\" rx=\"17\" fill=\"#ff6a00\"></rect><text x=\"162\" y=\"173\" font-size=\"16\" font-weight=\"700\" fill=\"#fff\" text-anchor=\"middle\">щёлк-щёлк!</text><g transform=\"translate(66 168)\"><path d=\"M0 0 L0 22 L6 17 L10 26 L14 24 L10 15 L17 15 Z\" fill=\"#fff\" stroke=\"#111\" stroke-width=\"1.6\" stroke-linejoin=\"round\"></path></g></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 2,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 2</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Овал + Shift: три кома снизу вверх</h2><p class=\"s-hint\">Каждый ком меньше нижнего</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/c2aa88f0659997b2.webp\"></image><rect x=\"475\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"487.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"487.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"746\" y=\"67\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"758.0\" cy=\"51\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"758.0\" y=\"57.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 3,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 3</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Шляпа, глаза, нос — и залей небо</h2><p class=\"s-hint\">Нос-морковка — оранжевой кистью</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 1190 725\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/c2aa88f0659997b2.webp\"></image><rect x=\"282\" y=\"70\" width=\"28\" height=\"28\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"308\" cy=\"68\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"308\" y=\"74.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"369\" y=\"74\" width=\"46\" height=\"58\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"413\" cy=\"72\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"413\" y=\"78.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text><rect x=\"905\" y=\"90\" width=\"24\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"917.0\" cy=\"130\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"917.0\" y=\"136.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">3</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 4,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 4</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Нажми «Файл», потом «Сохранить»</h2><p class=\"s-hint\">«Файл» — слева вверху</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 700 460\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/42c13ef0c0897bbb.webp\"></image><rect x=\"5\" y=\"29\" width=\"48\" height=\"26\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"51\" cy=\"27\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"51\" y=\"33.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"8\" y=\"186\" width=\"276\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"282\" cy=\"184\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"282\" y=\"190.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 5,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 5</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Найди папку своего класса</h2><p class=\"s-hint\">Двойной щелчок по папке</p></div><div class=\"s-fig\"><svg viewBox=\"437 122 735 466\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/570ba7e637e833c7.webp\"></image><rect x=\"578\" y=\"169\" width=\"344\" height=\"30\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"920\" cy=\"167\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"920\" y=\"173.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"596\" y=\"240\" width=\"562\" height=\"258\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1156\" cy=\"238\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1156\" y=\"244.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 6,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 6</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Напечатай: Снеговик и своё имя. Нажми «Сохранить»</h2><p class=\"s-hint\">«Без имени» выделено — просто печатай</p></div><div class=\"s-fig\"><svg viewBox=\"437 122 735 466\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/82a70709a0f9a5f6.webp\"></image><rect x=\"563\" y=\"434\" width=\"598\" height=\"26\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1159\" cy=\"432\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1159\" y=\"438.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"957\" y=\"537\" width=\"96\" height=\"28\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1051\" cy=\"535\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1051\" y=\"541.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "practice",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Отдыхаем</div><h2>Отвернулись от экранов!</h2><ul class=\"s-list\"><li>Катим ком — наклоны</li><li>Голова — руки кругом</li><li>Тает — присели</li><li>Мороз — встали</li></ul></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 260\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><path d=\"M90 200 A230 160 0 0 1 550 200\" fill=\"none\" stroke=\"#8e44ad\" stroke-width=\"6\" stroke-dasharray=\"14 10\"></path><path d=\"M84 186 L90 206 L104 192 Z\" fill=\"#8e44ad\"></path><path d=\"M556 186 L550 206 L536 192 Z\" fill=\"#8e44ad\"></path><ellipse cx=\"285\" cy=\"190\" rx=\"28\" ry=\"18\" fill=\"#fff\" stroke=\"#333\" stroke-width=\"3\"></ellipse><circle cx=\"285\" cy=\"186\" r=\"9\" fill=\"#333\"></circle><ellipse cx=\"355\" cy=\"190\" rx=\"28\" ry=\"18\" fill=\"#fff\" stroke=\"#333\" stroke-width=\"3\"></ellipse><circle cx=\"355\" cy=\"186\" r=\"9\" fill=\"#333\"></circle><text x=\"320\" y=\"248\" font-size=\"20\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">Глазами за снежинкой по кругу</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 7,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 7</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Снежинка → Файл → Создать. Нажми «Сохранить»</h2><p class=\"s-hint\">«Не сохранять» — значит выбросить!</p></div><div class=\"s-fig\"><svg viewBox=\"520 280 420 240\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/21a8640a296e9377.webp\"></image><rect x=\"581\" y=\"431\" width=\"98\" height=\"36\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 8,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 8</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Нажми «Файл», потом «Открыть»</h2><p class=\"s-hint\">Где же наш снеговик?</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 700 460\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/555d56f8626cb555.webp\"></image><rect x=\"5\" y=\"29\" width=\"48\" height=\"26\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"51\" cy=\"27\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"51\" y=\"33.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"8\" y=\"94\" width=\"276\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"282\" cy=\"92\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"282\" y=\"98.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 9,
+      "level": 1,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 9</div><span class=\"stars\" title=\"уровень 1\">★</span><h2>Папка класса → твой Снеговик → «Открыть»</h2><p class=\"s-hint\">Ищи файл со своим именем</p></div><div class=\"s-fig\"><svg viewBox=\"437 122 735 466\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/9560de42ac985802.webp\"></image><rect x=\"596\" y=\"240\" width=\"562\" height=\"258\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1156\" cy=\"238\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1156\" y=\"244.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"966\" y=\"537\" width=\"86\" height=\"28\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"1050\" cy=\"535\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"1050\" y=\"541.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 10,
+      "level": 2,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 10</div><span class=\"stars\" title=\"уровень 2\">★★</span><h2>Дорисуй метлу. Держи Ctrl и нажми S</h2><p class=\"s-hint\">Имя уже есть — окно не появится</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 220\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><rect x=\"90\" y=\"40\" width=\"180\" height=\"110\" rx=\"16\" fill=\"#fff\" stroke=\"#6b7480\" stroke-width=\"3\"></rect><rect x=\"90\" y=\"40\" width=\"180\" height=\"98\" rx=\"16\" fill=\"#f3f5f8\" stroke=\"#6b7480\" stroke-width=\"3\"></rect><text x=\"180.0\" y=\"108\" font-size=\"44\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">Ctrl</text><text x=\"320\" y=\"112\" font-size=\"56\" font-weight=\"800\" fill=\"#ff6a00\" text-anchor=\"middle\">+</text><rect x=\"400\" y=\"40\" width=\"130\" height=\"110\" rx=\"16\" fill=\"#fff\" stroke=\"#6b7480\" stroke-width=\"3\"></rect><rect x=\"400\" y=\"40\" width=\"130\" height=\"98\" rx=\"16\" fill=\"#f3f5f8\" stroke=\"#6b7480\" stroke-width=\"3\"></rect><text x=\"465.0\" y=\"108\" font-size=\"44\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">S</text><text x=\"180\" y=\"192\" font-size=\"17\" fill=\"#333\" text-anchor=\"middle\">1. держи</text><text x=\"465\" y=\"192\" font-size=\"17\" fill=\"#333\" text-anchor=\"middle\">2. нажми</text></svg></div>"
+    },
+    {
+      "kind": "step",
+      "stage": "practice",
+      "step": 11,
+      "level": 3,
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Шаг 11</div><span class=\"stars\" title=\"уровень 3\">★★★</span><h2>Файл → Сохранить как → Снеговик 2</h2><p class=\"s-hint\">Новое имя — новый файл</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 700 460\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/42c13ef0c0897bbb.webp\"></image><rect x=\"5\" y=\"29\" width=\"48\" height=\"26\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"51\" cy=\"27\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"51\" y=\"33.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">1</text><rect x=\"8\" y=\"216\" width=\"276\" height=\"24\" rx=\"9\" fill=\"none\" stroke=\"#ff6a00\" stroke-width=\"5.5\" class=\"hl\"></rect><circle cx=\"282\" cy=\"214\" r=\"16\" fill=\"#ff6a00\" stroke=\"#fff\" stroke-width=\"2.5\"></circle><text x=\"282\" y=\"220.5\" font-size=\"19\" font-weight=\"800\" fill=\"#fff\" text-anchor=\"middle\">2</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "reflection",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Рефлексия</div><div class=\"s-num\">Галерея</div><h2>Руки за спину — смотрим снеговиков</h2><p class=\"s-big\">Вверху окна — имя твоего файла</p></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/c2aa88f0659997b2.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "reflection",
+      "layout": "text wide",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Рефлексия</div><div class=\"s-num\">Как получилось?</div><h2>Покажи пальцем, как у тебя получилось</h2></div><div class=\"s-fig\"><svg viewBox=\"0 0 640 260\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><circle cx=\"110\" cy=\"105\" r=\"78\" fill=\"#43a047\"></circle><g transform=\"translate(110 105) scale(2.4)\"><path d=\"M0 18 L0 -18 M-14 -4 L0 -18 L14 -4\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></g><text x=\"110\" y=\"228\" font-size=\"24\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">всё получилось</text><circle cx=\"320\" cy=\"105\" r=\"78\" fill=\"#f2a516\"></circle><g transform=\"translate(320 105) scale(2.4)\"><path d=\"M-18 0 L18 0 M4 -14 L18 0 L4 14\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></g><text x=\"320\" y=\"228\" font-size=\"24\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">почти</text><circle cx=\"530\" cy=\"105\" r=\"78\" fill=\"#e53935\"></circle><g transform=\"translate(530 105) scale(2.4)\"><path d=\"M0 -18 L0 18 M-14 4 L0 18 L14 4\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></g><text x=\"530\" y=\"228\" font-size=\"24\" font-weight=\"700\" fill=\"#222\" text-anchor=\"middle\">было трудно</text></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "summary",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Заключение</div><div class=\"s-num\">Итог</div><h2>Что запомнили?</h2><ul class=\"s-list\"><li>Файл → Сохранить</li><li>Имя и своя папка</li><li>Файл → Открыть</li></ul></div><div class=\"s-fig\"><svg viewBox=\"289 203 878 496\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg shot\"><image x=\"0\" y=\"0\" width=\"1190\" height=\"725\" href=\"/content/1-klass-2-chetvert/media/c2aa88f0659997b2.webp\"></image></svg></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "summary",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Заключение</div><div class=\"s-num\">В следующий раз</div><h2>Выставка «Моя любимая игрушка»</h2><p class=\"s-big\">Нарисуем, подпишем и сохраним</p></div><div class=\"s-fig\"><svg viewBox=\"0 0 700 230.0\" xmlns=\"http://www.w3.org/2000/svg\" class=\"fig-svg\"><svg x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#fff3c4\"></rect><line x1=\"100\" y1=\"12\" x2=\"100\" y2=\"24\" stroke=\"#1b1b1b\" stroke-width=\"3\"></line><circle cx=\"100\" cy=\"10\" r=\"6\" fill=\"#e53935\" stroke=\"#1b1b1b\" stroke-width=\"2.5\"></circle><rect x=\"72\" y=\"24\" width=\"56\" height=\"38\" rx=\"8\" fill=\"#bdbdbd\" stroke=\"#1b1b1b\" stroke-width=\"3\"></rect><circle cx=\"88\" cy=\"40\" r=\"7\" fill=\"#fdd835\" stroke=\"#1b1b1b\" stroke-width=\"2.5\"></circle><circle cx=\"112\" cy=\"40\" r=\"7\" fill=\"#fdd835\" stroke=\"#1b1b1b\" stroke-width=\"2.5\"></circle><rect x=\"88\" y=\"51\" width=\"24\" height=\"5\" fill=\"#e53935\" stroke=\"#1b1b1b\" stroke-width=\"2\"></rect><rect x=\"62\" y=\"66\" width=\"76\" height=\"52\" fill=\"#039be5\" stroke=\"#1b1b1b\" stroke-width=\"3\"></rect><rect x=\"80\" y=\"74\" width=\"40\" height=\"18\" fill=\"#b3e5fc\" stroke=\"#1b1b1b\" stroke-width=\"2.5\"></rect><circle cx=\"86\" cy=\"104\" r=\"5\" fill=\"#e53935\" stroke=\"#1b1b1b\" stroke-width=\"2\"></circle><circle cx=\"100\" cy=\"104\" r=\"5\" fill=\"#fdd835\" stroke=\"#1b1b1b\" stroke-width=\"2\"></circle><circle cx=\"114\" cy=\"104\" r=\"5\" fill=\"#43a047\" stroke=\"#1b1b1b\" stroke-width=\"2\"></circle><rect x=\"44\" y=\"68\" width=\"16\" height=\"38\" fill=\"#6f8fb8\" stroke=\"#1b1b1b\" stroke-width=\"3\"></rect><rect x=\"140\" y=\"68\" width=\"16\" height=\"38\" fill=\"#6f8fb8\" stroke=\"#1b1b1b\" stroke-width=\"3\"></rect><rect x=\"76\" y=\"118\" width=\"16\" height=\"22\" fill=\"#6f8fb8\" stroke=\"#1b1b1b\" stroke-width=\"3\"></rect><rect x=\"108\" y=\"118\" width=\"16\" height=\"22\" fill=\"#6f8fb8\" stroke=\"#1b1b1b\" stroke-width=\"3\"></rect></svg><rect x=\"20\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><text x=\"120.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">робот</text><svg x=\"250\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#e8f5e9\"></rect><circle cx=\"100\" cy=\"75\" r=\"50\" fill=\"#fff\" stroke=\"#263238\" stroke-width=\"4\"></circle><path d=\"M100 58 L116 70 L110 88 L90 88 L84 70 Z\" fill=\"#263238\"></path><path d=\"M100 25 L100 58 M116 70 L146 62 M110 88 L128 114 M90 88 L72 114 M84 70 L54 62\" stroke=\"#263238\" stroke-width=\"3\"></path></svg><rect x=\"250\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><text x=\"350.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">мяч</text><svg x=\"480\" y=\"20\" width=\"200\" height=\"150.0\" viewBox=\"0 0 200 150\"><rect width=\"200\" height=\"150\" fill=\"#f3e5f5\"></rect><circle cx=\"100\" cy=\"42\" r=\"22\" fill=\"#ffcc80\"></circle><path d=\"M76 40 Q78 12 100 14 Q124 12 124 40 Q114 26 100 26 Q86 26 76 40 Z\" fill=\"#ff8f00\"></path><path d=\"M78 40 Q70 70 76 84 M122 40 Q130 70 124 84\" stroke=\"#ff8f00\" stroke-width=\"7\" fill=\"none\" stroke-linecap=\"round\"></path><circle cx=\"92\" cy=\"42\" r=\"3\" fill=\"#333\"></circle><circle cx=\"108\" cy=\"42\" r=\"3\" fill=\"#333\"></circle><path d=\"M93 52 Q100 57 107 52\" fill=\"none\" stroke=\"#c62828\" stroke-width=\"2.5\"></path><path d=\"M86 64 L114 64 L134 124 L66 124 Z\" fill=\"#e91e63\"></path><path d=\"M86 70 L66 96 M114 70 L134 96\" stroke=\"#ffcc80\" stroke-width=\"7\" stroke-linecap=\"round\"></path><path d=\"M88 124 L88 140 M112 124 L112 140\" stroke=\"#ffcc80\" stroke-width=\"7\" stroke-linecap=\"round\"></path></svg><rect x=\"480\" y=\"20\" width=\"200\" height=\"150.0\" rx=\"14\" fill=\"none\" stroke=\"#e7d3c2\" stroke-width=\"3\"></rect><text x=\"580.0\" y=\"212.0\" font-size=\"26\" font-weight=\"800\" fill=\"#222\" text-anchor=\"middle\">кукла</text></svg></div>"
+    }
+  ],
+  "teacherScenario": "/content/1-klass-2-chetvert/scenarios/k15.html",
+  "media": [
+    "/content/1-klass-2-chetvert/media/c2aa88f0659997b2.webp",
+    "/content/1-klass-2-chetvert/media/907ec16d01502717.webp",
+    "/content/1-klass-2-chetvert/media/42c13ef0c0897bbb.webp",
+    "/content/1-klass-2-chetvert/media/570ba7e637e833c7.webp",
+    "/content/1-klass-2-chetvert/media/82a70709a0f9a5f6.webp",
+    "/content/1-klass-2-chetvert/media/21a8640a296e9377.webp",
+    "/content/1-klass-2-chetvert/media/9560de42ac985802.webp",
+    "/content/1-klass-2-chetvert/media/555d56f8626cb555.webp"
+  ]
+}

@@ -1,0 +1,86 @@
+# Checks every push: the same commands CLAUDE.md §10 asks for before a pull request.
+name: CI
+
+on:
+  push:
+    branches: ['main', 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      # S1.16: what the README promises — `pnpm build && pnpm start` serves everything on one port.
+      - name: Smoke test (pnpm start)
+        env:
+          PORT: '3000'
+          HOST: 127.0.0.1
+          SESSION_SECRET: ci-secret-at-least-16-chars
+          DEMO_TEACHER_PASSWORD: demo1234
+          DATA_DIR: ${{ runner.temp }}/sinf-data
+          DATABASE_PATH: ${{ runner.temp }}/sinf-data/sinf.db
+        run: |
+          pnpm start > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3000/health && break; sleep 1; done
+          curl -sf http://127.0.0.1:3000/health | grep -q '"ok"'
+          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf</title>'
+          curl -sf http://127.0.0.1:3000/api/courses | grep -q 'g10'
+          curl -sf -H 'content-type: application/json' \
+            -d '{"email":"demo@sinf.local","password":"demo1234"}' \
+            http://127.0.0.1:3000/api/auth/teacher | grep -q 'user-demo-teacher'
+          echo "smoke test passed"
+
+      - name: Server log on failure
+        if: failure()
+        run: cat "$RUNNER_TEMP/server.log" || true
+
+  # S1.16: the image from deploy/Dockerfile builds, starts and answers (the hosting variant).
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -f deploy/Dockerfile -t sinf:ci .
+
+      - name: Run it and ask
+        run: |
+          docker run -d --name sinf -p 3000:3000 \
+            -e SESSION_SECRET=ci-secret-at-least-16-chars \
+            -e DEMO_TEACHER_PASSWORD=demo1234 \
+            sinf:ci
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:3000/health && break; sleep 1; done
+          curl -sf http://127.0.0.1:3000/health | grep -q '"ok"'
+          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf</title>'
+          curl -sf http://127.0.0.1:3000/api/courses | grep -q 'g10'
+          echo "docker image works"
+
+      - name: Container log
+        if: always()
+        run: docker logs sinf || true
