@@ -50,6 +50,10 @@ internal sealed class StudentForm : Form
 
     private readonly bool dev;
     private readonly KeyboardGuard? keyboard;
+    /// <summary>Exists only while the teacher's "Attention!" is on (H4).</summary>
+    private MouseGuard? mouse;
+    /// <summary>What the teacher asked for, so the lock comes back after the administrator's dialog.</summary>
+    private bool lockedByTeacher;
     private readonly AccessibilityGuard? accessibility;
     private readonly System.Windows.Forms.Timer focusBack = new();
 
@@ -296,6 +300,16 @@ internal sealed class StudentForm : Form
             }
         };
         core.DownloadStarting += (_, e) => e.Cancel = true;
+        // Commands from the lesson page (stage 3): only from the teacher's computer, never from elsewhere.
+        core.WebMessageReceived += (_, e) =>
+        {
+            if (teacherUrl is null || !TeacherAddress.IsSameOrigin(teacherUrl, e.Source))
+            {
+                return;
+            }
+
+            OnPageMessage(e.WebMessageAsJson);
+        };
         core.NavigationCompleted += (_, e) =>
         {
             // The teacher's computer went away while the page was loading.
@@ -328,8 +342,66 @@ internal sealed class StudentForm : Form
         }
     }
 
+    /// <summary>What the lesson page asks for; anything unknown is ignored.</summary>
+    private void OnPageMessage(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("type", out var type))
+            {
+                return;
+            }
+
+            switch (type.GetString())
+            {
+                case "lock":
+                    lockedByTeacher = root.TryGetProperty("on", out var on) && on.ValueKind == JsonValueKind.True;
+                    SetLock(lockedByTeacher);
+                    break;
+            }
+        }
+        catch (JsonException)
+        {
+            // Not ours.
+        }
+    }
+
+    /// <summary>
+    /// The teacher's "Attention!" (H4, CLAUDE.md §4.5): the lesson window comes to the front and no key
+    /// or click reaches anything until the teacher unlocks. The administrator's combination still works.
+    /// </summary>
+    private void SetLock(bool on)
+    {
+        if (dev)
+        {
+            return;
+        }
+
+        if (keyboard is not null)
+        {
+            keyboard.LockAll = on;
+        }
+
+        if (on)
+        {
+            mouse ??= new MouseGuard();
+            TopMost = true;
+            Activate();
+        }
+        else
+        {
+            mouse?.Dispose();
+            mouse = null;
+        }
+    }
+
     private void BackToSearch(string reason)
     {
+        // No lesson, no "Attention!": a lost teacher must not leave the computer frozen.
+        lockedByTeacher = false;
+        SetLock(false);
         if (searching)
         {
             return;
@@ -389,11 +461,14 @@ internal sealed class StudentForm : Form
         }
 
         using var dialog = new ExitPasswordDialog(config.ExitPasswordHash!, offerSetup: true, "Выход из режима ученика.");
+        // Under "Attention!" the administrator still has to type and click.
+        SetLock(false);
         dialogOpen = true;
         var answer = dialog.ShowDialog(this);
         dialogOpen = false;
         if (answer != DialogResult.OK)
         {
+            SetLock(lockedByTeacher);
             Activate();
             return;
         }
@@ -406,6 +481,7 @@ internal sealed class StudentForm : Form
             dialogOpen = false;
             if (chosen != DialogResult.OK)
             {
+                SetLock(lockedByTeacher);
                 Activate();
                 return;
             }
@@ -443,6 +519,7 @@ internal sealed class StudentForm : Form
         focusBack.Dispose();
         keyboard?.Dispose();
         accessibility?.Dispose();
+        mouse?.Dispose();
         http.Dispose();
         base.OnFormClosed(e);
     }

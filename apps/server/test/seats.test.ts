@@ -155,3 +155,26 @@ describe('seating', () => {
     expect(db.select().from(schema.seats).all()).toHaveLength(0);
   });
 });
+
+describe('the classroom computer in the lesson (H4)', () => {
+  it('marks a child who came in from a classroom computer, so "Attention!" is known to be real', async () => {
+    const { app, db, cookie } = await server(true);
+    const id = await start(app, cookie);
+    await join(app, db, id, 'student-01', 'ПК-05');
+    await join(app, db, id, 'student-02');
+    const state = app.sessions.getState(id);
+    expect(state?.participants['student-01']?.pc).toBe('ПК-05');
+    expect(state?.participants['student-02']?.pc).toBeNull();
+
+    // Logging in again from another computer moves the mark.
+    await join(app, db, id, 'student-01', 'ПК-09');
+    expect(app.sessions.getState(id)?.participants['student-01']?.pc).toBe('ПК-09');
+  });
+
+  it('never marks anyone on the platform', async () => {
+    const { app, db, cookie } = await server(false);
+    const id = await start(app, cookie);
+    await join(app, db, id, 'student-01', 'ПК-05');
+    expect(app.sessions.getState(id)?.participants['student-01']?.pc).toBeNull();
+  });
+});

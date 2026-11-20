@@ -61,6 +61,8 @@ export type SessionEvent =
       name: string | null;
       /** A demo student played by the server (S1.15). */
       virtual?: boolean;
+      /** The classroom computer, when the child logged in from the classroom app (stage 3). */
+      pc?: string | null;
       now: number;
     }
   | { kind: 'participant.leave'; participantId: string; now: number }
@@ -330,7 +332,13 @@ function join(
 ): ReduceResult {
   const existing = r.state.participants[e.participantId];
   const participant: Participant = existing
-    ? { ...existing, online: true, lastSeenAt: e.now }
+    ? {
+        ...existing,
+        online: true,
+        lastSeenAt: e.now,
+        // A child who logs in again from another computer is now at that one.
+        ...(e.pc !== undefined ? { pc: e.pc } : {}),
+      }
     : {
         id: e.participantId,
         number: e.number,
@@ -347,6 +355,7 @@ function join(
         fullscreen: false,
         escapes: 0,
         virtual: e.virtual ?? false,
+        pc: e.pc ?? null,
         lastSeenAt: e.now,
       };
   return updateParticipant(r, participant, { type: 'join', participantId: participant.id });

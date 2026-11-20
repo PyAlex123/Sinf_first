@@ -51,6 +51,48 @@ export function readPlatform(host: unknown): Platform {
   };
 }
 
+// ---------- messages between the page and the classroom app (stage 3)
+
+/** What the page asks the classroom app to do. */
+export type HostCommand =
+  /** "Attention!": keyboard and mouse of this computer stop working until unlocked (H4). */
+  { type: 'lock'; on: boolean };
+
+/** What the classroom app tells the page. */
+export type HostEvent = { type: 'ready' };
+
+interface WebViewChannel {
+  postMessage(message: unknown): void;
+  addEventListener(type: 'message', listener: (event: { data: unknown }) => void): void;
+  removeEventListener(type: 'message', listener: (event: { data: unknown }) => void): void;
+}
+
+function channel(): WebViewChannel | null {
+  if (typeof window === 'undefined') return null;
+  const chrome = (window as unknown as { chrome?: { webview?: WebViewChannel } }).chrome;
+  return chrome?.webview ?? null;
+}
+
+/** Sends a command to the classroom app; in a browser there is nobody to hear it. */
+export function hostSend(command: HostCommand): void {
+  if (platform.role !== 'student') return;
+  channel()?.postMessage(command);
+}
+
+/** Listens to the classroom app; returns the way to stop listening. */
+export function onHostEvent(listener: (event: HostEvent) => void): () => void {
+  const webview = platform.role === 'student' ? channel() : null;
+  if (!webview) return () => undefined;
+  const handler = (event: { data: unknown }): void => {
+    const data = event.data;
+    if (data && typeof data === 'object' && typeof (data as { type?: unknown }).type === 'string') {
+      listener(data as HostEvent);
+    }
+  };
+  webview.addEventListener('message', handler);
+  return () => webview.removeEventListener('message', handler);
+}
+
 /**
  * Pages a classroom kiosk may show (stage 3, H3): the way into the lesson and the lesson itself.
  * The Windows app filters real navigations; this covers the app's own links, which never leave the

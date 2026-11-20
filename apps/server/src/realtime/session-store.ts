@@ -245,6 +245,8 @@ export class SessionStore {
       lastName: string;
       sortOrder: number;
       isVirtual?: boolean;
+      /** The classroom computer (stage 3): its "Attention!" is a real lock (H4). */
+      pc?: string | null;
     },
   ): { token: string; participantId: string } {
     const session = this.get(id);
@@ -278,6 +280,7 @@ export class SessionStore {
         studentId: student.id,
         name: `${student.lastName} ${student.firstName}`,
         virtual: student.isVirtual ?? false,
+        pc: student.pc ?? null,
         now,
       },
       session.plan,

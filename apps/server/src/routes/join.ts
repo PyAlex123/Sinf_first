@@ -183,6 +183,7 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
       firstName: student.firstName,
       lastName: student.lastName,
       sortOrder: student.sortOrder,
+      pc: body.pc && app.ctx.config.classroom ? body.pc : null,
     });
     if (body.pc && app.ctx.config.classroom) rememberSeat(summary.classId, body.pc, student.id);
     request.log.info(

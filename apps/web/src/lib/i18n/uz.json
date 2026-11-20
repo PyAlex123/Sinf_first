@@ -365,5 +365,6 @@
   "demo.reset.done": "Demo qayta tiklandi: 1А sinfi boshidagidek.",
   "join.pc": "Bu kompyuter",
   "join.waiting.hint": "O‘qituvchi darsni boshlashi bilan dars o‘zi ochiladi.",
-  "join.byCode": "Dars kodini kiritish"
+  "join.byCode": "Dars kodini kiritish",
+  "session.lock.real": "Sinf kompyuterlarida ({count}) «Diqqat!» haqiqiy: klaviatura va sichqoncha ishlamaydi."
 }

@@ -30,6 +30,12 @@
 
   const session = $derived(store?.state ?? null);
   const participants = $derived(store?.participants ?? []);
+  /**
+   * Who sits at a classroom app, where "Attention!" really stops keyboard and mouse (stage 3, H4),
+   * and who is in a browser, where it only covers the page.
+   */
+  const inBrowser = $derived(participants.filter((p) => !p.pc && !p.virtual).length);
+  const inClassroom = $derived(participants.filter((p) => !!p.pc).length);
   const count = $derived(bundle?.lesson.screens.length ?? 0);
   const next = $derived(bundle?.lesson.screens[(session?.screenIndex ?? 0) + 1]);
   const stages = $derived(bundle?.lesson.stages ?? []);
@@ -393,7 +399,12 @@
               {t('session.unlock.all')}
             </Button>
           </div>
-          <p class="soft">{t('session.lock.soft')}</p>
+          {#if inClassroom > 0}
+            <p class="soft">{t('session.lock.real', { count: inClassroom })}</p>
+          {/if}
+          {#if inBrowser > 0 || inClassroom === 0}
+            <p class="soft">{t('session.lock.soft')}</p>
+          {/if}
         </div>
 
         <h2>
@@ -439,6 +450,7 @@
                   <div class="tname">
                     <span class="dot" class:on={p.online}></span>
                     {p.name ?? t('session.participant', { number: p.number })}
+                    {#if p.pc}<span class="pcname">{p.pc}</span>{/if}
                     {#if p.virtual}<span class="virt" title={t('virtual.badge')}
                         >{t('virtual.short')}</span
                       >{/if}
@@ -843,6 +855,12 @@
     border-radius: var(--radius-sm);
     background: var(--c-info-soft);
     color: var(--c-info);
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
+  .pcname {
+    margin-left: var(--space-1);
+    color: var(--c-muted);
     font-size: var(--text-xs);
     font-weight: 600;
   }

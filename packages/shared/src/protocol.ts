@@ -69,6 +69,11 @@ export const ParticipantSchema = z.strictObject({
    * snapshots readable.
    */
   virtual: z.boolean().default(false),
+  /**
+   * The classroom computer the child sits at, "ПК-05" (stage 3). Set only for the classroom app,
+   * where "Attention!" really locks keyboard and mouse (H4); null in a browser.
+   */
+  pc: z.string().nullable().default(null),
   lastSeenAt: serverTime,
 });
 export type Participant = z.infer<typeof ParticipantSchema>;

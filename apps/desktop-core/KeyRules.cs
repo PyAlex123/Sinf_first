@@ -36,11 +36,17 @@ public static class KeyRules
     public static bool IsExitCombination(int key, bool ctrl, bool alt, bool shift) =>
         key == F12 && ctrl && alt && shift;
 
-    public static KeyDecision Decide(int key, bool ctrl, bool alt, bool shift, bool win)
+    /// <param name="locked">"Attention!" is on (H4): every key is swallowed but the administrator's.</param>
+    public static KeyDecision Decide(int key, bool ctrl, bool alt, bool shift, bool win, bool locked = false)
     {
         if (IsExitCombination(key, ctrl, alt, shift))
         {
             return KeyDecision.AskPassword;
+        }
+
+        if (locked)
+        {
+            return KeyDecision.Swallow;
         }
 
         // Start menu, Win+D (desktop), Win+E (Explorer), Win+R (Run), Win+Tab and the rest.

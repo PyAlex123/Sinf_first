@@ -26,6 +26,9 @@ internal sealed class KeyboardGuard : IDisposable
     private readonly LowLevelKeyboardProc proc;
     private readonly IntPtr hook;
     private bool winDown;
+
+    /// <summary>"Attention!" (H4): while set, every key is swallowed but the administrator's combination.</summary>
+    public bool LockAll { get; set; }
     private readonly HashSet<int> swallowedDown = [];
 
     /// <param name="askPassword">Called on the UI thread's message loop when the exit combination is pressed.</param>
@@ -64,7 +67,8 @@ internal sealed class KeyboardGuard : IDisposable
                     ctrl: IsPressed(VkControl),
                     alt: (info.Flags & LlkhfAltDown) != 0,
                     shift: IsPressed(VkShift),
-                    win: winDown);
+                    win: winDown,
+                    locked: LockAll);
                 if (decision == KeyDecision.AskPassword)
                 {
                     askPassword();

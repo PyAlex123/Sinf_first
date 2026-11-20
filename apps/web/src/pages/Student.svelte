@@ -4,7 +4,7 @@
   import { stageScreenRange } from '@sinf/shared';
   import { loadLessonBundle, type LessonBundle } from '../lib/content.js';
   import { t } from '../lib/i18n/index.svelte.js';
-  import { platform } from '../lib/platform.js';
+  import { hostSend, platform } from '../lib/platform.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
   import { QUIZ_OPTION_LETTERS } from '@sinf/shared';
@@ -30,6 +30,16 @@
   const session = $derived(store?.state ?? null);
   const me = $derived(store?.me);
   const lock = $derived(store?.myLock ?? null);
+
+  /**
+   * In the classroom app "Attention!" is real (H4): the app stops keyboard and mouse while the
+   * curtain is up. In a browser this sends nothing — the curtain is all there is.
+   */
+  $effect(() => {
+    const on = !!lock && !ended;
+    hostSend({ type: 'lock', on });
+    return () => hostSend({ type: 'lock', on: false });
+  });
   const ended = $derived(endedBefore || session?.status === 'ended' || store?.status === 'ended');
 
   /**

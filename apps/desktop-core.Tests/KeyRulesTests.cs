@@ -49,6 +49,17 @@ public class KeyRulesTests
         Assert.Equal(KeyDecision.Pass, Press(KeyRules.F12));
     }
 
+    [Fact]
+    public void Under_attention_every_key_is_swallowed_but_the_way_out()
+    {
+        Assert.Equal(KeyDecision.Swallow, KeyRules.Decide(A, false, false, false, false, locked: true));
+        Assert.Equal(KeyDecision.Swallow, KeyRules.Decide(Enter, false, false, false, false, locked: true));
+        Assert.Equal(KeyDecision.Swallow, KeyRules.Decide(Backspace, false, false, true, false, locked: true));
+        Assert.Equal(
+            KeyDecision.AskPassword,
+            KeyRules.Decide(KeyRules.F12, ctrl: true, alt: true, shift: true, win: false, locked: true));
+    }
+
     [Theory]
     [InlineData(A, false, false)]
     [InlineData(A, false, true)]
