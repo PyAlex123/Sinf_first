@@ -69,6 +69,11 @@ internal sealed class StudentForm : Form
     private ScreenShare? share;
     /// <summary>"Мой экран в окне" over a program: the lesson is a small picture in a corner (H14).</summary>
     private bool pip;
+    /// <summary>The lesson's working folder: the child's files while the lesson lasts (H15).</summary>
+    private WorkFolderSync? folder;
+    /// <summary>Which programs the force-close after the grace is for: all of them, or only these.</summary>
+    private IReadOnlyList<AppSpec>? closing;
+    private DateTime? stageEndsAt;
     private ProgramPanel? panel;
     private readonly System.Windows.Forms.Timer appWatch = new() { Interval = 1000 };
     private readonly System.Windows.Forms.Timer closeDeadline = new();
@@ -173,7 +178,7 @@ internal sealed class StudentForm : Form
         closeDeadline.Tick += (_, _) =>
         {
             closeDeadline.Stop();
-            AppLauncher.CloseByForce();
+            AppLauncher.CloseByForce(closing);
         };
         // Back in the lesson: the strip over Paint is not needed.
         Activated += (_, _) => panel?.Hide();
@@ -420,11 +425,31 @@ internal sealed class StudentForm : Form
                 case "thumbs":
                     SetThumbs(root.TryGetProperty("on", out var wanted) && wanted.ValueKind == JsonValueKind.True);
                     break;
+                case "hello":
+                    // The page asks which programs this computer has: tiles only for those (H15).
+                    PostToPage(new { type = "installed", apps = AppLauncher.Installed() });
+                    break;
                 case "launch":
-                    StartApp(root.TryGetProperty("app", out var app) ? app.GetString() : null);
+                    StartApp(
+                        root.TryGetProperty("app", out var app) ? app.GetString() : null,
+                        root.TryGetProperty("file", out var file) ? file.GetString() : null);
                     break;
                 case "closeApps":
-                    CloseApps();
+                    CloseApps(root.TryGetProperty("keep", out var keep) && keep.ValueKind == JsonValueKind.Array
+                        ? keep.EnumerateArray().Select(k => k.GetString() ?? string.Empty).ToList()
+                        : null);
+                    break;
+                case "timer":
+                    stageEndsAt = root.TryGetProperty("inMs", out var inMs) && inMs.ValueKind == JsonValueKind.Number
+                        ? DateTime.UtcNow.AddMilliseconds(inMs.GetDouble())
+                        : null;
+                    panel?.SetDeadline(stageEndsAt);
+                    break;
+                case "folder":
+                    var folderOn = root.TryGetProperty("on", out var fo) && fo.ValueKind == JsonValueKind.True;
+                    _ = SetFolderAsync(
+                        folderOn && root.TryGetProperty("sessionId", out var fs) ? fs.GetString() : null,
+                        folderOn && root.TryGetProperty("token", out var ft) ? ft.GetString() : null);
                     break;
                 case "screenshot":
                     var reason = root.TryGetProperty("reason", out var r) ? r.GetString() : null;
@@ -478,9 +503,47 @@ internal sealed class StudentForm : Form
     }
 
     /// <summary>Opens Paint for the practice (H6), or brings it back; the lesson steps behind it.</summary>
-    private void StartApp(string? id)
+    /// <summary>
+    /// Opens a lesson program (H6, H15) — only an id of the catalog, never a path; a file only by its
+    /// name in the lesson's working folder. Paint without a file gets a blank picture there, so that
+    /// Ctrl+S saves the drawing into the child's folder, not somewhere on the disk.
+    /// </summary>
+    private void StartApp(string? id, string? fileName = null)
     {
-        if (lockedByTeacher || !AppLauncher.Launch(id ?? string.Empty))
+        if (lockedByTeacher || id is null)
+        {
+            return;
+        }
+
+        string? file = null;
+        if (folder is not null)
+        {
+            if (fileName is not null)
+            {
+                file = folder.PathOf(fileName);
+            }
+            else if (id == "paint")
+            {
+                file = folder.PathOf("Рисунок.png");
+                if (file is not null && !File.Exists(file))
+                {
+                    using var blank = new Bitmap(1024, 640);
+                    using (var g = Graphics.FromImage(blank))
+                    {
+                        g.Clear(Color.White);
+                    }
+
+                    blank.Save(file, System.Drawing.Imaging.ImageFormat.Png);
+                }
+            }
+
+            if (file is not null && !File.Exists(file))
+            {
+                file = null;
+            }
+        }
+
+        if (!AppLauncher.Launch(id, file))
         {
             return;
         }
@@ -488,8 +551,34 @@ internal sealed class StudentForm : Form
         appMode = true;
         TopMost = false;
         panel ??= new ProgramPanel(BackToLessonFromApp, () => PostToPage(new { type = "hand" }));
+        panel.SetDeadline(stageEndsAt);
         panel.ShowOnTop();
         appWatch.Start();
+    }
+
+    /// <summary>The lesson's working folder (H15): the child's files come in, every save goes back.</summary>
+    private async Task SetFolderAsync(string? sessionId, string? lessonToken)
+    {
+        var old = folder;
+        folder = null;
+        if (old is not null)
+        {
+            await old.DisposeAsync().ConfigureAwait(true);
+        }
+
+        if (sessionId is null || lessonToken is null || teacherUrl is null)
+        {
+            return;
+        }
+
+        var next = new WorkFolderSync(
+            Path.Combine(paths.Data, "work"),
+            teacherUrl,
+            sessionId,
+            lessonToken,
+            name => BeginInvoke(() => PostToPage(new { type = "saved", name })));
+        folder = next;
+        await next.StartAsync().ConfigureAwait(true);
     }
 
     private void BackToLessonFromApp()
@@ -521,14 +610,19 @@ internal sealed class StudentForm : Form
     }
 
     /// <summary>The practice is over (H6): Paint is asked to close — it offers to save — and after the grace, closed.</summary>
-    private void CloseApps()
+    /// <summary>
+    /// Closes the lesson's programs: all of them (the practice is over), or those no longer allowed
+    /// (the teacher changed the tiles, H15). They are asked first — and offer to save — then closed.
+    /// </summary>
+    private void CloseApps(IReadOnlyList<string>? keep = null)
     {
-        if (!AppLauncher.AnyRunning())
+        closing = keep is null ? null : AppCatalog.ToClose(keep, AppLauncher.RunningIds());
+        if (closing is { Count: 0 } || !AppLauncher.AnyRunning())
         {
             return;
         }
 
-        AppLauncher.AskToClose();
+        AppLauncher.AskToClose(closing);
         closeDeadline.Stop();
         closeDeadline.Start();
     }
@@ -688,6 +782,7 @@ internal sealed class StudentForm : Form
         SetThumbs(false);
         SetPip(false);
         _ = SetShareAsync(null, null);
+        _ = SetFolderAsync(null, null);
         if (searching)
         {
             return;
@@ -817,6 +912,7 @@ internal sealed class StudentForm : Form
         mouse?.Dispose();
         http.Dispose();
         _ = share?.DisposeAsync();
+        _ = folder?.DisposeAsync();
         base.OnFormClosed(e);
     }
 }

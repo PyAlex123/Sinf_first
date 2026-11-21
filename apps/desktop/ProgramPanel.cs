@@ -28,8 +28,65 @@ internal sealed class ProgramPanel : Form
         back.Click += (_, _) => backToLesson();
         hand.Click += (_, _) => help();
         row.Controls.Add(back);
+        row.Controls.Add(timer);
         row.Controls.Add(hand);
         Controls.Add(row);
+        tick.Interval = 1000;
+        tick.Tick += (_, _) => ShowTime();
+    }
+
+    /// <summary>The stage timer over the program (CLAUDE.md §8, H15): "⏱ 12:34", or nothing.</summary>
+    private readonly Label timer = new()
+    {
+        AutoSize = true,
+        ForeColor = Color.White,
+        Margin = new Padding(10, 9, 10, 4),
+        Text = string.Empty,
+    };
+
+    private readonly System.Windows.Forms.Timer tick = new();
+    private DateTime? endsAt;
+
+    /// <summary>When the stage ends, by this computer's clock; null when paused or untimed.</summary>
+    public void SetDeadline(DateTime? until)
+    {
+        endsAt = until;
+        ShowTime();
+        if (until is null)
+        {
+            tick.Stop();
+        }
+        else
+        {
+            tick.Start();
+        }
+    }
+
+    private void ShowTime()
+    {
+        if (endsAt is not { } end)
+        {
+            timer.Text = string.Empty;
+            return;
+        }
+
+        var left = end - DateTime.UtcNow;
+        if (left < TimeSpan.Zero)
+        {
+            left = TimeSpan.Zero;
+        }
+
+        timer.Text = $"⏱ {(int)left.TotalMinutes:00}:{left.Seconds:00}";
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            tick.Dispose();
+        }
+
+        base.Dispose(disposing);
     }
 
     protected override bool ShowWithoutActivation => true;

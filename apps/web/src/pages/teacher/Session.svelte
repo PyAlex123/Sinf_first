@@ -2,6 +2,8 @@
   import {
     comparePcNames,
     DEMO_CLASS_ID,
+    LESSON_APPS,
+    type LessonApp,
     type Participant,
     type SessionSummary,
   } from '@sinf/shared';
@@ -77,6 +79,8 @@
    * page asks the app to film while "Мой экран" is on — and to stop when it is off.
    */
   const demoNow = $derived(session?.demo ?? null);
+  /** Programs the teacher is about to give (H15). */
+  let appChoice = $state<LessonApp[]>([]);
   const canShareMine = platform.isDesktop && platform.role === 'teacher';
   $effect(() => {
     if (!canShareMine || demoNow?.source !== 'teacher') return;
@@ -473,6 +477,56 @@
             <p class="soft">{t('session.lock.soft')}</p>
           {/if}
         </div>
+
+        <!-- Program tiles on the classroom computers (H15, CLAUDE.md §4.2). -->
+        {#if inClassroom > 0}
+          <div class="lockbox appsbox">
+            <h2 class="boxtitle">
+              <Icon name="pc" size={16} />
+              {t('session.apps')}
+            </h2>
+            <p class="soft">
+              {session?.apps.all === null || !session
+                ? t('session.apps.lesson')
+                : t('session.apps.now', {
+                    list:
+                      session.apps.all.map((a) => t(`apps.${a}`)).join(', ') ||
+                      t('session.apps.none'),
+                  })}
+            </p>
+            <div class="appchecks">
+              {#each LESSON_APPS as app (app)}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={appChoice.includes(app)}
+                    onchange={(e) =>
+                      (appChoice = e.currentTarget.checked
+                        ? [...appChoice, app]
+                        : appChoice.filter((x) => x !== app))}
+                  />
+                  {t(`apps.${app}`)}
+                </label>
+              {/each}
+            </div>
+            <div class="lockbtns">
+              <Button size="sm" onclick={() => store?.setApps('all', appChoice)}
+                >{t('session.apps.all')}</Button
+              >
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={selected.length === 0}
+                onclick={() => store?.setApps(selected, appChoice)}
+                >{t('session.apps.selected')}</Button
+              >
+              <Button variant="secondary" size="sm" onclick={() => store?.setApps('all', null)}
+                >{t('session.apps.reset')}</Button
+              >
+            </div>
+            <p class="soft">{t('session.apps.hint')}</p>
+          </div>
+        {/if}
 
         <!-- "Мой экран" and a child's screen to the class (H14, CLAUDE.md §4.4). -->
         <div class="lockbox demobox">
@@ -998,6 +1052,13 @@
     margin: 0;
     font-size: var(--text-md);
     color: var(--c-danger-strong);
+  }
+  .appchecks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
   }
   .demoview {
     aspect-ratio: 16 / 9;

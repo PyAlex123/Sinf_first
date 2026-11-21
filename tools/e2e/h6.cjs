@@ -39,8 +39,12 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
         window.__toHost.push(m);
         if (m.type === 'launch')
           setTimeout(() => window.__emit({ type: 'app', running: true }), 50);
-        if (m.type === 'closeApps')
+        // "Close all" — the practice is over. "Close all but these" keeps Paint when it is allowed.
+        if (m.type === 'closeApps' && (!m.keep || !m.keep.includes('paint')))
           setTimeout(() => window.__emit({ type: 'app', running: false }), 50);
+        // The classroom app says which programs it has (H15).
+        if (m.type === 'hello')
+          setTimeout(() => window.__emit({ type: 'installed', apps: ['paint', 'notepad'] }), 20);
       },
       addEventListener: (_t, l) => listeners.push(l),
       removeEventListener: (_t, l) => listeners.splice(listeners.indexOf(l), 1),
@@ -94,7 +98,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   await teacher.locator('button:has-text("Пропустить")').click();
   await wait(600);
   const closed = await pc.evaluate(
-    () => window.__toHost.filter((m) => m.type === 'closeApps').length,
+    // "Close all": the practice is over (a "keep" list is the tiles changing, H15).
+    () => window.__toHost.filter((m) => m.type === 'closeApps' && !m.keep).length,
   );
   check('конец практики — приложение просят закрыть Paint', closed === 1, String(closed));
   check('после практики кнопки Paint нет', (await pc.locator('button.paint').count()) === 0);

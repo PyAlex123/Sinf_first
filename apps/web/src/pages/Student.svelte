@@ -7,7 +7,12 @@
   import { hostSend, onHostEvent, platform } from '../lib/platform.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
-  import { PRACTICE_STAGE_KEY, QUIZ_OPTION_LETTERS } from '@sinf/shared';
+  import {
+    PRACTICE_STAGE_KEY,
+    QUIZ_OPTION_LETTERS,
+    realMsUntilStageEnd,
+    type LessonApp,
+  } from '@sinf/shared';
   import Button from '../lib/ui/Button.svelte';
   import Icon from '../lib/ui/Icon.svelte';
   import QuizOption from '../lib/ui/QuizOption.svelte';
@@ -69,6 +74,30 @@
     hostSend({ type: 'thumbs', on });
     return () => hostSend({ type: 'thumbs', on: false });
   });
+  // The classroom app says which programs it has (H15).
+  $effect(() => {
+    if (inClassroomApp) hostSend({ type: 'hello' });
+  });
+  // The teacher took a program away: it closes, offering to save first (H15).
+  $effect(() => {
+    const keep = allowedApps;
+    if (inClassroomApp && paintRunning && !ended) hostSend({ type: 'closeApps', keep: [...keep] });
+  });
+  /** The working folder of this lesson: the child's files on this computer while it lasts (H15). */
+  $effect(() => {
+    if (!inClassroomApp || ended) return;
+    const token = readParticipantToken(sessionId);
+    if (!token) return;
+    hostSend({ type: 'folder', on: true, sessionId, token });
+    return () => hostSend({ type: 'folder', on: false, sessionId });
+  });
+  /** The stage's time for the strip over a program (H15). */
+  $effect(() => {
+    if (!inClassroomApp || !session || !bundle) return;
+    const left = realMsUntilStageEnd(session, bundle.lesson.stages, store?.now() ?? Date.now());
+    hostSend({ type: 'timer', inMs: left });
+  });
+
   // Leaving the practice closes its program; nothing else ever does, so the work is not lost early.
   let wasInPractice = false;
   $effect(() => {
@@ -88,6 +117,14 @@
       }
       if (event.type === 'app') {
         paintRunning = event.running;
+        return;
+      }
+      if (event.type === 'installed') {
+        installed = event.apps;
+        return;
+      }
+      if (event.type === 'saved') {
+        lastSaved = event.name;
         return;
       }
       if (event.type === 'hand') {
@@ -158,7 +195,21 @@
     !!session && !!bundle && bundle.lesson.stages[session.stage.index]?.key === PRACTICE_STAGE_KEY,
   );
   const paintLesson = $derived(!!bundle?.lesson.screens.some((s) => s.kind === 'step'));
+  /** A lesson program is open on this computer (H6; the app tells). */
   let paintRunning = $state(false);
+
+  /**
+   * Program tiles (CLAUDE.md §4.2; H15). The lesson gives its own — Paint on the practice of a club
+   * lesson — and the teacher may give others, to everybody or to this child. Only programs this
+   * computer has are shown.
+   */
+  let installed = $state<string[]>([]);
+  let lastSaved = $state<string | null>(null);
+  const lessonApps = $derived<LessonApp[]>(inPractice && paintLesson ? ['paint'] : []);
+  const allowedApps = $derived<LessonApp[]>(
+    (me ? session?.apps.byParticipant[me.id] : undefined) ?? session?.apps.all ?? lessonApps,
+  );
+  const tiles = $derived(allowedApps.filter((a) => installed.includes(a)));
 
   /**
    * The live quiz (S1.12). While it is on, it is the whole screen: the lesson waits, and the child
@@ -349,17 +400,23 @@
       {#if resting}
         <RestScreen />
       {/if}
-      {#if (step || (inClassroomApp && inPractice && paintLesson)) && !lock && !resting}
+      {#if (step || (inClassroomApp && tiles.length > 0)) && !lock && !resting}
         <div class="steps">
-          {#if inClassroomApp && inPractice && paintLesson}
-            <button
-              type="button"
-              class="paint"
-              onclick={() => hostSend({ type: 'launch', app: 'paint' })}
-            >
-              <Icon name="screen" size={20} />
-              {paintRunning ? t('student.paint.back') : t('student.paint.open')}
-            </button>
+          {#if inClassroomApp}
+            {#each tiles as app (app)}
+              <button
+                type="button"
+                class="paint"
+                data-app={app}
+                onclick={() => hostSend({ type: 'launch', app })}
+              >
+                <Icon name="screen" size={20} />
+                {paintRunning
+                  ? t('student.app.back', { app: t(`apps.${app}`) })
+                  : t('student.app.open', { app: t(`apps.${app}`) })}
+              </button>
+            {/each}
+            {#if lastSaved}<span class="saved">{t('student.saved', { name: lastSaved })}</span>{/if}
           {/if}
           {#if step}
             <button
@@ -485,6 +542,11 @@
       height: auto;
       border-radius: 0;
     }
+  }
+  .saved {
+    align-self: center;
+    color: var(--c-ok);
+    font-weight: 600;
   }
   .filmed {
     position: fixed;

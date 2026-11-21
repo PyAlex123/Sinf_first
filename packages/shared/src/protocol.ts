@@ -150,6 +150,25 @@ export const DemoStateSchema = z.strictObject({
 });
 export type DemoState = z.infer<typeof DemoStateSchema>;
 
+/**
+ * Programs a classroom computer may open (H15): only ids travel, a student computer finds the
+ * program itself and opens nothing else (apps/desktop-core/AppCatalog.cs).
+ */
+export const LESSON_APPS = ['paint', 'notepad', 'word', 'excel', 'powerpoint'] as const;
+export const LessonAppSchema = z.enum(LESSON_APPS);
+export type LessonApp = z.infer<typeof LessonAppSchema>;
+
+/**
+ * Which program tiles the children see (CLAUDE.md §4.2; H15). `all: null` — what the lesson's stage
+ * gives by itself; the teacher can change it for everybody or for chosen children. A new stage
+ * brings back the lesson's own set.
+ */
+export const AppsStateSchema = z.strictObject({
+  all: z.array(LessonAppSchema).nullable(),
+  byParticipant: z.record(id, z.array(LessonAppSchema)),
+});
+export type AppsState = z.infer<typeof AppsStateSchema>;
+
 export const SessionStateSchema = z.strictObject({
   id,
   lessonId: id,
@@ -167,6 +186,8 @@ export const SessionStateSchema = z.strictObject({
   quiz: QuizStateSchema.nullable().default(null),
   /** A screen broadcast, while it is on (H14). */
   demo: DemoStateSchema.nullable().default(null),
+  /** Program tiles set by the teacher (H15); by default the lesson's own. */
+  apps: AppsStateSchema.default({ all: null, byParticipant: {} }),
   participants: z.record(id, ParticipantSchema),
 });
 export type SessionState = z.infer<typeof SessionStateSchema>;
@@ -228,6 +249,13 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     source: z.union([z.literal('teacher'), id]),
   }),
   z.strictObject({ v, type: z.literal('teacher.demo.stop') }),
+  /** Program tiles for everybody or chosen children; null brings back the lesson's own (H15). */
+  z.strictObject({
+    v,
+    type: z.literal('teacher.apps.set'),
+    targets: LockTargetsSchema,
+    apps: z.array(LessonAppSchema).max(LESSON_APPS.length).nullable(),
+  }),
   z.strictObject({ v, type: z.literal('student.screen.set'), index: screenIndex }),
   z.strictObject({
     v,
@@ -307,6 +335,7 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({ v, type: z.literal('participant.updated'), participant: ParticipantSchema }),
   /** A screen broadcast started, changed or stopped (H14); the frames come as binary messages. */
   z.strictObject({ v, type: z.literal('demo.changed'), demo: DemoStateSchema.nullable() }),
+  z.strictObject({ v, type: z.literal('apps.changed'), apps: AppsStateSchema }),
   z.strictObject({ v, type: z.literal('session.ended') }),
   /** To teachers only: the latest thumbnail of one child's screen (H5). */
   z.strictObject({ v, type: z.literal('thumb'), participantId: id, jpeg: z.string().min(1) }),

@@ -1,5 +1,6 @@
 import {
   lockFor,
+  type LessonApp,
   type LockTargets,
   type Participant,
   type ScreenshotReason,
@@ -167,6 +168,11 @@ export class SessionStore {
     this.socket?.send({ type: 'teacher.demo.stop' });
   }
 
+  /** Program tiles for everybody or chosen children; null — the lesson's own (H15). */
+  setApps(targets: 'all' | string[], apps: LessonApp[] | null): void {
+    this.socket?.send({ type: 'teacher.apps.set', targets, apps });
+  }
+
   // ---------- screens of classroom computers (H5)
 
   /** Teacher: photograph these children's screens now, or everybody's. */
@@ -299,6 +305,9 @@ export class SessionStore {
         return;
       case 'thumb':
         this.thumbs = { ...this.thumbs, [m.participantId]: `data:image/jpeg;base64,${m.jpeg}` };
+        return;
+      case 'apps.changed':
+        if (this.state) this.state = { ...this.state, apps: m.apps };
         return;
       case 'demo.changed':
         if (this.state) this.state = { ...this.state, demo: m.demo };

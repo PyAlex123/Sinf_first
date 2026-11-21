@@ -140,6 +140,7 @@ export function createSessionState(input: NewSessionInput): SessionState {
     lock: { all: null, byParticipant: {} },
     quiz: null,
     demo: null,
+    apps: { all: null, byParticipant: {} },
     participants: {},
   };
 }
@@ -235,6 +236,11 @@ function goToStage(r: ReduceResult, index: number, now: number, plan: LessonPlan
   if (mode !== r.state.mode) {
     r.state = { ...r.state, mode };
     r.broadcast.push({ v, type: 'mode.changed', mode });
+  }
+  // A new stage brings its own programs back (H15).
+  if (r.state.apps.all !== null || Object.keys(r.state.apps.byParticipant).length > 0) {
+    r.state = { ...r.state, apps: { all: null, byParticipant: {} } };
+    r.broadcast.push({ v, type: 'apps.changed', apps: r.state.apps });
   }
   r.activity.push({
     type: 'stage_change',
@@ -455,6 +461,25 @@ function command(
         type: 'demo_start',
         participantId: m.source === 'teacher' ? null : m.source,
       });
+      return r;
+    }
+    case 'teacher.apps.set': {
+      const apps = r.state.apps;
+      let next: SessionState['apps'];
+      if (m.targets === 'all') {
+        // For everybody: individual sets give way to it.
+        next = { all: m.apps, byParticipant: {} };
+      } else {
+        const byParticipant = { ...apps.byParticipant };
+        for (const pid of m.targets) {
+          if (!r.state.participants[pid]) continue;
+          if (m.apps === null) delete byParticipant[pid];
+          else byParticipant[pid] = m.apps;
+        }
+        next = { all: apps.all, byParticipant };
+      }
+      r.state = { ...r.state, apps: next };
+      r.broadcast.push({ v, type: 'apps.changed', apps: next });
       return r;
     }
     case 'teacher.demo.stop':

@@ -563,5 +563,21 @@
   "share.appOnly": "O‘z ekraningizni faqat o‘qituvchi kompyuteridagi Sinf ilovasi ko‘rsatadi. O‘quvchi ekrani — uning ekrani oynasidagi «Hammaga ko‘rsatish» tugmasi.",
   "share.showChild": "Hammaga ko‘rsatish",
   "share.watching": "O‘qituvchi ekrani",
-  "share.yours": "Sening ekraning sinfga ko‘rsatilmoqda"
+  "share.yours": "Sening ekraning sinfga ko‘rsatilmoqda",
+  "apps.paint": "Paint",
+  "apps.notepad": "Bloknot",
+  "apps.word": "Word",
+  "apps.excel": "Excel",
+  "apps.powerpoint": "PowerPoint",
+  "student.app.open": "{app} ni ochish",
+  "student.app.back": "{app} ga qaytish",
+  "student.saved": "Saqlandi: {name}",
+  "session.apps": "O‘quvchilardagi dasturlar",
+  "session.apps.lesson": "Hozir — darsdagidek",
+  "session.apps.now": "Hozir hammada: {list}",
+  "session.apps.none": "hech narsa",
+  "session.apps.all": "Hammaga",
+  "session.apps.selected": "Tanlanganlarga",
+  "session.apps.reset": "Darsdagidek",
+  "session.apps.hint": "Faqat sinf kompyuterlarida va faqat ularda o‘rnatilgan dasturlar."
 }
