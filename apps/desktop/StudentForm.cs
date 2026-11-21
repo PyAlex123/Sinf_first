@@ -892,7 +892,8 @@ internal sealed class StudentForm : Form
 
             HostConfig.Save(paths, config with { Role = setup.Role, PcName = setup.PcName });
             // The new role takes effect in a fresh start of the app.
-            System.Diagnostics.Process.Start(Application.ExecutablePath)?.Dispose();
+            // It waits for this one to close (one Sinf per session, H17).
+            System.Diagnostics.Process.Start(Application.ExecutablePath, "--restart")?.Dispose();
         }
 
         LeaveKiosk();

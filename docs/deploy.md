@@ -186,6 +186,19 @@ Windows (шаг 6.4); полный список — `docs/escape-checklist.md`.
 - Просит WebView2 Runtime — согласиться на установку (или поставить Microsoft Edge WebView2 Runtime вручную).
 - «Сервер не ответил» — посмотреть `%LOCALAPPDATA%\Sinf\logs\server.log`.
 
+**Установщик (этап 3, H17, ADR-018).** Вместо архива можно поставить Sinf установщиком: Actions →
+**Windows app** → Artifacts → `Sinf-setup-x64`. В нём WebView2 и правила брандмауэра. Тихо, без
+вопросов, на каждый ПК класса (от администратора):
+
+```powershell
+.\Sinf-setup-0.3.N.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05
+.\Sinf-setup-0.3.N.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=teacher
+```
+
+Без параметров установщик спросит роль и имя ПК сам. ПК ученика запускает Sinf вместе с Windows для
+любого пользователя. Удаление — «Приложения» Windows или `C:\Program Files\Sinf\unins000.exe
+/VERYSILENT`; данные в `%LOCALAPPDATA%\Sinf` остаются.
+
 **Собрать самому** (нужен Windows, Node 22, .NET 10 SDK):
 
 ```powershell
@@ -193,6 +206,8 @@ pnpm install
 pnpm build
 dotnet publish apps/desktop/Sinf.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ./tools/package-windows.ps1
+# установщик (Inno Setup 6); WebView2 кладётся в tools/installer/redist/ заранее
+iscc tools/installer/sinf.iss
 ```
 
 ---

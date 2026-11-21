@@ -31,6 +31,8 @@ apps/**/bin/
 apps/**/obj/
 apps/**/TestResults/
 /out/
+# The WebView2 offline installer is downloaded by CI into the setup, not kept in git (H17)
+tools/installer/redist/
 
 # Снимки и временные базы сквозных сценариев (tools/e2e/README.md)
 tools/e2e/out/

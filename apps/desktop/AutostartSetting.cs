@@ -11,6 +11,14 @@ internal static class AutostartSetting
         try
         {
             using var key = Registry.CurrentUser.CreateSubKey(Autostart.RunKey, writable: true);
+            // The installer starts Sinf for every user of this computer (HKLM, H17): the user's own
+            // entry would only start a second copy, which steps aside at once.
+            if (on && InstalledForEveryone())
+            {
+                key.DeleteValue(Autostart.ValueName, throwOnMissingValue: false);
+                return;
+            }
+
             if (on)
             {
                 key.SetValue(Autostart.ValueName, Autostart.CommandFor(Application.ExecutablePath));
@@ -24,5 +32,12 @@ internal static class AutostartSetting
         {
             // A locked-down profile: the computer simply does not start Sinf by itself.
         }
+    }
+
+    private static bool InstalledForEveryone()
+    {
+        using var machine = Registry.LocalMachine.OpenSubKey(Autostart.RunKey);
+        return machine?.GetValue(Autostart.ValueName) is string command
+            && command.Contains(Application.ExecutablePath, StringComparison.OrdinalIgnoreCase);
     }
 }
