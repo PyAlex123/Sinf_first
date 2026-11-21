@@ -1,0 +1,85 @@
+{
+  "id": "proba-dokument",
+  "group": "krujok",
+  "num": 90,
+  "title": "Образец: Оформи документ",
+  "sub": "Практика в Word с автопроверкой (образец разработчика)",
+  "icon": "<svg viewBox=\"0 0 200 150\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"200\" height=\"150\" fill=\"#e8f0fe\"></rect><rect x=\"58\" y=\"18\" width=\"84\" height=\"114\" rx=\"6\" fill=\"#fff\" stroke=\"#2b579a\" stroke-width=\"4\"></rect><rect x=\"70\" y=\"34\" width=\"60\" height=\"10\" rx=\"3\" fill=\"#2b579a\"></rect><rect x=\"70\" y=\"54\" width=\"60\" height=\"6\" rx=\"3\" fill=\"#9fb3d1\"></rect><rect x=\"70\" y=\"66\" width=\"52\" height=\"6\" rx=\"3\" fill=\"#9fb3d1\"></rect><circle cx=\"74\" cy=\"86\" r=\"3\" fill=\"#2b579a\"></circle><rect x=\"82\" y=\"83\" width=\"40\" height=\"6\" rx=\"3\" fill=\"#9fb3d1\"></rect><circle cx=\"74\" cy=\"100\" r=\"3\" fill=\"#2b579a\"></circle><rect x=\"82\" y=\"97\" width=\"34\" height=\"6\" rx=\"3\" fill=\"#9fb3d1\"></rect><circle cx=\"150\" cy=\"112\" r=\"20\" fill=\"#2e9d5b\"></circle><path d=\"M140 112 L148 120 L161 104\" fill=\"none\" stroke=\"#fff\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"></path></svg>",
+  "stages": [
+    {
+      "key": "greeting",
+      "title": "приветствие",
+      "startMin": 0,
+      "endMin": 2,
+      "place": "projector"
+    },
+    {
+      "key": "theory",
+      "title": "задание",
+      "startMin": 2,
+      "endMin": 8,
+      "place": "projector"
+    },
+    {
+      "key": "practice",
+      "title": "практика в Word",
+      "startMin": 8,
+      "endMin": 38,
+      "place": "computer"
+    },
+    {
+      "key": "reflection",
+      "title": "рефлексия",
+      "startMin": 38,
+      "endMin": 42,
+      "place": "projector"
+    },
+    {
+      "key": "summary",
+      "title": "итог",
+      "startMin": 42,
+      "endMin": 45,
+      "place": "projector"
+    }
+  ],
+  "screens": [
+    {
+      "kind": "slide",
+      "stage": "greeting",
+      "layout": "title",
+      "html": "<div class=\"s-title\"><div class=\"s-kicker\">Образец практики · не авторский урок</div><h1>Оформи документ</h1><p>Работаем в настоящем Word, а компьютер проверяет файл</p></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Задание</div><h2>Что нужно сделать</h2><ul class=\"s-list\"><li>Название — стиль «Заголовок 1», по центру</li><li>Весь текст — шрифт 14 пт</li><li>Части компьютера — маркированный список</li><li>Таблица из трёх строк и двух столбцов</li><li>Сохрани файл: Ctrl + S</li></ul></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "theory",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Теоретическая часть</div><div class=\"s-num\">Подсказки</div><h2>Где это в Word</h2><ul class=\"s-list\"><li>Стили — вкладка «Главная», справа</li><li>Шрифт и размер — там же, слева</li><li>Список — кнопка с точками</li><li>Таблица — вкладка «Вставка» → «Таблица»</li></ul></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "practice",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Практическая часть</div><div class=\"s-num\">Практика</div><h2>Открой «Оформи документ»</h2><ul class=\"s-list\"><li>Нажми кнопку Word внизу экрана</li><li>Оформи документ по заданию</li><li>Сохраняй почаще: Ctrl + S</li><li>Справа видно, что уже получилось</li></ul></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "reflection",
+      "layout": "text",
+      "html": "<div class=\"s-text\"><div class=\"s-stage\">Рефлексия</div><div class=\"s-num\">Рефлексия</div><h2>Что получилось?</h2><ul class=\"s-list\"><li>Какой пункт был самым трудным?</li><li>Как быстро сделать заголовок?</li><li>Где пригодится такой документ?</li></ul></div>"
+    },
+    {
+      "kind": "slide",
+      "stage": "summary",
+      "layout": "title",
+      "html": "<div class=\"s-title\"><div class=\"s-kicker\">Итог урока</div><h1>Документ оформлен!</h1><p>Учитель посмотрит работы и поставит оценки</p></div>"
+    }
+  ],
+  "teacherScenario": "/content/proba-praktiki/scenarios/proba-dokument.html",
+  "media": []
+}

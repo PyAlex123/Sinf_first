@@ -8,6 +8,7 @@
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { readParticipantToken, SessionStore } from '../lib/stores/session.svelte.js';
   import {
+    LESSON_APPS,
     PRACTICE_STAGE_KEY,
     QUIZ_OPTION_LETTERS,
     realMsUntilStageEnd,
@@ -22,6 +23,7 @@
   import StageTimer from '../lib/ui/StageTimer.svelte';
   import LessonPlayer from '../player/LessonPlayer.svelte';
   import FilesPanel from '../lib/ui/FilesPanel.svelte';
+  import PracticeCard from '../lib/ui/PracticeCard.svelte';
 
   let { params }: PageProps = $props();
   const sessionId = $derived(params['id'] ?? '');
@@ -205,7 +207,22 @@
    */
   let installed = $state<string[]>([]);
   let lastSaved = $state<string | null>(null);
-  const lessonApps = $derived<LessonApp[]>(inPractice && paintLesson ? ['paint'] : []);
+  /** The practice task in a real program (H16): its program is the practice's tile. */
+  const task = $derived(bundle?.practice ?? null);
+  const taskApp = $derived<LessonApp | null>(
+    task && (LESSON_APPS as readonly string[]).includes(task.app) ? (task.app as LessonApp) : null,
+  );
+  const lessonApps = $derived<LessonApp[]>(
+    !inPractice ? [] : paintLesson ? ['paint'] : taskApp ? [taskApp] : [],
+  );
+  /** The program opens the practice's file from the lesson's working folder (H15). */
+  function launch(app: LessonApp): void {
+    hostSend(
+      app === taskApp && task
+        ? { type: 'launch', app, file: task.fileName }
+        : { type: 'launch', app },
+    );
+  }
   const allowedApps = $derived<LessonApp[]>(
     (me ? session?.apps.byParticipant[me.id] : undefined) ?? session?.apps.all ?? lessonApps,
   );
@@ -404,12 +421,7 @@
         <div class="steps">
           {#if inClassroomApp}
             {#each tiles as app (app)}
-              <button
-                type="button"
-                class="paint"
-                data-app={app}
-                onclick={() => hostSend({ type: 'launch', app })}
-              >
+              <button type="button" class="paint" data-app={app} onclick={() => launch(app)}>
                 <Icon name="screen" size={20} />
                 {paintRunning
                   ? t('student.app.back', { app: t(`apps.${app}`) })
@@ -478,6 +490,17 @@
           </button>
         {/if}
       </div>
+      {#if inPractice && task && !lock && !resting && !quiz && !fullscreenDemo}
+        <PracticeCard
+          {task}
+          check={me?.check ?? null}
+          classroom={inClassroomApp}
+          access={!inClassroomApp && filesToken
+            ? { kind: 'lesson', sessionId, token: filesToken }
+            : null}
+          onOpen={() => taskApp && launch(taskApp)}
+        />
+      {/if}
       {#if watching && store && demo && !lock}
         {#await import('../lib/ui/ScreenView.svelte') then { default: ScreenView }}
           <div

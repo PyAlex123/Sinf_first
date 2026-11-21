@@ -679,6 +679,21 @@
                       </span>
                     </div>
                   {/if}
+                  {#if p.check}
+                    <!-- The practice file, checked at every save (H16). -->
+                    <div class="tmeta">
+                      <span
+                        class="check"
+                        class:full={p.check.passed === p.check.total}
+                        data-check={`${p.check.passed}/${p.check.total}`}
+                      >
+                        {t('session.check', { passed: p.check.passed, total: p.check.total })}
+                      </span>
+                      {#if p.check.file !== 'ok'}<span class="flag away"
+                          >{t('session.check.look')}</span
+                        >{/if}
+                    </div>
+                  {/if}
                   {#if stepScreens.length > 0}
                     <div class="tmeta">
                       <span>
@@ -1274,5 +1289,12 @@
     .panel {
       grid-template-columns: minmax(0, 1fr) 300px;
     }
+  }
+  .check {
+    font-weight: 700;
+    color: var(--c-teal);
+  }
+  .check.full {
+    color: var(--c-ok);
   }
 </style>

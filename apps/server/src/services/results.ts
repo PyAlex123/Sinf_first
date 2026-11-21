@@ -7,14 +7,18 @@ import {
   lessonDate,
   practiceStepCount,
   PRACTICE_MAX_STARS,
+  practiceScore,
   scorePercent,
   SessionStateSchema,
   trainerMaxStars,
   type ClassSettings,
   type Journal,
   type JournalCell,
+  type ResultCheck,
+  type ResultPractice,
   type ResultRow,
   type SessionResults,
+  type PracticeTask,
   type SetGrades,
 } from '@sinf/shared';
 import type { ContentStore } from '../content/index.js';
@@ -45,7 +49,15 @@ const fullName = (s: { lastName: string; firstName: string }): string =>
 /** Everything a set of lessons left behind, read in four queries whatever the number of lessons. */
 function loadRows(db: Db, sessionIds: string[]) {
   if (sessionIds.length === 0) {
-    return { attendance: [], screens: [], practice: [], quiz: [], shots: [], grades: [] };
+    return {
+      attendance: [],
+      screens: [],
+      practice: [],
+      checks: [],
+      quiz: [],
+      shots: [],
+      grades: [],
+    };
   }
   return {
     attendance: db
@@ -62,6 +74,11 @@ function loadRows(db: Db, sessionIds: string[]) {
       .select()
       .from(schema.practiceResults)
       .where(inArray(schema.practiceResults.sessionId, sessionIds))
+      .all(),
+    checks: db
+      .select()
+      .from(schema.practiceChecks)
+      .where(inArray(schema.practiceChecks.sessionId, sessionIds))
       .all(),
     quiz: db
       .select()
@@ -103,6 +120,33 @@ function stepsFromSnapshot(session: SessionRow): Map<string, number> {
   return steps;
 }
 
+type CheckRow = typeof schema.practiceChecks.$inferSelect;
+
+/**
+ * A child's practice at the lesson (H16): what was handed in, or until then the version checked last,
+ * with the teacher's marks over the checker's verdicts. Null when the child neither saved nor was
+ * marked.
+ */
+function resultCheck(task: PracticeTask, row: CheckRow | undefined): ResultCheck | null {
+  if (!row) return null;
+  const handedIn = !!row.submittedSha && !!row.submittedReport;
+  const report = handedIn ? row.submittedReport : row.report;
+  const score = practiceScore(task, report, row.marks);
+  const found: Record<string, string> = {};
+  for (const r of report?.results ?? []) if (r.found) found[r.id] = r.found;
+  return {
+    fileName: (handedIn ? row.submittedName : row.fileName) ?? null,
+    file: report?.file ?? null,
+    outcomes: score.outcomes,
+    found,
+    marks: row.marks,
+    points: score.points,
+    max: score.max,
+    submitted: handedIn,
+    checkedAt: (handedIn ? row.submittedAt : row.checkedAt) ?? null,
+  };
+}
+
 function computeSession(
   session: SessionRow,
   cls: ClassRow,
@@ -112,6 +156,7 @@ function computeSession(
 ): SessionResults {
   const lesson = content.getLesson(session.lessonId);
   const quiz = content.getQuiz(session.lessonId);
+  const task = content.getPractice(session.lessonId) ?? null;
   const mine = <T extends { sessionId: string }>(list: T[]): T[] =>
     list.filter((r) => r.sessionId === session.id);
   const attendance = mine(rows.attendance);
@@ -120,6 +165,7 @@ function computeSession(
   const answers = mine(rows.quiz);
   const shots = mine(rows.shots);
   const confirmed = rows.grades.filter((g) => g.sessionId === session.id);
+  const checks = mine(rows.checks);
 
   const practiceSteps = lesson ? practiceStepCount(lesson) : 0;
   const maxima = {
@@ -128,6 +174,8 @@ function computeSession(
     practice: practiceSteps > 0 && practice.length > 0 ? PRACTICE_MAX_STARS : 0,
     // Questions that were really asked: someone answered them.
     quiz: new Set(answers.map((a) => a.questionIndex)).size,
+    // The practice in a real program counts once anybody saved a file or was marked (H16).
+    check: task && checks.length > 0 ? task.criteria.reduce((sum, c) => sum + c.points, 0) : 0,
   };
   const settings: ClassSettings = cls.settings;
   const thresholds = settings.gradeThresholds ?? DEFAULT_GRADE_THRESHOLDS;
@@ -138,6 +186,7 @@ function computeSession(
     ...attendance.map((a) => a.studentId),
     ...screens.map((r) => r.studentId),
     ...practice.map((r) => r.studentId),
+    ...checks.map((r) => r.studentId),
     ...answers.map((r) => r.studentId),
   ]);
   const people = students.filter((s) => ids.has(s.id)).sort(byStudentName);
@@ -153,8 +202,22 @@ function computeSession(
     const trainerStars = ownScreens.reduce((sum, r) => sum + r.stars, 0);
     const practiceStars = ownPractice?.stars ?? null;
     const quizCorrect = ownAnswers.filter((a) => a.correct).length;
+    const check = task
+      ? resultCheck(
+          task,
+          checks.find((c) => c.studentId === student.id),
+        )
+      : null;
     const percent = present
-      ? scorePercent({ trainerStars, practiceStars: practiceStars ?? 0, quizCorrect }, maxima)
+      ? scorePercent(
+          {
+            trainerStars,
+            practiceStars: practiceStars ?? 0,
+            quizCorrect,
+            checkPoints: check?.points ?? 0,
+          },
+          maxima,
+        )
       : null;
     // The latest photograph is the one that counts: the practice as it ended (H5).
     const shot = shots
@@ -183,6 +246,7 @@ function computeSession(
       quizPoints: ownAnswers.reduce((sum, a) => sum + a.points, 0),
       quizCorrect,
       quizAnswered: ownAnswers.length,
+      check,
       totalStars: trainerStars + (practiceStars ?? 0),
       percent,
       grade: confirmedGrade ?? suggestedGrade,
@@ -206,6 +270,18 @@ function computeSession(
       thresholds,
     },
     maxima,
+    practice: task
+      ? ({
+          app: task.app,
+          fileName: task.fileName,
+          criteria: task.criteria.map((c) => ({
+            id: c.id,
+            kind: c.kind,
+            label: c.label,
+            points: c.points,
+          })),
+        } satisfies ResultPractice)
+      : null,
     practiceSteps,
     quizQuestions: quiz?.questions.length ?? 0,
     presentCount: result.filter((r) => r.present).length,

@@ -171,7 +171,7 @@ describe('lesson results', () => {
 
     // g10: nine levels and three typed words — 16 stars; one Paint slide, but no drawing stars
     // given, so the drawing does not count; two quiz questions were asked.
-    expect(r.maxima).toEqual({ trainer: 16, practice: 0, quiz: 2 });
+    expect(r.maxima).toEqual({ trainer: 16, practice: 0, quiz: 2, check: 0 });
     expect(r.practiceSteps).toBe(1);
     expect(r.quizQuestions).toBe(6);
 
@@ -226,7 +226,7 @@ describe('lesson results', () => {
 
     const r = await results(id);
     // k10: three typed words and sixteen Paint steps.
-    expect(r.maxima).toEqual({ trainer: 3, practice: 3, quiz: 0 });
+    expect(r.maxima).toEqual({ trainer: 3, practice: 3, quiz: 0, check: 0 });
     expect(r.practiceSteps).toBe(16);
     expect(r.rows.find((row) => row.studentId === 'student-01')).toMatchObject({
       trainerStars: 3,

@@ -15,6 +15,7 @@ import {
   type ActivityRecord,
   type LessonPlan,
   type Participant,
+  type PracticeCheckState,
   type Role,
   type ServerMessage,
   type SessionEvent,
@@ -77,14 +78,22 @@ type PersistedState = {
 
 const SAVE_DEBOUNCE_MS = 2000;
 
+/**
+ * After the lesson ends a classroom computer still sends the last saves of its working folder (H15):
+ * the lesson tokens keep opening the child's own folder for this long, and nothing else.
+ */
+export const FILES_AFTER_END_MS = 2 * 60_000;
+
 export class SessionStore {
   private readonly live = new Map<string, LiveSession>();
+  /** Tokens of lessons that ended a moment ago, for the last saves only. */
+  private readonly closing = new Map<string, { tokens: Map<string, string>; until: number }>();
 
   constructor(
     private readonly db: Db,
     private readonly content: ContentStore,
     private readonly log: FastifyBaseLogger,
-    private readonly now: () => number = Date.now,
+    private readonly now: () => number = () => Date.now(),
   ) {}
 
   /**
@@ -96,6 +105,12 @@ export class SessionStore {
   onDemoChanged: ((sessionId: string, demo: SessionState['demo']) => void) | null = null;
   /** A socket joined a room; during a broadcast it needs a whole picture to start from (H14). */
   onAttached: ((sessionId: string, socket: RoomSocket) => void) | null = null;
+  /**
+   * The practice's works are handed in (H16; CLAUDE.md §4.8): with the photographs before its end and
+   * when it is over, and when the lesson ends. Called before the lesson's rows are closed.
+   */
+  onHandIn:
+    ((sessionId: string, reason: 'before_end' | 'stage_end' | 'session_end') => void) | null = null;
 
   /** Starts a session for a class; the previous active session of the class is ended. */
   create(input: {
@@ -386,6 +401,18 @@ export class SessionStore {
     this.apply(id, session, result, socket);
   }
 
+  /** The lesson server checked a child's saved practice file (H16): the tile and the check-list follow. */
+  practiceChecked(id: string, participantId: string, check: PracticeCheckState): void {
+    const session = this.live.get(id);
+    if (!session || session.state.status !== 'active') return;
+    const result = reduce(
+      session.state,
+      { kind: 'practice.checked', participantId, check, now: this.now() },
+      session.plan,
+    );
+    this.apply(id, session, result, null);
+  }
+
   /**
    * The participant behind a token from `POST /api/join` — how a classroom computer proves who it is
    * when it uploads a screenshot (H5).
@@ -393,6 +420,23 @@ export class SessionStore {
   participantByToken(id: string, token: string): string | undefined {
     const session = this.get(id);
     return session?.state.status === 'active' ? session.tokens.get(token) : undefined;
+  }
+
+  /**
+   * The child behind a lesson token, for their own files: while the lesson runs, and for
+   * `FILES_AFTER_END_MS` after it ended, so the last save of the working folder is not lost (H16).
+   */
+  studentByToken(id: string, token: string): string | undefined {
+    const participantId = this.participantByToken(id, token);
+    if (participantId)
+      return this.getState(id)?.participants[participantId]?.studentId ?? undefined;
+    const closing = this.closing.get(id);
+    if (!closing) return undefined;
+    if (this.now() > closing.until) {
+      this.closing.delete(id);
+      return undefined;
+    }
+    return closing.tokens.get(token);
   }
 
   private teacherWatching(session: LiveSession): boolean {
@@ -508,6 +552,12 @@ export class SessionStore {
       }
       const demo = result.broadcast.find((m) => m.type === 'demo.changed');
       if (demo) this.onDemoChanged?.(id, result.state.demo);
+      // The photographs of the whole class at the practice's end are the moment of handing in.
+      for (const m of result.broadcast) {
+        if (m.type === 'screenshot.request' && m.targets === 'all' && m.reason !== 'manual') {
+          this.onHandIn?.(id, m.reason);
+        }
+      }
     }
     this.recordActivity(id, session, result.activity);
     if (result.state.status === 'ended') {
@@ -696,6 +746,7 @@ export class SessionStore {
   }
 
   private finish(id: string, session: LiveSession): void {
+    this.onHandIn?.(id, 'session_end');
     if (session.timer) {
       clearTimeout(session.timer);
       session.timer = null;
@@ -718,6 +769,18 @@ export class SessionStore {
       socket.close(1000, 'session ended');
     }
     session.sockets.clear();
+    for (const [key, value] of this.closing) {
+      if (this.now() > value.until) this.closing.delete(key);
+    }
+    this.closing.set(id, {
+      tokens: new Map(
+        [...session.tokens].flatMap(([token, pid]): [string, string][] => {
+          const studentId = session.state.participants[pid]?.studentId;
+          return studentId ? [[token, studentId]] : [];
+        }),
+      ),
+      until: this.now() + FILES_AFTER_END_MS,
+    });
     this.live.delete(id);
     this.log.info({ sessionId: id }, 'session ended');
     this.onSessionEnded?.(id);

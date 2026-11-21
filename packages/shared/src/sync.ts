@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ClassSettingsSchema, SchoolRoleSchema } from './api.js';
 import { LocaleSchema } from './locale.js';
+import { CheckReportSchema, PracticeMarksSchema } from './practice.js';
 
 /**
  * What a school computer and the platform say to each other (S2.6, ADR-011).
@@ -124,6 +125,26 @@ export const LessonSyncGradeSchema = z.strictObject({
 });
 
 /**
+ * A child's practice file at the lesson (H16): the version handed in (or the latest one checked),
+ * what the checker said and the teacher's marks. The file itself travels with "Мои работы" (H12).
+ */
+export const LessonSyncCheckSchema = z.strictObject({
+  studentId: id,
+  /** The three are null when the child saved nothing and only the teacher's marks are there. */
+  fileName: z.string().min(1).max(260).nullable(),
+  fileSha: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable(),
+  report: CheckReportSchema.nullable(),
+  marks: PracticeMarksSchema,
+  checkedAt: at.nullable(),
+  /** Set when this is the version handed in (CLAUDE.md §4.8). */
+  submittedAt: at.nullable(),
+});
+export type LessonSyncCheck = z.infer<typeof LessonSyncCheckSchema>;
+
+/**
  * One lesson as a whole. Attendance and stars are what the journal is made of (the author's choice
  * for this step); what happened during the lesson — raised hands, leaving the tab, "Attention!" —
  * stays on the computer where it is useful, and is not shipped to the cloud.
@@ -139,6 +160,8 @@ export const LessonSyncBundleSchema = z.strictObject({
    * lesson with this list. Absent from a school computer that does not know grades yet (before H10).
    */
   grades: z.array(LessonSyncGradeSchema).optional(),
+  /** Practice files and their criteria (H16), replaced as a whole like the grades. */
+  checks: z.array(LessonSyncCheckSchema).optional(),
 });
 export type LessonSyncBundle = z.infer<typeof LessonSyncBundleSchema>;
 

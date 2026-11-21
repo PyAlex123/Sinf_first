@@ -15,6 +15,7 @@ import {
   SyncStatusSchema,
 } from '@sinf/shared';
 import { buildApp } from '../src/app.js';
+import { REPO_ROOT } from '../src/config.js';
 import { openDatabase, schema, type DatabaseHandle } from '../src/db/index.js';
 import { runMigrations } from '../src/db/migrate.js';
 import { DEMO } from '../src/db/seed.js';
@@ -503,6 +504,90 @@ describe('results going up', () => {
     await vi.waitFor(async () => {
       await worker.push();
       expect(inCloud()).toHaveLength(0);
+    });
+  });
+});
+
+describe('the practice going up (H16)', () => {
+  it('carries the work handed in and the teacher’s marks to the platform’s results', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    const created = await school.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      headers: { cookie },
+      payload: { classId: DEMO.classId, lessonId: 'proba-dokument' },
+    });
+    const { session } = SessionResponseSchema.parse(created.json());
+    const student = schoolDb.db
+      .select()
+      .from(schema.students)
+      .where(eq(schema.students.id, 'student-01'))
+      .get();
+    if (!student) throw new Error('no student');
+    const joined = await school.inject({
+      method: 'POST',
+      url: '/api/join',
+      payload: {
+        sessionId: session.id,
+        studentId: student.id,
+        code: student.codePublic.split('+'),
+      },
+    });
+    const { token } = JoinResponseSchema.parse(joined.json());
+    const lesson = { 'x-session-id': session.id, 'x-participant-token': token };
+    const folder = StudentFilesResponseSchema.parse(
+      (await school.inject({ method: 'GET', url: '/api/my/files', headers: lesson })).json(),
+    );
+    const template = folder.files.find((f) => f.name === 'Оформи документ.docx');
+    expect(template).toBeDefined();
+    const done = readFileSync(
+      join(REPO_ROOT, 'apps/server/test/fixtures/practice/oformi-dokument-done.docx'),
+    );
+    const saved = await school.inject({
+      method: 'PUT',
+      url: `/api/my/files?name=${encodeURIComponent('Оформи документ.docx')}&base=${template?.sha256 ?? ''}`,
+      headers: { ...lesson, 'content-type': 'application/octet-stream' },
+      payload: done,
+    });
+    expect(saved.statusCode).toBe(200);
+    await school.inject({
+      method: 'PUT',
+      url: `/api/sessions/${session.id}/practice-marks`,
+      headers: { cookie },
+      payload: { studentId: 'student-01', marks: { spelling: true } },
+    });
+    await school.inject({
+      method: 'POST',
+      url: `/api/sessions/${session.id}/end`,
+      headers: { cookie },
+    });
+
+    const cloudRow = async () =>
+      SessionResultsSchema.parse(
+        (
+          await cloud.app.inject({
+            method: 'GET',
+            url: `/api/sessions/${session.id}/results`,
+            headers: { cookie: cloudCookie },
+          })
+        ).json(),
+      ).rows.find((r) => r.studentId === 'student-01');
+    await vi.waitFor(async () => {
+      await worker.push();
+      expect((await cloudRow())?.check).toMatchObject({ points: 12, max: 14, submitted: true });
+    });
+
+    // A mark after the lesson sends the lesson again.
+    await school.inject({
+      method: 'PUT',
+      url: `/api/sessions/${session.id}/practice-marks`,
+      headers: { cookie },
+      payload: { studentId: 'student-01', marks: { neat: true } },
+    });
+    await vi.waitFor(async () => {
+      await worker.push();
+      expect((await cloudRow())?.check?.points).toBe(14);
     });
   });
 });

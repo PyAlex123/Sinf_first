@@ -34,7 +34,7 @@ import {
   storeUpload,
   UploadGate,
 } from '../services/student-files.js';
-import { asciiFileName } from './results.js';
+import { attachmentHeader } from './results.js';
 
 /**
  * "Мои работы" (CLAUDE.md §4.9; stage 3, H12; ADR-015).
@@ -69,10 +69,7 @@ const LookupBody = z.strictObject({ classCode: ClassCodeSchema });
 
 type StudentRow = typeof schema.students.$inferSelect;
 
-/** RFC 6266: a Latin fallback for old clients, the real name for everyone else. */
-export function attachmentHeader(name: string, inline = false): string {
-  return `${inline ? 'inline' : 'attachment'}; filename="${asciiFileName(name)}"; filename*=UTF-8''${encodeURIComponent(name)}`;
-}
+export { attachmentHeader };
 
 const IMAGE_TYPES: Record<string, string> = {
   png: 'image/png',
@@ -109,10 +106,7 @@ export const fileRoutes: FastifyPluginCallback<{ store: SessionStore }> = (app, 
     const sessionId = request.headers['x-session-id'];
     const token = request.headers['x-participant-token'];
     if (typeof sessionId === 'string' && typeof token === 'string') {
-      const participantId = store.participantByToken(sessionId, token);
-      const studentId = participantId
-        ? store.getState(sessionId)?.participants[participantId]?.studentId
-        : undefined;
+      const studentId = store.studentByToken(sessionId, token);
       if (studentId) return studentRow(studentId);
     }
     const raw = request.cookies[STUDENT_COOKIE];
@@ -183,6 +177,16 @@ export const fileRoutes: FastifyPluginCallback<{ store: SessionStore }> = (app, 
   app.put('/my/files', async (request): Promise<FileUploadResponse> => {
     const child = childOf(request);
     const result = await upload(request, child, originOf(request, child));
+    // Saved during a lesson: the practice's file is checked before the answer goes (H16).
+    const sessionId = request.headers['x-session-id'];
+    const token = request.headers['x-participant-token'];
+    const inLesson =
+      typeof sessionId === 'string' &&
+      typeof token === 'string' &&
+      store.studentByToken(sessionId, token) === child.id;
+    if (inLesson && !result.unchanged) {
+      await app.practice.fileSaved(sessionId, child.id, result.file);
+    }
     request.log.info(
       {
         studentId: child.id,

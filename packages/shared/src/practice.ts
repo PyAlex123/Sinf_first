@@ -305,3 +305,97 @@ export const CheckReportSchema = z.strictObject({
   ms: z.number().nonnegative(),
 });
 export type CheckReport = z.infer<typeof CheckReportSchema>;
+
+// ---------- the practice in a lesson (stage 3, H16)
+
+const criterionId = z.string().regex(/^[A-Za-z0-9_-]{1,40}$/);
+
+/**
+ * What the lesson's state carries about a child's latest checked file: enough for the teacher's tile
+ * ("3/5") and the child's check-list. Only the automatic criteria: the manual ones are the teacher's.
+ */
+export const PracticeCheckStateSchema = z.strictObject({
+  fileName: z.string().min(1).max(260),
+  file: CheckReportSchema.shape.file,
+  /** Automatic criteria that passed, of all automatic criteria. */
+  passed: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+  outcomes: z.record(criterionId, CheckOutcomeSchema),
+  /** Server time of the check. */
+  at: z.number(),
+});
+export type PracticeCheckState = z.infer<typeof PracticeCheckStateSchema>;
+
+/** The teacher's marks: a manual criterion met or not, or an automatic one decided by hand. */
+export const PracticeMarksSchema = z.record(criterionId, z.boolean());
+export type PracticeMarks = z.infer<typeof PracticeMarksSchema>;
+
+/** `null` takes a mark back: a manual criterion is unmarked again, an automatic one is the checker's. */
+export const SetPracticeMarksSchema = z.strictObject({
+  studentId: z.string().min(1),
+  marks: z.record(criterionId, z.boolean().nullable()),
+});
+export type SetPracticeMarks = z.infer<typeof SetPracticeMarksSchema>;
+
+/** `GET /api/lessons/:id/practice`: most lessons have none, and that is said plainly. */
+export const PracticeResponseSchema = z.strictObject({ practice: PracticeTaskSchema.nullable() });
+export type PracticeResponse = z.infer<typeof PracticeResponseSchema>;
+
+/** Whether a saved file is the practice's: its kind is the program's (the name may differ). */
+export function isPracticeFile(task: Pick<PracticeTask, 'app'>, name: string): boolean {
+  const dot = name.lastIndexOf('.');
+  const ext = dot < 0 ? '' : name.slice(dot + 1).toLowerCase();
+  return PRACTICE_FILE_EXTENSIONS[task.app].includes(ext);
+}
+
+export function checkState(
+  task: PracticeTask,
+  fileName: string,
+  report: CheckReport,
+  at: number,
+): PracticeCheckState {
+  const auto = task.criteria.filter((c) => c.kind === 'auto');
+  const outcomes: Record<string, CheckOutcome> = {};
+  for (const r of report.results) outcomes[r.id] = r.outcome;
+  return {
+    fileName: fileName.slice(0, 260),
+    file: report.file,
+    passed: auto.filter((c) => outcomes[c.id] === 'pass').length,
+    total: auto.length,
+    outcomes,
+    at,
+  };
+}
+
+export interface PracticeScore {
+  /** Each criterion as it stands: the teacher's mark over the checker's verdict. */
+  outcomes: Record<string, CheckOutcome>;
+  points: number;
+  max: number;
+}
+
+/**
+ * Points of a practice (CLAUDE.md §4.7): a criterion counts when it passed — by the checker, or by
+ * the teacher's mark, which always wins. A criterion the checker could not decide counts nothing
+ * until the teacher looks; a manual one, until the teacher marks it.
+ */
+export function practiceScore(
+  task: Pick<PracticeTask, 'criteria'>,
+  report: Pick<CheckReport, 'results'> | null,
+  marks: PracticeMarks,
+): PracticeScore {
+  const outcomes: Record<string, CheckOutcome> = {};
+  let points = 0;
+  let max = 0;
+  for (const c of task.criteria) {
+    max += c.points;
+    const mark = marks[c.id];
+    const checked =
+      c.kind === 'auto' ? report?.results.find((r) => r.id === c.id)?.outcome : undefined;
+    const outcome: CheckOutcome =
+      mark === true ? 'pass' : mark === false ? 'fail' : (checked ?? 'unknown');
+    outcomes[c.id] = outcome;
+    if (outcome === 'pass') points += c.points;
+  }
+  return { outcomes, points, max };
+}

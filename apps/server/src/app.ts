@@ -25,6 +25,7 @@ import { screenshotRoutes } from './routes/screenshots.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { syncRoutes } from './routes/sync.js';
 import { DemoRelay } from './realtime/demo-relay.js';
+import { PracticeService } from './services/practice.js';
 import { fileRoutes } from './routes/files.js';
 import { practiceRoutes } from './routes/practice.js';
 import { ensureHomeCodes } from './services/student-files.js';
@@ -46,6 +47,8 @@ declare module 'fastify' {
     virtual: VirtualStudents;
     /** Screen broadcasts of the lessons (H14). */
     demo: DemoRelay;
+    /** Practice files of the lessons: templates, checks, handing in (H16). */
+    practice: PracticeService;
     /** Set only on a school computer (S2.6); null when this server is the platform. */
     sync: SyncWorker | null;
   }
@@ -98,6 +101,16 @@ export async function buildApp(
         ? new SyncWorker(ctx.db, ctx.config, app.log)
         : null;
   app.decorate('sync', worker);
+  const practice = new PracticeService(
+    ctx.db,
+    ctx.content,
+    store,
+    ctx.config.dataDir,
+    app.log,
+    () => worker?.link() != null,
+  );
+  app.decorate('practice', practice);
+  store.onHandIn = (id, reason) => practice.handIn(id, reason);
   store.onSessionEnded ??= (id) => demo.end(id);
   // Class codes for "Мои работы" at home are the platform's to make (H12); a school computer gets
   // them with the roster, and making its own could clash with the platform's.

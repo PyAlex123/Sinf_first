@@ -15,6 +15,7 @@ import {
   LessonSchema,
   MeResponseSchema,
   PicsSchema,
+  PracticeResponseSchema,
   SessionResponseSchema,
   SessionStateSchema,
   StudentCodeResponseSchema,
@@ -101,6 +102,9 @@ export const api = {
   lesson: (id: string) => request('GET', `/api/lessons/${encodeURIComponent(id)}`, LessonSchema),
   quiz: (id: string) =>
     request('GET', `/api/lessons/${encodeURIComponent(id)}/quiz`, QuizResponseSchema),
+  /** The lesson's practice task in a real program (H16); most lessons have none. */
+  practice: (id: string) =>
+    request('GET', `/api/lessons/${encodeURIComponent(id)}/practice`, PracticeResponseSchema),
   pics: (url: string) => request('GET', url, PicsSchema),
   createSession: (body: CreateSession) =>
     request('POST', '/api/sessions', SessionResponseSchema, body),
@@ -118,6 +122,17 @@ export const api = {
     request('PUT', `/api/sessions/${encodeURIComponent(sessionId)}/grades`, SessionResultsSchema, {
       grades,
     }),
+  /** The teacher's marks on the practice's criteria; null gives one back (H16). */
+  setPracticeMarks: (sessionId: string, studentId: string, marks: Record<string, boolean | null>) =>
+    request(
+      'PUT',
+      `/api/sessions/${encodeURIComponent(sessionId)}/practice-marks`,
+      SessionResultsSchema,
+      { studentId, marks },
+    ),
+  /** A plain link: the browser downloads the practice file handed in. */
+  practiceFileUrl: (sessionId: string, studentId: string) =>
+    `/api/sessions/${encodeURIComponent(sessionId)}/practice/${encodeURIComponent(studentId)}/file`,
   journal: (classId: string) =>
     request('GET', `/api/journal/${encodeURIComponent(classId)}`, JournalSchema),
   /** A plain link, not a request: the browser downloads the file itself. */

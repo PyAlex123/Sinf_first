@@ -3,7 +3,7 @@ import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync } from 'no
 import { join } from 'node:path';
 import { Transform, type Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { and, eq, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
 import {
   conflictName,
   FILE_QUOTA_BYTES,
@@ -106,14 +106,25 @@ export function findFile(db: Db, studentId: string, fileId: string): FileRow {
   return row;
 }
 
-/** Drops the bytes of a content nobody names any more. */
+/**
+ * Drops the bytes of a content nobody names any more: no file of any child, and no practice file
+ * checked or handed in at a lesson (H16) — a work handed in stays as it was handed in.
+ */
 export function collect(db: Db, dataDir: string, sha: string | null): void {
   if (!sha) return;
-  const still = db
-    .select({ id: schema.studentFiles.id })
-    .from(schema.studentFiles)
-    .where(eq(schema.studentFiles.sha256, sha))
-    .get();
+  const still =
+    db
+      .select({ id: schema.studentFiles.id })
+      .from(schema.studentFiles)
+      .where(eq(schema.studentFiles.sha256, sha))
+      .get() ??
+    db
+      .select({ id: schema.practiceChecks.sessionId })
+      .from(schema.practiceChecks)
+      .where(
+        or(eq(schema.practiceChecks.fileSha, sha), eq(schema.practiceChecks.submittedSha, sha)),
+      )
+      .get();
   if (!still) rmSync(blobPath(dataDir, sha), { force: true });
 }
 

@@ -64,6 +64,11 @@ export function buildLessonBundle(db: Db, sessionId: string): LessonSyncBundle |
     .from(schema.grades)
     .where(eq(schema.grades.sessionId, sessionId))
     .all();
+  const checks = db
+    .select()
+    .from(schema.practiceChecks)
+    .where(eq(schema.practiceChecks.sessionId, sessionId))
+    .all();
 
   return {
     session: {
@@ -116,6 +121,28 @@ export function buildLessonBundle(db: Db, sessionId: string): LessonSyncBundle |
             },
           ]
         : [],
+    ),
+    // What was handed in, where there is such a version; otherwise what was checked last (H16).
+    checks: checks.map((c) =>
+      c.submittedSha
+        ? {
+            studentId: c.studentId,
+            fileName: c.submittedName,
+            fileSha: c.submittedSha,
+            report: c.submittedReport ?? null,
+            marks: c.marks,
+            checkedAt: c.submittedAt,
+            submittedAt: c.submittedAt,
+          }
+        : {
+            studentId: c.studentId,
+            fileName: c.fileName,
+            fileSha: c.fileSha,
+            report: c.report ?? null,
+            marks: c.marks,
+            checkedAt: c.checkedAt,
+            submittedAt: null,
+          },
     ),
   };
 }

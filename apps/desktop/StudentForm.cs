@@ -430,7 +430,7 @@ internal sealed class StudentForm : Form
                     PostToPage(new { type = "installed", apps = AppLauncher.Installed() });
                     break;
                 case "launch":
-                    StartApp(
+                    _ = StartAppAsync(
                         root.TryGetProperty("app", out var app) ? app.GetString() : null,
                         root.TryGetProperty("file", out var file) ? file.GetString() : null);
                     break;
@@ -508,6 +508,24 @@ internal sealed class StudentForm : Form
     /// name in the lesson's working folder. Paint without a file gets a blank picture there, so that
     /// Ctrl+S saves the drawing into the child's folder, not somewhere on the disk.
     /// </summary>
+    /// <summary>
+    /// A file the lesson names may not have come into the working folder yet — the practice's template
+    /// is put into "Мои работы" at login (H16): one exchange first, then the program opens it.
+    /// </summary>
+    private async Task StartAppAsync(string? id, string? fileName)
+    {
+        if (fileName is not null && folder is not null)
+        {
+            var path = folder.PathOf(fileName);
+            if (path is not null && !File.Exists(path))
+            {
+                await folder.SyncAsync().ConfigureAwait(true);
+            }
+        }
+
+        StartApp(id, fileName);
+    }
+
     private void StartApp(string? id, string? fileName = null)
     {
         if (lockedByTeacher || id is null)

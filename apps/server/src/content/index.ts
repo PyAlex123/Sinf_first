@@ -1,11 +1,14 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, normalize, sep } from 'node:path';
 import {
   CourseSchema,
+  isPracticeFile,
   LessonSchema,
+  PracticeTaskSchema,
   QuizSchema,
   type Course,
   type Lesson,
+  type PracticeTask,
   type Quiz,
 } from '@sinf/shared';
 
@@ -23,6 +26,13 @@ export interface ContentStore {
    * and most lessons have none — a missing file is the normal case, not an error.
    */
   getQuiz(lessonId: string): Quiz | undefined;
+  /**
+   * The practice task in a real program (H16), from `practice/<id>.json`; written by hand like the
+   * quiz, and most lessons have none.
+   */
+  getPractice(lessonId: string): PracticeTask | undefined;
+  /** Where the task's template lies on disk, checked at startup; null when the task has none. */
+  templatePath(lessonId: string): string | null;
 }
 
 export function loadContent(contentDir: string): ContentStore {
@@ -33,6 +43,8 @@ export function loadContent(contentDir: string): ContentStore {
   const lessons = new Map<string, Lesson>();
   const courseOf = new Map<string, Course>();
   const quizzes = new Map<string, Quiz>();
+  const practices = new Map<string, PracticeTask>();
+  const templates = new Map<string, string>();
   for (const entry of readdirSync(contentDir, { withFileTypes: true })) {
     const courseFile = join(contentDir, entry.name, 'course.json');
     if (!entry.isDirectory() || !existsSync(courseFile)) {
@@ -57,6 +69,23 @@ export function loadContent(contentDir: string): ContentStore {
         }
         quizzes.set(lesson.id, quiz);
       }
+      const practiceFile = join(contentDir, entry.name, 'practice', `${summary.id}.json`);
+      if (existsSync(practiceFile)) {
+        const task = PracticeTaskSchema.parse(readJson(practiceFile));
+        if (!isPracticeFile(task, task.fileName)) {
+          throw new Error(`${practiceFile}: "${task.fileName}" is not a file of ${task.app}`);
+        }
+        practices.set(lesson.id, task);
+        if (task.template) {
+          const courseDir = join(contentDir, entry.name);
+          const path = normalize(join(courseDir, task.template));
+          // A template is a file of its own course: never a path out of it.
+          if (!path.startsWith(courseDir + sep) || !existsSync(path)) {
+            throw new Error(`${practiceFile}: template "${task.template}" is not in the course`);
+          }
+          templates.set(lesson.id, path);
+        }
+      }
     }
     courses.push(course);
   }
@@ -66,6 +95,8 @@ export function loadContent(contentDir: string): ContentStore {
     getLesson: (id) => lessons.get(id),
     getCourseOf: (id) => courseOf.get(id),
     getQuiz: (id) => quizzes.get(id),
+    getPractice: (id) => practices.get(id),
+    templatePath: (id) => templates.get(id) ?? null,
   };
 }
 

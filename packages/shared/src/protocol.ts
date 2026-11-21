@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PracticeCheckStateSchema } from './practice.js';
 
 /**
  * Realtime protocol between the server and the lesson clients (teacher, student, projector) — ADR-006,
@@ -84,6 +85,11 @@ export const ParticipantSchema = z.strictObject({
    * where "Attention!" really locks keyboard and mouse (H4); null in a browser.
    */
   pc: z.string().nullable().default(null),
+  /**
+   * The child's practice file as last checked (H16): the tile shows "3/5", the child their
+   * check-list. Null until the first save of a lesson with a practice task.
+   */
+  check: PracticeCheckStateSchema.nullable().default(null),
   lastSeenAt: serverTime,
 });
 export type Participant = z.infer<typeof ParticipantSchema>;

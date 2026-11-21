@@ -13,6 +13,7 @@
     formatSize,
     listFiles,
     previewUrl,
+    uploadFailureKey,
     uploadFile,
     uploadProblem,
     type FilesAccess,
@@ -43,14 +44,7 @@
       dateStyle: 'short',
       timeStyle: 'short',
     });
-  const failure = (e: unknown): string =>
-    e instanceof ApiError && e.code === 'quota'
-      ? t('files.bad.quota')
-      : e instanceof ApiError && e.code.startsWith('bad_name_')
-        ? t(`files.bad.${e.code.slice('bad_name_'.length)}`)
-        : e instanceof ApiError && e.code === 'too_large'
-          ? t('files.bad.size')
-          : t('common.error');
+  const failure = (e: unknown): string => t(uploadFailureKey(e));
 
   async function load(): Promise<void> {
     try {

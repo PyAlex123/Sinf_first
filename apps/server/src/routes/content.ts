@@ -1,6 +1,6 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
-import type { CourseListResponse, Lesson, QuizResponse } from '@sinf/shared';
+import type { CourseListResponse, Lesson, PracticeResponse, QuizResponse } from '@sinf/shared';
 import { notFound } from '../errors.js';
 
 const LessonParams = z.object({ id: z.string().regex(/^[a-z0-9-]+$/) });
@@ -29,6 +29,14 @@ export const contentRoutes: FastifyPluginCallback = (app, _opts, done) => {
       throw notFound(`Lesson "${id}" not found`);
     }
     return { quiz: content.getQuiz(id) ?? null };
+  });
+  /** The lesson's practice task (H16): what to save, and the check-list the child may see. */
+  app.get('/lessons/:id/practice', (request): PracticeResponse => {
+    const { id } = LessonParams.parse(request.params);
+    if (!content.getLesson(id)) {
+      throw notFound(`Lesson "${id}" not found`);
+    }
+    return { practice: content.getPractice(id) ?? null };
   });
 
   done();

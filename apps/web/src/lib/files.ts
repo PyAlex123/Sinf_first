@@ -64,13 +64,26 @@ export function uploadProblem(file: File): string | null {
   return null;
 }
 
-/** Saves a file; `baseSha` is the version it replaces, when the child replaces one on purpose. */
+/** The i18n key that says why the server refused an upload. */
+export function uploadFailureKey(e: unknown): string {
+  if (!(e instanceof ApiError)) return 'common.error';
+  if (e.code === 'quota') return 'files.bad.quota';
+  if (e.code.startsWith('bad_name_')) return `files.bad.${e.code.slice('bad_name_'.length)}`;
+  if (e.code === 'too_large') return 'files.bad.size';
+  return 'common.error';
+}
+
+/**
+ * Saves a file; `baseSha` is the version it replaces, when the child replaces one on purpose, and
+ * `name` the name it is kept under (the practice's file, whatever the browser called the download).
+ */
 export async function uploadFile(
   access: FilesAccess,
   file: File,
   baseSha?: string,
+  name: string = file.name,
 ): Promise<FileUploadResponse> {
-  const q = new URLSearchParams({ name: file.name, ...(baseSha ? { base: baseSha } : {}) });
+  const q = new URLSearchParams({ name, ...(baseSha ? { base: baseSha } : {}) });
   const res = await fetch(`/api/my/files?${q.toString()}`, {
     method: 'PUT',
     headers: { ...headers(access), 'content-type': 'application/octet-stream' },

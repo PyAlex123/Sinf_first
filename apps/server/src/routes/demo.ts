@@ -10,6 +10,7 @@ import {
 } from '@sinf/shared';
 import { requireTeacher } from '../auth/teacher.js';
 import { ensureVirtualStudents, resetDemoClass } from '../db/seed.js';
+import { collect } from '../services/student-files.js';
 import { ApiHttpError, notFound } from '../errors.js';
 import type { SessionStore } from '../realtime/session-store.js';
 import type { VirtualStudents } from '../services/virtual-students.js';
@@ -84,6 +85,7 @@ export const demoRoutes: FastifyPluginCallback<{
       store.end(active.id);
     }
     const result = resetDemoClass(db);
+    for (const sha of new Set(result.freedShas ?? [])) collect(db, app.ctx.config.dataDir, sha);
     request.log.info({ students: result.students }, 'demo class reset');
     return { ok: true, students: result.students };
   });

@@ -64,6 +64,7 @@ export function receiveLessonBundle(
       ...bundle.practiceResults.map((r) => r.studentId),
       ...bundle.quizAttempts.map((a) => a.studentId),
       ...(bundle.grades ?? []).map((g) => g.studentId),
+      ...(bundle.checks ?? []).map((c) => c.studentId),
     ]),
   ];
   if (studentIds.length > 0) {
@@ -206,6 +207,32 @@ export function receiveLessonBundle(
           .onConflictDoUpdate({
             target: [schema.grades.sessionId, schema.grades.studentId],
             set: { value: row.value, source: row.source, stars: row.stars, createdAt: row.at },
+          })
+          .run();
+      }
+    }
+
+    // Practice files (H16): the lesson's list as it stands on the school computer, like the grades.
+    if (bundle.checks) {
+      tx.delete(schema.practiceChecks).where(eq(schema.practiceChecks.sessionId, session.id)).run();
+      for (const c of bundle.checks) {
+        tx.insert(schema.practiceChecks)
+          .values({
+            sessionId: session.id,
+            studentId: c.studentId,
+            fileName: c.fileName,
+            fileSha: c.fileSha,
+            report: c.report,
+            checkedAt: c.checkedAt,
+            marks: c.marks,
+            ...(c.submittedAt
+              ? {
+                  submittedName: c.fileName,
+                  submittedSha: c.fileSha,
+                  submittedReport: c.report,
+                  submittedAt: c.submittedAt,
+                }
+              : {}),
           })
           .run();
       }

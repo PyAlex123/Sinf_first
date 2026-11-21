@@ -65,22 +65,30 @@ export interface LessonMaxima {
   trainer: number;
   practice: number;
   quiz: number;
+  /** Points of the practice task in a real program (H16): its criteria, automatic and manual. */
+  check?: number;
 }
 
 export interface EarnedPoints {
   trainerStars: number;
   practiceStars: number;
   quizCorrect: number;
+  checkPoints?: number;
 }
 
-/** Share of the lesson's maximum, 0–100, or null when there was nothing to score. */
+/**
+ * Share of the lesson's maximum, 0–100, or null when there was nothing to score. Every star and
+ * every point of a criterion weighs the same (ADR-012, addendum H16).
+ */
 export function scorePercent(earned: EarnedPoints, max: LessonMaxima): number | null {
-  const total = max.trainer + max.practice + max.quiz;
+  const check = max.check ?? 0;
+  const total = max.trainer + max.practice + max.quiz + check;
   if (total <= 0) return null;
   const got =
     Math.min(earned.trainerStars, max.trainer) +
     Math.min(earned.practiceStars, max.practice) +
-    Math.min(earned.quizCorrect, max.quiz);
+    Math.min(earned.quizCorrect, max.quiz) +
+    Math.min(earned.checkPoints ?? 0, check);
   return Math.round((100 * got) / total);
 }
 
@@ -113,6 +121,43 @@ const id = z.string().min(1);
 const count = z.number().int().nonnegative();
 
 /** The class as results need it: whether it has grades, and where they begin. */
+/**
+ * A child's practice file at the lesson (H16): the version handed in — the one photographed before
+ * the end of the practice — or, until then, the latest one checked.
+ */
+export const ResultCheckSchema = z.strictObject({
+  /** Null when the child saved nothing and only the teacher's marks are there. */
+  fileName: z.string().min(1).nullable(),
+  file: z.enum(['ok', 'unreadable', 'old_or_protected', 'wrong_type']).nullable(),
+  /** Each criterion with the teacher's mark over the checker's verdict. */
+  outcomes: z.record(z.string(), z.enum(['pass', 'fail', 'unknown'])),
+  /** What the checker found, for the teacher: "шрифт 12 пт у 80 % текста". */
+  found: z.record(z.string(), z.string()),
+  /** The teacher's own marks, by criterion. */
+  marks: z.record(z.string(), z.boolean()),
+  points: count,
+  max: count,
+  /** Handed in: frozen with the photograph before the end of the practice (CLAUDE.md §4.8). */
+  submitted: z.boolean(),
+  checkedAt: z.string().min(1).nullable(),
+});
+export type ResultCheck = z.infer<typeof ResultCheckSchema>;
+
+/** The practice task as the results need it: criteria to show and mark. */
+export const ResultPracticeSchema = z.strictObject({
+  app: z.string().min(1),
+  fileName: z.string().min(1),
+  criteria: z.array(
+    z.strictObject({
+      id: z.string().min(1),
+      kind: z.enum(['auto', 'manual']),
+      label: z.strictObject({ ru: z.string(), uz: z.string() }),
+      points: count,
+    }),
+  ),
+});
+export type ResultPractice = z.infer<typeof ResultPracticeSchema>;
+
 const ResultClassSchema = z.strictObject({
   id,
   name: z.string().min(1),
@@ -140,6 +185,8 @@ export const ResultRowSchema = z.strictObject({
   quizAnswered: count,
   /** The latest photograph of this child's screen in this lesson (H5), when the classroom app took one. */
   screenshotId: id.nullable(),
+  /** The practice file and its criteria (H16); null without a practice task or before any save. */
+  check: ResultCheckSchema.nullable(),
   /** Trainer stars plus stars for the drawing: what goes to the journal. */
   totalStars: count,
   /** Share of the lesson's maximum; null when absent or nothing could be scored. */
@@ -165,7 +212,9 @@ export const SessionResultsSchema = z.strictObject({
   startedAt: z.string().min(1),
   endedAt: z.string().nullable(),
   class: ResultClassSchema,
-  maxima: z.strictObject({ trainer: count, practice: count, quiz: count }),
+  maxima: z.strictObject({ trainer: count, practice: count, quiz: count, check: count }),
+  /** The lesson's practice task in a real program (H16), if it has one. */
+  practice: ResultPracticeSchema.nullable(),
   /** Steps of the Paint practice in this lesson; 0 when it has none. */
   practiceSteps: count,
   /** Questions of the lesson's quiz, asked or not; 0 when it has none. */

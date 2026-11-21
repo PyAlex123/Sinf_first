@@ -17,14 +17,23 @@ namespace Sinf.Desktop;
 internal sealed class WorkFolderSync : IAsyncDisposable
 {
     private static readonly TimeSpan Settle = TimeSpan.FromMilliseconds(1500);
+    /// <summary>
+    /// What changed on the teacher's computer comes down by itself this often: a template placed at
+    /// login, the folder from the platform (H16). One small request per computer; 30 computers make
+    /// a request every 0.7 s.
+    /// </summary>
+    private static readonly TimeSpan Poll = TimeSpan.FromSeconds(20);
 
     private readonly HttpClient http;
     private readonly FileSystemWatcher watcher;
     private readonly System.Threading.Timer debounce;
+    private readonly System.Threading.Timer poll;
     private readonly SemaphoreSlim busy = new(1, 1);
     private readonly Dictionary<string, string> known = new(StringComparer.OrdinalIgnoreCase);
     private readonly Action<string> saved;
     private bool stopped;
+    /// <summary>Set when the lesson is over: the timers are going away, nothing re-arms them.</summary>
+    private volatile bool closing;
 
     public WorkFolderSync(string root, string teacherUrl, string sessionId, string lessonToken, Action<string> saved)
     {
@@ -35,16 +44,25 @@ internal sealed class WorkFolderSync : IAsyncDisposable
         http.DefaultRequestHeaders.Add("x-session-id", sessionId);
         http.DefaultRequestHeaders.Add("x-participant-token", lessonToken);
         debounce = new System.Threading.Timer(_ => _ = SyncAsync(), null, Timeout.Infinite, Timeout.Infinite);
+        poll = new System.Threading.Timer(_ => _ = SyncAsync(), null, Timeout.Infinite, Timeout.Infinite);
         watcher = new FileSystemWatcher(Folder)
         {
             IncludeSubdirectories = false,
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
         };
-        FileSystemEventHandler later = (_, _) => debounce.Change(Settle, Timeout.InfiniteTimeSpan);
+        FileSystemEventHandler later = (_, _) => Later();
         watcher.Changed += later;
         watcher.Created += later;
         watcher.Deleted += later;
-        watcher.Renamed += (_, _) => debounce.Change(Settle, Timeout.InfiniteTimeSpan);
+        watcher.Renamed += (_, _) => Later();
+    }
+
+    private void Later()
+    {
+        if (!closing)
+        {
+            debounce.Change(Settle, Timeout.InfiniteTimeSpan);
+        }
     }
 
     /// <summary>The folder of this lesson; programs open and save files here.</summary>
@@ -55,6 +73,7 @@ internal sealed class WorkFolderSync : IAsyncDisposable
     {
         await SyncAsync().ConfigureAwait(false);
         watcher.EnableRaisingEvents = true;
+        poll.Change(Poll, Poll);
     }
 
     /// <summary>A file of this folder by its name — never a path from outside it.</summary>
@@ -70,7 +89,11 @@ internal sealed class WorkFolderSync : IAsyncDisposable
         if (!await busy.WaitAsync(0).ConfigureAwait(false))
         {
             // One is running; the change that woke us will be seen by the next.
-            debounce.Change(Settle, Timeout.InfiniteTimeSpan);
+            if (!closing)
+            {
+                debounce.Change(Settle, Timeout.InfiniteTimeSpan);
+            }
+
             return;
         }
 
@@ -216,8 +239,13 @@ internal sealed class WorkFolderSync : IAsyncDisposable
     /// <summary>The lesson is over: the last changes go, and the folder is wiped.</summary>
     public async ValueTask DisposeAsync()
     {
+        closing = true;
         watcher.EnableRaisingEvents = false;
+        await poll.DisposeAsync().ConfigureAwait(false);
         await debounce.DisposeAsync().ConfigureAwait(false);
+        // An exchange still running finishes first; then the last one takes what it left.
+        await busy.WaitAsync().ConfigureAwait(false);
+        busy.Release();
         await SyncAsync().ConfigureAwait(false);
         stopped = true;
         watcher.Dispose();

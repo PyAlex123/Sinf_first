@@ -188,6 +188,10 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
       sortOrder: student.sortOrder,
       pc: body.pc && app.ctx.config.classroom ? body.pc : null,
     });
+    // The practice's template is in their folder before the classroom app asks for it (H16).
+    await app.practice.placeTemplate(summary.id, student.id).catch((error: unknown) => {
+      request.log.error({ err: error, studentId: student.id }, 'practice template not placed');
+    });
     // Their folder from the platform, if there is a connection: what they did at home (H12).
     void app.sync?.pullFiles(student.id);
     if (body.pc && app.ctx.config.classroom) {

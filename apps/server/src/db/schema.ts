@@ -6,7 +6,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
-import type { ClassSettings } from '@sinf/shared';
+import type { CheckReport, ClassSettings, PracticeMarks } from '@sinf/shared';
 
 /**
  * Stage 1 schema (STAGE1.md S1.3, docs/stage1-architecture.md §3). Portable to PostgreSQL:
@@ -446,8 +446,43 @@ export const studentFiles = sqliteTable(
   ],
 );
 
+/**
+ * A child's practice file at a lesson (CLAUDE.md §4.7–4.8, §6 CheckResult and Submission; stage 3,
+ * H16). One row per child and lesson: the latest version checked, and the version handed in — frozen
+ * with the photographs before the end of the practice. The bytes stay in the file store while either
+ * version names them (`collect`), so a change after the lesson does not alter what was handed in.
+ */
+export const practiceChecks = sqliteTable(
+  'practice_checks',
+  {
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id),
+    studentId: text('student_id')
+      .notNull()
+      .references(() => students.id),
+    /** Null in a row that holds only the teacher's marks: the child saved nothing. */
+    fileName: text('file_name'),
+    fileSha: text('file_sha'),
+    report: text('report', { mode: 'json' }).$type<CheckReport>(),
+    checkedAt: timestamp('checked_at'),
+    submittedName: text('submitted_name'),
+    submittedSha: text('submitted_sha'),
+    submittedReport: text('submitted_report', { mode: 'json' }).$type<CheckReport>(),
+    submittedAt: timestamp('submitted_at'),
+    /** The teacher's marks by criterion: manual ones, and automatic ones decided by hand. */
+    marks: text('marks', { mode: 'json' }).$type<PracticeMarks>().notNull().default({}),
+  },
+  (t) => [
+    primaryKey({ columns: [t.sessionId, t.studentId] }),
+    index('practice_checks_file_idx').on(t.fileSha),
+    index('practice_checks_submitted_idx').on(t.submittedSha),
+  ],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  practiceChecks,
   studentFiles,
   screenshots,
   seats,

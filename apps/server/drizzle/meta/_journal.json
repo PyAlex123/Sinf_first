@@ -78,6 +78,13 @@
       "when": 1795257641781,
       "tag": "0010_naive_captain_cross",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1795262446054,
+      "tag": "0011_dusty_arclight",
+      "breakpoints": true
     }
   ]
 }

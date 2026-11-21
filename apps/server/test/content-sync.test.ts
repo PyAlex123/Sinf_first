@@ -50,7 +50,7 @@ describe('the manifest', () => {
     const res = await manifest({ cookie });
     expect(res.statusCode).toBe(200);
     const body = ContentManifestSchema.parse(res.json());
-    expect(body.courses).toHaveLength(1);
+    expect(body.courses.map((c) => c.id)).toEqual(['1-klass-2-chetvert', 'proba-praktiki']);
 
     const course = body.courses[0];
     if (!course) throw new Error('no course');
@@ -129,7 +129,7 @@ describe('who may download the material', () => {
     const token = await pairedDevice();
     const res = await manifest({ authorization: `Device ${token}` });
     expect(res.statusCode).toBe(200);
-    expect(ContentManifestSchema.parse(res.json()).courses).toHaveLength(1);
+    expect(ContentManifestSchema.parse(res.json()).courses).toHaveLength(2);
   });
 
   it('shuts the door on a computer the school unpaired', async () => {

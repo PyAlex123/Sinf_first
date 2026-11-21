@@ -11,6 +11,7 @@ import {
   stageScreenRange,
   startStage,
 } from './stage-timer.js';
+import type { PracticeCheckState } from './practice.js';
 import {
   PROTOCOL_VERSION,
   type ClientMessage,
@@ -80,7 +81,9 @@ export type SessionEvent =
       now: number;
     }
   /** The server timer fired: the engine decides whether to start a countdown or switch the stage. */
-  | { kind: 'tick'; now: number };
+  | { kind: 'tick'; now: number }
+  /** The lesson server checked a child's saved practice file (H16). */
+  | { kind: 'practice.checked'; participantId: string; check: PracticeCheckState; now: number };
 
 /** Something worth writing to `activity_events`. */
 export interface ActivityRecord {
@@ -168,6 +171,10 @@ export function reduce(
       return tick(result, event.now, plan);
     case 'command':
       return command(result, event, plan);
+    case 'practice.checked': {
+      const p = state.participants[event.participantId];
+      return p ? updateParticipant(result, { ...p, check: event.check }) : result;
+    }
   }
 }
 
@@ -383,6 +390,7 @@ function join(
         escapes: 0,
         virtual: e.virtual ?? false,
         pc: e.pc ?? null,
+        check: null,
         lastSeenAt: e.now,
       };
   return updateParticipant(r, participant, { type: 'join', participantId: participant.id });

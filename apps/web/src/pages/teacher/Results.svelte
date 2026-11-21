@@ -17,6 +17,7 @@
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
   import Table from '../../lib/ui/Table.svelte';
+  import PracticeWorks from './PracticeWorks.svelte';
 
   /**
    * Lesson results (S1.13): the whole class on one screen — who came, stars for the trainers and
@@ -40,6 +41,8 @@
       (results?.rows.some((r) => r.screenshotId !== null) ?? false),
   );
   const hasQuiz = $derived((results?.quizQuestions ?? 0) > 0);
+  /** A lesson without trainers — the practice sample (H16) — has no trainer column. */
+  const hasTrainer = $derived((results?.maxima.trainer ?? 0) > 0);
   const present = $derived(results?.rows.filter((r) => r.present) ?? []);
 
   /**
@@ -71,6 +74,11 @@
     ]);
   const confirmAll = (): Promise<void> =>
     saveGrades(toConfirm.map((r) => ({ studentId: r.studentId, value: r.suggestedGrade })));
+
+  /** The teacher marked a criterion of the practice (H16): the whole lesson's results come back. */
+  function replaceResults(next: SessionResults): void {
+    results = next;
+  }
 
   const subtitle = $derived.by(() => {
     if (!results) return '';
@@ -140,9 +148,10 @@
             <th class="num">№</th>
             <th>{t('results.col.student')}</th>
             <th>{t('results.col.presence')}</th>
-            <th class="n">{t('results.col.trainer')}</th>
+            {#if hasTrainer}<th class="n">{t('results.col.trainer')}</th>{/if}
             {#if hasPractice}<th class="n">{t('results.col.drawing')}</th>{/if}
             {#if hasQuiz}<th>{t('results.col.quiz')}</th>{/if}
+            {#if results.practice}<th class="n">{t('results.col.practice')}</th>{/if}
             <th class="n">{t('results.col.total')}</th>
             {#if results.class.starsToGrade}<th class="n">{t('results.col.grade')}</th>{/if}
           </tr>
@@ -157,9 +166,11 @@
               </td>
               <td>{row.present ? t('results.here') : t('results.absent')}</td>
               {#if row.present}
-                <td class="n">
-                  ★ {t('results.of', { value: row.trainerStars, max: results.maxima.trainer })}
-                </td>
+                {#if hasTrainer}
+                  <td class="n">
+                    ★ {t('results.of', { value: row.trainerStars, max: results.maxima.trainer })}
+                  </td>
+                {/if}
                 {#if hasPractice}
                   <td class="n">
                     {#if row.practiceStars}
@@ -186,6 +197,15 @@
                       })}
                     {:else}
                       <span class="muted">{t('results.quizNone')}</span>
+                    {/if}
+                  </td>
+                {/if}
+                {#if results.practice}
+                  <td class="n" data-practice={row.studentId}>
+                    {#if row.check}
+                      {t('results.of', { value: row.check.points, max: row.check.max })}
+                    {:else}
+                      <span class="muted">—</span>
                     {/if}
                   </td>
                 {/if}
@@ -223,9 +243,10 @@
                   </td>
                 {/if}
               {:else}
-                <td class="n muted">—</td>
+                {#if hasTrainer}<td class="n muted">—</td>{/if}
                 {#if hasPractice}<td class="n muted">—</td>{/if}
                 {#if hasQuiz}<td class="muted">—</td>{/if}
+                {#if results.practice}<td class="n muted">—</td>{/if}
                 <td class="n muted">—</td>
                 {#if results.class.starsToGrade}<td class="n muted">—</td>{/if}
               {/if}
@@ -239,6 +260,8 @@
           : t('results.gradeOff')}
       </p>
     </Card>
+
+    <PracticeWorks {results} onChange={replaceResults} />
 
     {#if hasPractice}
       <section class="stack">
