@@ -44,6 +44,7 @@
       {#if error}<Notice kind="error">{error}</Notice>{/if}
       <Button type="submit" size="lg" block disabled={busy}>{t('login.submit')}</Button>
     </form>
+    <p class="muted small alt"><a href="/teacher/forgot">{t('reset.forgotLink')}</a></p>
     <p class="muted small alt">
       {t('login.noAccount')}
       <a href={withNext('/teacher/register')}>{t('register.submit')}</a>

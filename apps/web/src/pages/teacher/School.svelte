@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Device, SchoolClass, SchoolDetailsResponse } from '@sinf/shared';
+  import type { Device, ResetLinkResponse, SchoolClass, SchoolDetailsResponse } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { t } from '../../lib/i18n/index.svelte.js';
@@ -12,6 +12,7 @@
   import Header from '../../lib/ui/Header.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
+  import ResetLink from '../../lib/ui/ResetLink.svelte';
   import Table from '../../lib/ui/Table.svelte';
   import SchoolInvites from './SchoolInvites.svelte';
   import SchoolSettings from './SchoolSettings.svelte';
@@ -79,6 +80,23 @@
     );
   });
   const studentTotal = $derived(data?.classes.reduce((n, c) => n + c.studentCount, 0) ?? 0);
+
+  /** A one-time password link for a teacher of the school (A7), shown under their name. */
+  let resetLinks = $state<Record<string, ResetLinkResponse>>({});
+  async function giveResetLink(userId: string): Promise<void> {
+    busy = userId;
+    error = null;
+    try {
+      resetLinks = { ...resetLinks, [userId]: await api.memberResetLink(schoolId, userId) };
+    } catch (e) {
+      error =
+        e instanceof ApiError && e.code === 'edit_on_platform'
+          ? t('reset.onPlatform')
+          : t('common.error');
+    } finally {
+      busy = null;
+    }
+  }
 
   /** Who teaches a class: the administrator ticks the school's teachers (A5). */
   let assigning = $state<string | null>(null);
@@ -358,6 +376,7 @@
                       >{/if}
                   </span>
                   {#if m.email}<div class="muted small">{m.email}</div>{/if}
+                  {#if resetLinks[m.userId]}<ResetLink link={resetLinks[m.userId]!} />{/if}
                 </td>
                 {#if isAdmin}
                   <td class="actions">
@@ -376,6 +395,15 @@
                           )}
                       >
                         {m.role === 'admin' ? t('school.makeTeacher') : t('school.makeAdmin')}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy === m.userId}
+                        onclick={() => giveResetLink(m.userId)}
+                        data-reset-for={m.fullName}
+                      >
+                        {t('reset.giveLink')}
                       </Button>
                       <Button
                         variant="danger-ghost"

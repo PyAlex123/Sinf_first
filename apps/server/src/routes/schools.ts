@@ -7,6 +7,7 @@ import {
   CreateSchoolSchema,
   SchoolDecisionSchema,
   SetClassTeachersSchema,
+  SuperadminResetLinkSchema,
   SetSchoolRoleSchema,
   UpdateSchoolSchema,
   UpdateSchoolSettingsSchema,
@@ -15,6 +16,7 @@ import {
   type SchoolClass,
   type SchoolDetailsResponse,
   type SchoolListResponse,
+  type ResetLinkResponse,
   type SchoolMember,
   type SchoolSettings,
   type SchoolSettingsResponse,
@@ -28,6 +30,7 @@ import {
 } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
+import { makeResetToken, resetUrl, siteUrl } from '../services/password-reset.js';
 import { retentionPreview } from '../services/retention.js';
 import { settingsOfSchool, updateSchoolSettings } from '../services/school-settings.js';
 import { ApiHttpError, notFound } from '../errors.js';
@@ -205,6 +208,33 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
     const updated = db.select().from(schema.schools).where(eq(schema.schools.id, id)).get();
     return details(updated as SchoolRow, 'admin');
   });
+
+  // ---------- a forgotten password, by hand (stage 5, A7)
+
+  /** A one-time link for a teacher of the school, to pass on by Telegram or in person. */
+  app.post(
+    '/schools/:id/members/:userId/reset-link',
+    { preHandler: requireTeacher },
+    (request): ResetLinkResponse => {
+      const { id, userId } = MemberParams.parse(request.params);
+      const admin = request.teacher as Teacher;
+      requireSchoolAdmin(db, admin, id);
+      if (app.sync?.link() != null) {
+        throw new ApiHttpError(409, 'edit_on_platform', 'Passwords are reset on the website');
+      }
+      const member = db
+        .select({ role: schema.users.role })
+        .from(schema.schoolMembers)
+        .innerJoin(schema.users, eq(schema.users.id, schema.schoolMembers.userId))
+        .where(and(eq(schema.schoolMembers.schoolId, id), eq(schema.schoolMembers.userId, userId)))
+        .get();
+      // Not the platform's own account: a school does not hold the keys to it.
+      if (!member || member.role === 'superadmin') throw notFound('Teacher');
+      const { token, expiresAt } = makeResetToken(db, userId, admin.id);
+      request.log.info({ schoolId: id, userId, by: admin.id }, 'reset link given');
+      return { url: resetUrl(siteUrl(app.ctx.config, request), token), expiresAt };
+    },
+  );
 
   // ---------- who teaches which class (stage 5, A5)
 
@@ -421,6 +451,22 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
   });
 
   /** Puts a registered teacher in charge of a school; this is how a school gets its first person. */
+  /** The superadmin's link for any teacher of the site (A7). */
+  app.post('/admin/reset-link', { preHandler: requireTeacher }, (request): ResetLinkResponse => {
+    const admin = request.teacher as Teacher;
+    requireSuperadmin(db, admin);
+    const { email } = SuperadminResetLinkSchema.parse(request.body);
+    const user = db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, email.trim().toLowerCase()))
+      .get();
+    if (!user) throw notFound('Teacher');
+    const { token, expiresAt } = makeResetToken(db, user.id, admin.id);
+    request.log.info({ userId: user.id, by: admin.id }, 'reset link given by superadmin');
+    return { url: resetUrl(siteUrl(app.ctx.config, request), token), expiresAt };
+  });
+
   app.post('/admin/schools/:id/admins', { preHandler: requireTeacher }, (request): { ok: true } => {
     requireSuperadmin(db, request.teacher as Teacher);
     const { id } = Params.parse(request.params);

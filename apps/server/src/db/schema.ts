@@ -52,6 +52,8 @@ export const users = sqliteTable(
       .notNull()
       .default('ru'),
     createdAt: timestamp('created_at').notNull(),
+    /** Grows when the password is reset (stage 5, A7): every cookie of an older one stops working. */
+    sessionVersion: integer('session_version').notNull().default(0),
   },
   (t) => [uniqueIndex('users_email_idx').on(t.email)],
 );
@@ -697,8 +699,30 @@ export const schoolInvites = sqliteTable(
   ],
 );
 
+/**
+ * A one-time link to set a new password (PLAN.md 2.1; stage 5, A7; ADR-021): sent by mail when the
+ * teacher asks, or given by the school's administrator or the superadmin. Only the hash is kept.
+ */
+export const passwordResets = sqliteTable(
+  'password_resets',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    tokenHash: text('token_hash').notNull(),
+    /** Null when the teacher asked by mail; otherwise the administrator who gave the link. */
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    usedAt: timestamp('used_at'),
+  },
+  (t) => [uniqueIndex('password_resets_token_idx').on(t.tokenHash)],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  passwordResets,
   schoolInvites,
   emaktabMarks,
   ktpRows,

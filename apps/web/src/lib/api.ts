@@ -22,6 +22,7 @@ import {
   ClassProgramSchema,
   EmaktabRemindersResponseSchema,
   SchoolSettingsResponseSchema,
+  ResetLinkResponseSchema,
   SchoolInvitesResponseSchema,
   CreatedInviteResponseSchema,
   InviteInfoResponseSchema,
@@ -148,6 +149,18 @@ export const api = {
   register: (body: TeacherRegister) =>
     request('POST', '/api/auth/register', LoginResponseSchema, body),
   login: (body: TeacherLogin) => request('POST', '/api/auth/teacher', LoginResponseSchema, body),
+  /** A forgotten password (A7): the letter, the new password, the administrators' links. */
+  forgotPassword: (email: string) => request('POST', '/api/auth/forgot', OkSchema, { email }),
+  resetPassword: (token: string, password: string) =>
+    request('POST', '/api/auth/reset', LoginResponseSchema, { token, password }),
+  memberResetLink: (schoolId: string, userId: string) =>
+    request(
+      'POST',
+      `/api/schools/${encodeURIComponent(schoolId)}/members/${encodeURIComponent(userId)}/reset-link`,
+      ResetLinkResponseSchema,
+    ),
+  superadminResetLink: (email: string) =>
+    request('POST', '/api/admin/reset-link', ResetLinkResponseSchema, { email }),
   logout: () => request('DELETE', '/api/auth/teacher', OkSchema),
   me: () => request('GET', '/api/me', MeResponseSchema),
   courses: () => request('GET', '/api/courses', CourseListResponseSchema),

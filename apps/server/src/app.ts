@@ -20,6 +20,7 @@ import { libraryRoutes } from './routes/library.js';
 import { ktpRoutes } from './routes/ktp.js';
 import { inviteRoutes } from './routes/invites.js';
 import { RetentionWorker } from './services/retention.js';
+import { createMailer, type Mailer } from './services/mailer.js';
 import { demoRoutes } from './routes/demo.js';
 import { buildContentManifest } from './content/manifest.js';
 import { contentSyncRoutes } from './routes/content-sync.js';
@@ -60,6 +61,8 @@ declare module 'fastify' {
     sync: SyncWorker | null;
     /** The cleaning of old works by the school's rules (stage 5, A4). */
     retention: RetentionWorker;
+    /** Letters: "set a new password" (stage 5, A7). */
+    mailer: Mailer;
   }
 }
 
@@ -73,6 +76,8 @@ export async function buildApp(
     sync?: SyncWorker | null;
     /** How a school computer reaches the platform when a teacher logs in (S2.6); tests replace it. */
     platformFetch?: typeof fetch;
+    /** Tests read the letters instead of sending them. */
+    mailer?: Mailer;
   } = {},
 ): Promise<FastifyInstance> {
   // The author's courses and the teachers' own lessons behind one store (stage 4, ADR-019).
@@ -144,6 +149,8 @@ export async function buildApp(
       worker.stop();
     });
   }
+
+  app.decorate('mailer', options.mailer ?? createMailer(ctx.config, app.log));
 
   // Old works and screenshots go on the school's day (stage 5, A4), here and on a school computer.
   const retention = new RetentionWorker(ctx.db, ctx.config.dataDir, app.log);

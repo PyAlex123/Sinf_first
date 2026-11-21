@@ -40,6 +40,28 @@ export const TeacherRegisterSchema = z.strictObject({
 });
 export type TeacherRegister = z.infer<typeof TeacherRegisterSchema>;
 
+// ---------- a forgotten password (PLAN.md 2.1; stage 5, A7)
+
+/** "Forgot the password": a letter with a link goes to this address, if it is ours. */
+export const ForgotPasswordSchema = z.strictObject({ email: z.email() });
+export type ForgotPassword = z.infer<typeof ForgotPasswordSchema>;
+
+/** A new password by the link; the same rule as at registration. */
+export const ResetPasswordSchema = z.strictObject({
+  token: z.string().min(20).max(100),
+  password: TeacherRegisterSchema.shape.password,
+});
+export type ResetPassword = z.infer<typeof ResetPasswordSchema>;
+
+/** A link an administrator gives a teacher by hand (Telegram, in person). */
+export const ResetLinkResponseSchema = z.strictObject({
+  url: z.string().min(1),
+  expiresAt: z.string().min(1),
+});
+export type ResetLinkResponse = z.infer<typeof ResetLinkResponseSchema>;
+
+export const SuperadminResetLinkSchema = z.strictObject({ email: z.email() });
+
 export const TeacherSchema = z.strictObject({
   id,
   email: z.email(),
