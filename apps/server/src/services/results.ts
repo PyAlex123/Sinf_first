@@ -358,6 +358,15 @@ export function classJournal(db: Db, content: ContentStore, classId: string): Jo
     rows.grades.filter((g) => g.comment).map((g) => [`${g.sessionId}:${g.studentId}`, g.comment]),
   );
 
+  const marks = new Map(
+    db
+      .select()
+      .from(schema.emaktabMarks)
+      .where(eq(schema.emaktabMarks.classId, classId))
+      .all()
+      .map((m) => [m.columnId, m.markedAt]),
+  );
+
   type Column =
     | { kind: 'lesson'; date: string; at: string; result: SessionResults }
     | { kind: 'manual'; date: string; at: string; column: (typeof manual)[number] };
@@ -387,6 +396,7 @@ export function classJournal(db: Db, content: ContentStore, classId: string): Jo
             lessonId: c.result.lessonId,
             lessonTitle: c.result.lessonTitle,
             date: c.date,
+            emaktabAt: marks.get(c.result.sessionId) ?? null,
           }
         : {
             kind: 'manual' as const,
@@ -395,8 +405,10 @@ export function classJournal(db: Db, content: ContentStore, classId: string): Jo
             lessonId: null,
             lessonTitle: c.column.title,
             date: c.date,
+            emaktabAt: marks.get(c.column.id) ?? null,
           },
     ),
+    emaktab: true,
     students: listed.map((student) => ({
       id: student.id,
       name: fullName(student),

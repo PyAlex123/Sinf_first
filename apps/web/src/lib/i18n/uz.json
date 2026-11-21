@@ -864,5 +864,16 @@
   "ktp.session.done": "o‘tilgan",
   "ktp.session.mark": "O‘tilgan deb belgilash",
   "school.ktpPercent": "KTRni o‘zgartirish chegarasi, %",
-  "school.ktpPercent.hint": "O‘qituvchi KTR mavzularining qanchasini o‘zgartirishi, o‘chirishi yoki qo‘shishi mumkin. Odatda 30 %."
+  "school.ktpPercent.hint": "O‘qituvchi KTR mavzularining qanchasini o‘zgartirishi, o‘chirishi yoki qo‘shishi mumkin. Odatda 30 %.",
+  "emaktab.view": "eMaktabdagidek",
+  "emaktab.viewOff": "Oddiy ko‘rinish",
+  "emaktab.legend": "eMaktabdagidek: faqat tasdiqlangan 2–5 baholar va «yo‘q», o‘quvchilar va sanalar o‘sha tartibda. Ustunni ko‘chirdingizmi — ustidagi «→ eMaktab» tugmasini bosing.",
+  "emaktab.due": "eMaktabga ko‘chirilmagan:",
+  "emaktab.hoursLeft": "{count} soat qoldi",
+  "emaktab.mark": "Belgilash: baholar eMaktabga ko‘chirildi",
+  "emaktab.markShort": "→ eMaktab · {hours} soat",
+  "emaktab.late": "72 soat o‘tdi",
+  "emaktab.movedAt": "{date} da eMaktabga ko‘chirilgan. Belgini olib tashlash uchun bosing.",
+  "emaktab.onPlatform": "eMaktab belgilari platforma saytida qo‘yiladi.",
+  "emaktab.reminder": "Baholar eMaktabga ko‘chirilishini kutmoqda"
 }

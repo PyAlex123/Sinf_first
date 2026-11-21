@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { JournalSchema, SessionResponseSchema, type Journal } from '@sinf/shared';
+import {
+  EmaktabRemindersResponseSchema,
+  JournalSchema,
+  SessionResponseSchema,
+  type Journal,
+} from '@sinf/shared';
 import {
   applyJournal,
   journalOfClasses,
@@ -232,5 +237,57 @@ describe('the exchange of the teacher’s columns', () => {
     expect(
       applyJournal(t.database.db, { columns: [], grades: [newer] }, new Set(['other']), true),
     ).toBe(0);
+  });
+});
+
+describe('moving grades to eMaktab (W12)', () => {
+  it('reminds of a column with grades until it is marked, and takes the mark back', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    let j = journal(
+      await call('POST', '/api/journal/class-1a/columns', { date: today, title: 'Устно' }),
+    );
+    const column = { kind: 'manual', columnId: j.lessons[0]?.columnId };
+    const reminders = async () =>
+      EmaktabRemindersResponseSchema.parse((await call('GET', '/api/emaktab/reminders')).json())
+        .reminders;
+    // No grades yet: nothing to move.
+    expect(await reminders()).toEqual([]);
+
+    await call('PUT', '/api/journal/class-1a/cell', { column, studentId: 'student-01', value: 5 });
+    await call('PUT', '/api/journal/class-1a/cell', { column, studentId: 'student-02', value: 4 });
+    const due = await reminders();
+    expect(due).toMatchObject([{ classId: 'class-1a', lessonTitle: 'Устно', grades: 2 }]);
+    expect(due[0]?.hoursLeft).toBeGreaterThan(0);
+    expect(due[0]?.hoursLeft).toBeLessThanOrEqual(72);
+
+    j = journal(await call('PUT', '/api/journal/class-1a/emaktab', { column, done: true }));
+    expect(j.lessons[0]?.emaktabAt).not.toBeNull();
+    expect(await reminders()).toEqual([]);
+
+    j = journal(await call('PUT', '/api/journal/class-1a/emaktab', { column, done: false }));
+    expect(j.lessons[0]?.emaktabAt).toBeNull();
+    expect(await reminders()).toHaveLength(1);
+
+    // A column of another class is not this journal's.
+    expect(
+      (
+        await call('PUT', '/api/journal/class-1a/emaktab', {
+          column: { kind: 'manual', columnId: 'nope' },
+          done: true,
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+
+  it('does not remind of a day eMaktab no longer takes', async () => {
+    const j = journal(
+      await call('POST', '/api/journal/class-1a/columns', { date: '2000-01-01', title: 'Давно' }),
+    );
+    const column = { kind: 'manual', columnId: j.lessons[0]?.columnId };
+    await call('PUT', '/api/journal/class-1a/cell', { column, studentId: 'student-01', value: 5 });
+    const res = EmaktabRemindersResponseSchema.parse(
+      (await call('GET', '/api/emaktab/reminders')).json(),
+    );
+    expect(res.reminders).toEqual([]);
   });
 });

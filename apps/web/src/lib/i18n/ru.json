@@ -909,5 +909,19 @@
   "ktp.session.done": "проведено",
   "ktp.session.mark": "Отметить проведённой",
   "school.ktpPercent": "Допустимое изменение КТП, %",
-  "school.ktpPercent.hint": "Сколько тем КТП учитель может поменять, удалить или добавить. Обычно 30 %."
+  "school.ktpPercent.hint": "Сколько тем КТП учитель может поменять, удалить или добавить. Обычно 30 %.",
+  "emaktab.view": "Как в eMaktab",
+  "emaktab.viewOff": "Обычный вид",
+  "emaktab.legend": "Как в eMaktab: только подтверждённые оценки 2–5 и «н», ученики и даты в том же порядке. Перенесли столбец — нажмите «→ eMaktab» над ним.",
+  "emaktab.due": "Не перенесено в eMaktab:",
+  "emaktab.hoursLeft": "осталось {count} ч",
+  "emaktab.hoursLeft#one": "остался {count} ч",
+  "emaktab.hoursLeft#few": "осталось {count} ч",
+  "emaktab.hoursLeft#many": "осталось {count} ч",
+  "emaktab.mark": "Отметить: оценки перенесены в eMaktab",
+  "emaktab.markShort": "→ eMaktab · {hours} ч",
+  "emaktab.late": "72 ч прошли",
+  "emaktab.movedAt": "Перенесено в eMaktab {date}. Нажмите, чтобы снять отметку.",
+  "emaktab.onPlatform": "Отметки eMaktab ставятся на сайте платформы.",
+  "emaktab.reminder": "Оценки ждут переноса в eMaktab"
 }

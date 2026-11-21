@@ -20,6 +20,7 @@ import {
   AssetUploadResponseSchema,
   CourseSchema,
   ClassProgramSchema,
+  EmaktabRemindersResponseSchema,
   KtpLessonsResponseSchema,
   KtpListResponseSchema,
   KtpPlanSchema,
@@ -66,6 +67,7 @@ import {
   type UpdateAuthoredLesson,
   type UpdateProgram,
   type AddKtpRow,
+  type SetEmaktab,
   type CreateKtp,
   type LinkKtpRows,
   type UpdateKtpRow,
@@ -275,6 +277,10 @@ export const api = {
     request('PUT', `/api/journal/${encodeURIComponent(classId)}/cell`, JournalSchema, body),
   journal: (classId: string) =>
     request('GET', `/api/journal/${encodeURIComponent(classId)}`, JournalSchema),
+  /** "Moved to eMaktab" for a column, and what still waits (W12). */
+  setEmaktab: (classId: string, body: SetEmaktab) =>
+    request('PUT', `/api/journal/${encodeURIComponent(classId)}/emaktab`, JournalSchema, body),
+  emaktabReminders: () => request('GET', '/api/emaktab/reminders', EmaktabRemindersResponseSchema),
   /** A plain link, not a request: the browser downloads the file itself. */
   journalExportUrl: (classId: string, lang: Locale) =>
     `/api/journal/${encodeURIComponent(classId)}/export.xlsx?lang=${lang}`,

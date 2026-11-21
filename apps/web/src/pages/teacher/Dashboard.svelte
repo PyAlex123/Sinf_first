@@ -25,6 +25,7 @@
   import Header from '../../lib/ui/Header.svelte';
   import Icon from '../../lib/ui/Icon.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
+  import EmaktabReminder from './EmaktabReminder.svelte';
   import StudentList from '../../lib/ui/StudentList.svelte';
   import SyncBox from '../../lib/ui/SyncBox.svelte';
   import OwnLessons from './OwnLessons.svelte';
@@ -152,6 +153,8 @@
   {:else if !teacher}
     <p aria-busy="true" class="muted">{t('common.loading')}</p>
   {:else}
+    <!-- Grades waiting for eMaktab while it still takes them (PLAN.md 5.4, W12). -->
+    <EmaktabReminder />
     <!-- Left: the class being taught. Right: the lessons to teach it. -->
     <div class="cols">
       <aside class="side stack">

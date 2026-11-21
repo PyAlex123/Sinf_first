@@ -1,6 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import type { CreateJournalColumn, JournalSync, SetJournalCell } from '@sinf/shared';
+import {
+  emaktabDue,
+  type CreateJournalColumn,
+  type EmaktabReminder,
+  type Journal,
+  type JournalSync,
+  type SetEmaktab,
+  type SetJournalCell,
+} from '@sinf/shared';
 import type { ContentStore } from '../content/index.js';
 import { schema, type Db } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
@@ -364,4 +372,58 @@ export function applyJournal(
     }
   });
   return applied;
+}
+
+// ---------- moving grades to eMaktab (PLAN.md 5.4; W12)
+
+/** Marks a column of the journal as moved to eMaktab, or takes the mark back. */
+export function setEmaktab(
+  db: Db,
+  journal: Journal,
+  teacherId: string,
+  input: SetEmaktab,
+  now = new Date(),
+): void {
+  const columnId = input.column.kind === 'lesson' ? input.column.sessionId : input.column.columnId;
+  const known = journal.lessons.some((l) => (l.sessionId ?? l.columnId) === columnId);
+  if (!known) throw notFound('Column');
+  const where = and(
+    eq(schema.emaktabMarks.classId, journal.class.id),
+    eq(schema.emaktabMarks.columnId, columnId),
+  );
+  if (!input.done) {
+    db.delete(schema.emaktabMarks).where(where).run();
+    return;
+  }
+  if (db.select().from(schema.emaktabMarks).where(where).get()) return;
+  db.insert(schema.emaktabMarks)
+    .values({
+      classId: journal.class.id,
+      columnId,
+      markedBy: teacherId,
+      markedAt: now.toISOString(),
+    })
+    .run();
+}
+
+/** What waits to be moved in the teacher's classes, soonest deadline first. */
+export function emaktabReminders(
+  journals: readonly Journal[],
+  now = new Date(),
+): EmaktabReminder[] {
+  return journals
+    .flatMap((journal) =>
+      emaktabDue(journal, now).map((due) => {
+        const lesson = journal.lessons[due.index];
+        return {
+          classId: journal.class.id,
+          className: journal.class.name,
+          lessonTitle: lesson?.lessonTitle ?? '—',
+          date: lesson?.date ?? '',
+          grades: due.grades,
+          hoursLeft: due.hoursLeft,
+        };
+      }),
+    )
+    .sort((a, b) => a.hoursLeft - b.hoursLeft);
 }

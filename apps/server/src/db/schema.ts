@@ -650,8 +650,29 @@ export const ktpRows = sqliteTable(
   (t) => [index('ktp_rows_plan_idx').on(t.planId, t.position)],
 );
 
+/**
+ * "Moved to eMaktab" for a journal column (PLAN.md 5.4; W12; ADR-012): a lesson's session or the
+ * teacher's own column. Kept on the platform only: eMaktab itself is online.
+ */
+export const emaktabMarks = sqliteTable(
+  'emaktab_marks',
+  {
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id),
+    /** The session's or the teacher's column's id. */
+    columnId: text('column_id').notNull(),
+    markedBy: text('marked_by')
+      .notNull()
+      .references(() => users.id),
+    markedAt: timestamp('marked_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.classId, t.columnId] })],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  emaktabMarks,
   ktpRows,
   ktpPlans,
   journalColumns,
