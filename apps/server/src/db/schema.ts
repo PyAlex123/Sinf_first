@@ -720,8 +720,32 @@ export const passwordResets = sqliteTable(
   (t) => [uniqueIndex('password_resets_token_idx').on(t.tokenHash)],
 );
 
+/**
+ * What a school has paid for (CLAUDE.md §2, §6 License; stage 6, B2; ADR-022): N classes for a
+ * period. The newest license in force counts; one taken back keeps its row with `revokedAt`.
+ */
+export const licenses = sqliteTable(
+  'licenses',
+  {
+    id: id(),
+    schoolId: text('school_id')
+      .notNull()
+      .references(() => schools.id),
+    classesLimit: integer('classes_limit').notNull(),
+    validFrom: text('valid_from').notNull(),
+    validTo: text('valid_to').notNull(),
+    note: text('note').notNull().default(''),
+    /** Null on a school computer, whose copy comes with the roster. */
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at').notNull(),
+    revokedAt: timestamp('revoked_at'),
+  },
+  (t) => [index('licenses_school_idx').on(t.schoolId)],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  licenses,
   passwordResets,
   schoolInvites,
   emaktabMarks,

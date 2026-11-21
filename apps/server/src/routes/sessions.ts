@@ -8,6 +8,7 @@ import {
 } from '@sinf/shared';
 import { requireClass, requireSessionClass } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
+import { requireClassroomLesson } from '../services/licenses.js';
 import type { SessionStore } from '../realtime/session-store.js';
 
 const Params = z.object({ id: z.string().min(1) });
@@ -22,6 +23,10 @@ export const sessionRoutes: FastifyPluginCallback<{ store: SessionStore }> = (ap
     const teacher = request.teacher as Teacher;
     // A lesson may only be started for a class this teacher may see (ADR-009).
     requireClass(db, teacher, body.classId);
+    // A lesson on a classroom computer is what a school pays for (stage 6, B2; ADR-022).
+    if (app.ctx.config.classroom || app.sync?.link() != null) {
+      requireClassroomLesson(db, body.classId);
+    }
     const session = store.create({ ...body, teacherId: teacher.id });
     return { session };
   });

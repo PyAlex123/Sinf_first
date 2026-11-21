@@ -13,6 +13,7 @@
   import { DEMO_CLASS_ID, DEMO_TEACHER_ID } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
+  import { licenseError } from '../../lib/license.js';
   import { loadCourses, loadPics } from '../../lib/content.js';
   import { t } from '../../lib/i18n/index.svelte.js';
   import { platform } from '../../lib/platform.js';
@@ -74,7 +75,7 @@
       });
       router.navigate(`/teacher/class/${created.id}`);
     } catch (e) {
-      error = e instanceof Error ? e.message : t('common.error');
+      error = licenseError(e) ?? (e instanceof Error ? e.message : t('common.error'));
     } finally {
       busy = null;
     }
@@ -127,7 +128,7 @@
       const { session } = await api.createSession({ classId: cls.id, lessonId });
       router.navigate(`/teacher/session/${session.id}`);
     } catch (e) {
-      error = e instanceof Error ? e.message : t('common.error');
+      error = licenseError(e) ?? (e instanceof Error ? e.message : t('common.error'));
       busy = null;
     }
   }

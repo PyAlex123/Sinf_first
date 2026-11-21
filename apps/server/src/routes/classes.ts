@@ -23,6 +23,7 @@ import { hashSecretSync } from '../auth/password.js';
 import { ensureHomeCodes } from '../services/student-files.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
+import { requireClassSeat, requirePersonalSeat } from '../services/licenses.js';
 import { ApiHttpError, notFound } from '../errors.js';
 import { moveSeat, seatPlan } from '../services/seats.js';
 import {
@@ -230,6 +231,10 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
     } else if (schools.length > 1) {
       throw new ApiHttpError(400, 'school_required', 'Choose the school for this class');
     }
+    // What the school paid for, or the free plan's one personal class (stage 6, B2). A school
+    // computer mirrors its classes from the platform and makes none of its own.
+    if (schoolId) requireClassSeat(db, schoolId);
+    else requirePersonalSeat(db, teacher.id);
     const settings: ClassSettings = {
       starsToGrade: body.grade >= 3,
       codePics: [...DEFAULT_CODE_PICS],

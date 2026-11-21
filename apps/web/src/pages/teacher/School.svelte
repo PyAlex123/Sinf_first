@@ -1,5 +1,11 @@
 <script lang="ts">
-  import type { Device, ResetLinkResponse, SchoolClass, SchoolDetailsResponse } from '@sinf/shared';
+  import {
+    registerDate,
+    type Device,
+    type ResetLinkResponse,
+    type SchoolClass,
+    type SchoolDetailsResponse,
+  } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { t } from '../../lib/i18n/index.svelte.js';
@@ -297,6 +303,21 @@
           <h2>{t('school.tab.classes')}</h2>
           <p class="big">{data.classes.length}</p>
           <p class="muted small">{t('teacher.students', { count: studentTotal })}</p>
+        </Card>
+        <Card>
+          <h2>{t('license.title')}</h2>
+          <p class="big" data-license-state>{t(`license.status.${data.license.status}`)}</p>
+          {#if data.license.terms}
+            <p class="muted small">
+              {t('license.terms', {
+                used: data.license.classesUsed,
+                limit: data.license.terms.classesLimit,
+                to: registerDate(data.license.terms.validTo),
+              })}
+            </p>
+          {:else}
+            <p class="muted small">{t('license.ask')}</p>
+          {/if}
         </Card>
         <Card>
           <h2>{t('school.tab.computers')}</h2>

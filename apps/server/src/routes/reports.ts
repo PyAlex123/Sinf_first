@@ -18,6 +18,7 @@ import {
   schoolReport,
   schoolReportXlsx,
 } from '../services/reports.js';
+import { requireLicensedSchool } from '../services/licenses.js';
 import { XLSX_MIME } from '../services/xlsx.js';
 import { attachmentHeader } from './results.js';
 
@@ -50,6 +51,8 @@ export const reportRoutes: FastifyPluginCallback = (app, _opts, done) => {
   }): SchoolReport => {
     const { id } = IdParams.parse(request.params);
     const row = requireSchoolAdmin(db, request.teacher as Teacher, id);
+    // The school's reports are part of what it pays for (B2).
+    requireLicensedSchool(db, id);
     const { from, to } = periodOf(request.query);
     return schoolReport(db, content, { id: row.id, name: row.name }, from, to);
   };

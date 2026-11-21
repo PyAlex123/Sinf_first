@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AdminLicense from './AdminLicense.svelte';
   import AdminReports from './AdminReports.svelte';
   import type { AdminSchool } from '@sinf/shared';
   import { onMount } from 'svelte';
@@ -144,6 +145,8 @@
                     {t('school.classes', { count: school.classes })}
                     {#if school.admins.length > 0}· {school.admins.join(', ')}{/if}
                   </div>
+                  <!-- What the school has paid for (B2). -->
+                  <AdminLicense {school} onchange={() => void load()} />
                 </td>
                 <td class="actions">
                   <div>

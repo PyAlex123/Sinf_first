@@ -23,6 +23,7 @@ import {
   EmaktabRemindersResponseSchema,
   SchoolSettingsResponseSchema,
   SchoolReportSchema,
+  SuperadminLicensesResponseSchema,
   ClassReportSchema,
   ResetLinkResponseSchema,
   SchoolInvitesResponseSchema,
@@ -75,6 +76,7 @@ import {
   type UpdateAuthoredLesson,
   type UpdateProgram,
   type AddKtpRow,
+  type IssueLicense,
   type UpdateSchoolSettings,
   type ImportGrades,
   type SetEmaktab,
@@ -445,6 +447,26 @@ export const api = {
     request('GET', `/api/invites/${encodeURIComponent(token)}`, InviteInfoResponseSchema),
   acceptInvite: (token: string) =>
     request('POST', `/api/invites/${encodeURIComponent(token)}/accept`, InviteAcceptResponseSchema),
+  /** A school's licenses, the superadmin's (B2). */
+  licenses: (schoolId: string) =>
+    request(
+      'GET',
+      `/api/admin/schools/${encodeURIComponent(schoolId)}/licenses`,
+      SuperadminLicensesResponseSchema,
+    ),
+  issueLicense: (schoolId: string, body: IssueLicense) =>
+    request(
+      'POST',
+      `/api/admin/schools/${encodeURIComponent(schoolId)}/licenses`,
+      SuperadminLicensesResponseSchema,
+      body,
+    ),
+  revokeLicense: (schoolId: string, licenseId: string) =>
+    request(
+      'DELETE',
+      `/api/admin/schools/${encodeURIComponent(schoolId)}/licenses/${encodeURIComponent(licenseId)}`,
+      SuperadminLicensesResponseSchema,
+    ),
   updateSchool: (id: string, body: UpdateSchool) =>
     request('PATCH', `/api/schools/${encodeURIComponent(id)}`, SchoolDetailsResponseSchema, body),
   devices: (schoolId: string) =>
