@@ -144,6 +144,36 @@ var
   RolePage: TInputOptionWizardPage;
   PcPage: TInputQueryWizardPage;
   AgentPage: TInputOptionWizardPage;
+  { Was the agent's service here before this install? 0 — not asked yet, 1 — yes, 2 — no. }
+  AgentBefore: Integer;
+
+{ What the last install wrote into {app}\setup.json: the computer's own memory of its role and name,
+  which an update (B6) must keep. Empty before the folder is known, or when there is none. }
+function InstalledSetupValue(const Key: String): String;
+var
+  Lines: TArrayOfString;
+  Line, Marker: String;
+  P: Integer;
+begin
+  Result := '';
+  try
+    if not LoadStringsFromFile(ExpandConstant('{app}\setup.json'), Lines) then
+      Exit;
+  except
+    Exit;
+  end;
+  if GetArrayLength(Lines) = 0 then
+    Exit;
+  Line := Lines[0];
+  Marker := '"' + Key + '":"';
+  P := Pos(Marker, Line);
+  if P = 0 then
+    Exit;
+  Line := Copy(Line, P + Length(Marker), Length(Line));
+  P := Pos('"', Line);
+  if P > 0 then
+    Result := Copy(Line, 1, P - 1);
+end;
 
 { "teacher", "student" or "" — from /ROLE=, as typed; else what this computer was before (an
   update, B6, runs with no /ROLE at all and must not forget it). }
@@ -153,6 +183,8 @@ begin
   if (Result <> 'teacher') and (Result <> 'student') then
     Result := Lowercase(GetPreviousData('Role', ''));
   if (Result <> 'teacher') and (Result <> 'student') then
+    Result := InstalledSetupValue('role');
+  if (Result <> 'teacher') and (Result <> 'student') then
     Result := '';
 end;
 
@@ -161,6 +193,8 @@ begin
   Result := Trim(ExpandConstant('{param:PC|}'));
   if Result = '' then
     Result := GetPreviousData('Pc', '');
+  if Result = '' then
+    Result := InstalledSetupValue('pc');
 end;
 
 { The role chosen: the wizard's page, or /ROLE in a silent install. }
@@ -193,11 +227,30 @@ begin
   Result := ChosenRole = 'student';
 end;
 
-{ The agent (B7): /AGENT=1 or 0 when given; else the wizard's checkbox; else what it was before. }
+function AgentInstalled: Boolean;
+var
+  Code: Integer;
+begin
+  Result := Exec(ExpandConstant('{sys}\sc.exe'), 'query SinfAgent', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+end;
+
+{ The agent (B7): /AGENT=1 or 0 when given; else the wizard's checkbox; else what it was before —
+  an update must never switch the closed environment off by itself. }
 function AgentParam: String;
 begin
   Result := Trim(ExpandConstant('{param:AGENT|}'));
-  if (Result <> '1') and (Result <> '0') then
+  if (Result = '1') or (Result = '0') then
+    Exit;
+  if AgentBefore = 0 then
+  begin
+    if AgentInstalled then
+      AgentBefore := 1
+    else
+      AgentBefore := 2;
+  end;
+  if AgentBefore = 1 then
+    Result := '1'
+  else
     Result := GetPreviousData('Agent', '0');
 end;
 
@@ -209,13 +262,6 @@ begin
     Result := AgentParam = '1'
   else
     Result := AgentPage.Values[0];
-end;
-
-function AgentInstalled: Boolean;
-var
-  Code: Integer;
-begin
-  Result := Exec(ExpandConstant('{sys}\sc.exe'), 'query SinfAgent', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
 end;
 
 procedure RunAgent(const Command: String);
