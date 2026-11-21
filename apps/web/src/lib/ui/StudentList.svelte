@@ -14,6 +14,7 @@
     onChange,
     onRename,
     onRemove,
+    filesLink = false,
   }: {
     students: Student[];
     pics: Pics;
@@ -21,6 +22,8 @@
     onChange: (student: Student) => void;
     onRename?: (student: Student, lastName: string, firstName: string) => Promise<void>;
     onRemove?: (student: Student) => Promise<void>;
+    /** A link to the child's "Мои работы" (H12). */
+    filesLink?: boolean;
   } = $props();
   let busy = $state<string | null>(null);
   let editing = $state<string | null>(null);
@@ -120,6 +123,11 @@
                 >
                   {t('teacher.code.reissue')}
                 </Button>
+                {#if filesLink}
+                  <Button variant="ghost" size="sm" href={`/teacher/student/${s.id}/files`}>
+                    {t('files.title')}
+                  </Button>
+                {/if}
                 {#if editable}
                   <Button variant="ghost" size="sm" onclick={() => startEdit(s)}>
                     {t('class.edit')}

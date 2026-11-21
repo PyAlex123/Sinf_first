@@ -1,0 +1,67 @@
+{
+  "app": "word",
+  "fileName": "Оформи документ.docx",
+  "template": "templates/oformi-dokument.docx",
+  "criteria": [
+    {
+      "id": "title",
+      "kind": "auto",
+      "label": {
+        "ru": "Название — стиль «Заголовок 1»",
+        "uz": "Sarlavha — «Sarlavha 1» uslubi"
+      },
+      "points": 2,
+      "check": { "type": "docx.headings", "level": 1, "min": 1 }
+    },
+    {
+      "id": "title-center",
+      "kind": "auto",
+      "label": { "ru": "Заголовок по центру", "uz": "Sarlavha markazda" },
+      "points": 2,
+      "check": { "type": "docx.align", "align": "center", "target": "headings" }
+    },
+    {
+      "id": "font-14",
+      "kind": "auto",
+      "label": { "ru": "Текст — шрифт 14 пт", "uz": "Matn — 14 pt shrift" },
+      "points": 2,
+      "check": { "type": "docx.font", "sizePt": 14 }
+    },
+    {
+      "id": "list",
+      "kind": "auto",
+      "label": {
+        "ru": "Части компьютера — маркированный список",
+        "uz": "Kompyuter qismlari — belgili ro‘yxat"
+      },
+      "points": 2,
+      "check": { "type": "docx.list", "minItems": 3 }
+    },
+    {
+      "id": "table",
+      "kind": "auto",
+      "label": {
+        "ru": "Таблица: 3 строки, 2 столбца",
+        "uz": "Jadval: 3 qator, 2 ustun"
+      },
+      "points": 2,
+      "check": { "type": "docx.table", "min": 1, "minRows": 3, "minCols": 2 }
+    },
+    {
+      "id": "spelling",
+      "kind": "manual",
+      "label": { "ru": "Без ошибок в словах", "uz": "So‘zlarda xato yo‘q" },
+      "points": 2
+    },
+    {
+      "id": "neat",
+      "kind": "manual",
+      "label": {
+        "ru": "Аккуратно: без лишних пустых строк",
+        "uz": "Ozoda: ortiqcha bo‘sh qatorlar yo‘q"
+      },
+      "points": 2
+    }
+  ],
+  "showChecklist": true
+}

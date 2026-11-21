@@ -1,7 +1,9 @@
 import type { FastifyPluginCallback } from 'fastify';
 import {
   LessonSyncBundleSchema,
+  ScreenshotSyncSchema,
   type LessonSyncResponse,
+  type ScreenshotSyncResponse,
   type SchoolSnapshot,
   type SyncStatus,
 } from '@sinf/shared';
@@ -9,7 +11,7 @@ import { requireDevice } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { notFound } from '../errors.js';
 import { buildSchoolSnapshot } from '../sync/snapshot.js';
-import { receiveLessonBundle } from '../sync/receive.js';
+import { receiveLessonBundle, receiveScreenshot } from '../sync/receive.js';
 import type { SyncWorker } from '../sync/worker.js';
 
 /**
@@ -42,12 +44,25 @@ export const syncRoutes: FastifyPluginCallback<{ worker: SyncWorker | null }> = 
     return receiveLessonBundle(db, device, bundle);
   });
 
+  /** A screenshot of a lesson this platform already has (H10). */
+  app.post(
+    '/sync/screenshot',
+    { bodyLimit: 1024 * 1024 },
+    async (request): Promise<ScreenshotSyncResponse> => {
+      const device = await requireDevice(db, request.headers.authorization);
+      const shot = ScreenshotSyncSchema.parse(request.body);
+      return receiveScreenshot(db, app.ctx.config.dataDir, device, shot);
+    },
+  );
+
   /** What the teacher sees on a school computer; on the platform it simply says so. */
   app.get('/sync/status', { preHandler: requireTeacher }, (): SyncStatus => {
     return (
       worker?.status() ?? {
         mode: 'platform',
         pending: 0,
+        pendingShots: 0,
+        pendingFiles: 0,
         lastSyncAt: null,
         lastError: null,
         rosterAt: null,
@@ -62,6 +77,8 @@ export const syncRoutes: FastifyPluginCallback<{ worker: SyncWorker | null }> = 
       worker?.status() ?? {
         mode: 'platform',
         pending: 0,
+        pendingShots: 0,
+        pendingFiles: 0,
         lastSyncAt: null,
         lastError: null,
         rosterAt: null,

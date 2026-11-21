@@ -1,4 +1,4 @@
-import type { Course, Lesson, Pics, Quiz } from '@sinf/shared';
+import type { Course, Lesson, Pics, PracticeTask, Quiz } from '@sinf/shared';
 import { api } from './api.js';
 
 /**
@@ -12,12 +12,15 @@ export interface LessonBundle {
   pics: Pics;
   /** The live quiz of this lesson (S1.12); most lessons have none. */
   quiz: Quiz | null;
+  /** The practice task in a real program (H16); most lessons have none. */
+  practice: PracticeTask | null;
 }
 
 let coursesPromise: Promise<Course[]> | null = null;
 const picsByUrl = new Map<string, Promise<Pics>>();
 const lessons = new Map<string, Promise<Lesson>>();
 const quizzes = new Map<string, Promise<Quiz | null>>();
+const practices = new Map<string, Promise<PracticeTask | null>>();
 const styles = new Set<string>();
 
 export async function loadCourses(): Promise<Course[]> {
@@ -44,12 +47,22 @@ export async function loadLessonBundle(lessonId: string): Promise<LessonBundle> 
     picsByUrl.set(course.pics, pics);
   }
   ensureStylesheet(course.styles);
-  const [lesson, loadedPics, quiz] = await Promise.all([
+  const [lesson, loadedPics, quiz, practice] = await Promise.all([
     loadLesson(lessonId),
     pics,
     loadQuiz(lessonId),
+    loadPractice(lessonId),
   ]);
-  return { course, lesson, pics: loadedPics, quiz };
+  return { course, lesson, pics: loadedPics, quiz, practice };
+}
+
+export async function loadPractice(lessonId: string): Promise<PracticeTask | null> {
+  let pending = practices.get(lessonId);
+  if (!pending) {
+    pending = api.practice(lessonId).then((r) => r.practice);
+    practices.set(lessonId, pending);
+  }
+  return pending;
 }
 
 /** The lesson's quiz, or null — most lessons have none, and the server says so plainly. */

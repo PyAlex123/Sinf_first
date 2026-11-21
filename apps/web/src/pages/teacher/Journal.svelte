@@ -111,6 +111,10 @@
                       class="cell"
                       class:absent={cell && !cell.present}
                       class:grade={cell?.present && cell.grade !== null}
+                      class:offered={cell?.present && cell.grade !== null && !cell.confirmed}
+                      title={cell?.present && cell.grade !== null && !cell.confirmed
+                        ? t('results.grades.offered')
+                        : undefined}
                     >
                       {cell ? cellText(cell) : ''}
                     </td>
@@ -197,6 +201,11 @@
     color: var(--c-danger);
   }
   /* Bold, not bigger: every row keeps one height, so the eye runs along it. */
+  .cell.offered {
+    /* Calculated, not yet confirmed by the teacher (H10). */
+    font-weight: 400;
+    font-style: italic;
+  }
   .cell.grade {
     font-weight: 700;
   }

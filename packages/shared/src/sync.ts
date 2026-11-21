@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ClassSettingsSchema, SchoolRoleSchema } from './api.js';
 import { LocaleSchema } from './locale.js';
+import { CheckReportSchema, PracticeMarksSchema } from './practice.js';
 
 /**
  * What a school computer and the platform say to each other (S2.6, ADR-011).
@@ -39,6 +40,8 @@ export const SyncClassSchema = z.strictObject({
   academicYear: z.string().min(1),
   settings: ClassSettingsSchema,
   teacherIds: z.array(id),
+  /** The code a child types at home to reach "Мои работы" (H12); printed on the cards. */
+  homeCode: z.string().nullable().optional(),
 });
 export type SyncClass = z.infer<typeof SyncClassSchema>;
 
@@ -112,6 +115,35 @@ export const LessonSyncPracticeResultSchema = z.strictObject({
   at,
 });
 
+/** A grade the teacher confirmed or set after the lesson (H10, ADR-012). */
+export const LessonSyncGradeSchema = z.strictObject({
+  studentId: id,
+  value: z.number().int().min(2).max(5),
+  source: z.enum(['session', 'manual']),
+  stars: z.number().int().nonnegative(),
+  at,
+});
+
+/**
+ * A child's practice file at the lesson (H16): the version handed in (or the latest one checked),
+ * what the checker said and the teacher's marks. The file itself travels with "Мои работы" (H12).
+ */
+export const LessonSyncCheckSchema = z.strictObject({
+  studentId: id,
+  /** The three are null when the child saved nothing and only the teacher's marks are there. */
+  fileName: z.string().min(1).max(260).nullable(),
+  fileSha: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable(),
+  report: CheckReportSchema.nullable(),
+  marks: PracticeMarksSchema,
+  checkedAt: at.nullable(),
+  /** Set when this is the version handed in (CLAUDE.md §4.8). */
+  submittedAt: at.nullable(),
+});
+export type LessonSyncCheck = z.infer<typeof LessonSyncCheckSchema>;
+
 /**
  * One lesson as a whole. Attendance and stars are what the journal is made of (the author's choice
  * for this step); what happened during the lesson — raised hands, leaving the tab, "Attention!" —
@@ -123,6 +155,13 @@ export const LessonSyncBundleSchema = z.strictObject({
   screenResults: z.array(LessonSyncScreenResultSchema),
   practiceResults: z.array(LessonSyncPracticeResultSchema),
   quizAttempts: z.array(LessonSyncQuizAttemptSchema),
+  /**
+   * The lesson's confirmed grades as they stand now: the platform replaces what it holds for this
+   * lesson with this list. Absent from a school computer that does not know grades yet (before H10).
+   */
+  grades: z.array(LessonSyncGradeSchema).optional(),
+  /** Practice files and their criteria (H16), replaced as a whole like the grades. */
+  checks: z.array(LessonSyncCheckSchema).optional(),
 });
 export type LessonSyncBundle = z.infer<typeof LessonSyncBundleSchema>;
 
@@ -138,6 +177,28 @@ export const LessonSyncResponseSchema = z.strictObject({
 });
 export type LessonSyncResponse = z.infer<typeof LessonSyncResponseSchema>;
 
+// ---------- school computer → platform: a screenshot of a lesson already sent (H10)
+
+/**
+ * One photograph of a child's screen, sent after its lesson has been accepted. The id was made where
+ * the picture was taken, so sending it twice stores it once.
+ */
+export const ScreenshotSyncSchema = z.strictObject({
+  id: z.string().uuid(),
+  sessionId: id,
+  studentId: id,
+  kind: z.enum(['manual', 'before_end', 'stage_end']),
+  takenAt: at,
+  width: z.number().int().min(1).max(4096),
+  height: z.number().int().min(1).max(4096),
+  /** Base64 of a JPEG of at most 400 KB (CLAUDE.md §3.1). */
+  jpeg: z.string().min(1).max(560_000),
+});
+export type ScreenshotSync = z.infer<typeof ScreenshotSyncSchema>;
+
+export const ScreenshotSyncResponseSchema = z.strictObject({ ok: z.literal(true), id });
+export type ScreenshotSyncResponse = z.infer<typeof ScreenshotSyncResponseSchema>;
+
 // ---------- what the teacher sees on the school computer
 
 export const SyncStatusSchema = z.strictObject({
@@ -145,6 +206,10 @@ export const SyncStatusSchema = z.strictObject({
   mode: z.enum(['platform', 'school']),
   /** Lessons waiting for a connection. */
   pending: z.number().int().nonnegative(),
+  /** Screenshots of lessons already sent that are still waiting to go up (H10). */
+  pendingShots: z.number().int().nonnegative().default(0),
+  /** Changes in children's folders waiting to go up (H12). */
+  pendingFiles: z.number().int().nonnegative().default(0),
   lastSyncAt: at.nullable(),
   lastError: z.string().nullable(),
   /** The roster this computer holds, if it ever received one. */

@@ -1,10 +1,18 @@
 <script lang="ts">
-  import { DEMO_CLASS_ID, type Participant, type SessionSummary } from '@sinf/shared';
+  import {
+    comparePcNames,
+    DEMO_CLASS_ID,
+    LESSON_APPS,
+    type LessonApp,
+    type Participant,
+    type SessionSummary,
+  } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { loadLessonBundle, type LessonBundle } from '../../lib/content.js';
   import { t } from '../../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../../lib/router.svelte.js';
+  import { hostSend, platform } from '../../lib/platform.js';
   import { SessionStore } from '../../lib/stores/session.svelte.js';
   import Button from '../../lib/ui/Button.svelte';
   import EmptyState from '../../lib/ui/EmptyState.svelte';
@@ -30,6 +38,75 @@
 
   const session = $derived(store?.state ?? null);
   const participants = $derived(store?.participants ?? []);
+  /**
+   * Who sits at a classroom app, where "Attention!" really stops keyboard and mouse (stage 3, H4),
+   * and who is in a browser, where it only covers the page.
+   */
+  const inBrowser = $derived(participants.filter((p) => !p.pc && !p.virtual).length);
+  const inClassroom = $derived(participants.filter((p) => !!p.pc).length);
+
+  /**
+   * Tiles in register order, or the way the class sits (H8): by classroom computer, the room's own
+   * numbering, children in a browser last. The choice is the teacher's habit, kept on this computer.
+   */
+  const ORDER_KEY = 'sinf.tiles.order';
+  let order = $state<'list' | 'seats'>(readOrder());
+  function readOrder(): 'list' | 'seats' {
+    try {
+      return localStorage.getItem(ORDER_KEY) === 'seats' ? 'seats' : 'list';
+    } catch {
+      return 'list';
+    }
+  }
+  function setOrder(value: 'list' | 'seats'): void {
+    order = value;
+    try {
+      localStorage.setItem(ORDER_KEY, value);
+    } catch {
+      // private mode: the order lasts for this page only
+    }
+  }
+  const tiles = $derived(
+    order === 'seats'
+      ? [...participants].sort((a, b) =>
+          a.pc && b.pc ? comparePcNames(a.pc, b.pc) : a.pc ? -1 : b.pc ? 1 : a.number - b.number,
+        )
+      : participants,
+  );
+
+  /**
+   * Screen broadcast (H14). The teacher's own screen can only be filmed by the teacher's app; the
+   * page asks the app to film while "Мой экран" is on — and to stop when it is off.
+   */
+  const demoNow = $derived(session?.demo ?? null);
+  /** Programs the teacher is about to give (H15). */
+  let appChoice = $state<LessonApp[]>([]);
+  const canShareMine = platform.isDesktop && platform.role === 'teacher';
+  $effect(() => {
+    if (!canShareMine || demoNow?.source !== 'teacher') return;
+    hostSend({ type: 'share', on: true, sessionId });
+    return () => hostSend({ type: 'share', on: false, sessionId });
+  });
+
+  /** One child's screen, large (H8): the live thumbnail, with the lock and a screenshot at hand. */
+  let zoomed = $state<string | null>(null);
+  let zoomDialog = $state<HTMLDialogElement | null>(null);
+  const zoomedP = $derived(zoomed ? (session?.participants[zoomed] ?? null) : null);
+  $effect(() => {
+    if (!zoomDialog) return;
+    if (zoomed && !zoomDialog.open) zoomDialog.showModal();
+    if (!zoomed && zoomDialog.open) zoomDialog.close();
+  });
+
+  /** "Logged in on another computer" (§4.1 item 7, H8): the child's name and both computers. */
+  function moveText(m: { participantId: string; from: string | null; to: string | null }): string {
+    const name = session?.participants[m.participantId]?.name ?? '';
+    return t('session.moved', {
+      name,
+      from: m.from ?? t('session.moved.browser'),
+      to: m.to ?? t('session.moved.browser'),
+    });
+  }
   const count = $derived(bundle?.lesson.screens.length ?? 0);
   const next = $derived(bundle?.lesson.screens[(session?.screenIndex ?? 0) + 1]);
   const stages = $derived(bundle?.lesson.stages ?? []);
@@ -393,7 +470,102 @@
               {t('session.unlock.all')}
             </Button>
           </div>
-          <p class="soft">{t('session.lock.soft')}</p>
+          {#if inClassroom > 0}
+            <p class="soft">{t('session.lock.real', { count: inClassroom })}</p>
+          {/if}
+          {#if inBrowser > 0 || inClassroom === 0}
+            <p class="soft">{t('session.lock.soft')}</p>
+          {/if}
+        </div>
+
+        <!-- Program tiles on the classroom computers (H15, CLAUDE.md §4.2). -->
+        {#if inClassroom > 0}
+          <div class="lockbox appsbox">
+            <h2 class="boxtitle">
+              <Icon name="pc" size={16} />
+              {t('session.apps')}
+            </h2>
+            <p class="soft">
+              {session?.apps.all === null || !session
+                ? t('session.apps.lesson')
+                : t('session.apps.now', {
+                    list:
+                      session.apps.all.map((a) => t(`apps.${a}`)).join(', ') ||
+                      t('session.apps.none'),
+                  })}
+            </p>
+            <div class="appchecks">
+              {#each LESSON_APPS as app (app)}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={appChoice.includes(app)}
+                    onchange={(e) =>
+                      (appChoice = e.currentTarget.checked
+                        ? [...appChoice, app]
+                        : appChoice.filter((x) => x !== app))}
+                  />
+                  {t(`apps.${app}`)}
+                </label>
+              {/each}
+            </div>
+            <div class="lockbtns">
+              <Button size="sm" onclick={() => store?.setApps('all', appChoice)}
+                >{t('session.apps.all')}</Button
+              >
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={selected.length === 0}
+                onclick={() => store?.setApps(selected, appChoice)}
+                >{t('session.apps.selected')}</Button
+              >
+              <Button variant="secondary" size="sm" onclick={() => store?.setApps('all', null)}
+                >{t('session.apps.reset')}</Button
+              >
+            </div>
+            <p class="soft">{t('session.apps.hint')}</p>
+          </div>
+        {/if}
+
+        <!-- "Мой экран" and a child's screen to the class (H14, CLAUDE.md §4.4). -->
+        <div class="lockbox demobox">
+          <h2 class="boxtitle">
+            <Icon name="screen" size={16} />
+            {t('share.title')}
+          </h2>
+          {#if demoNow}
+            <p class="soft">
+              {demoNow.source === 'teacher'
+                ? t('share.on.mine')
+                : t('share.on.child', { name: session?.participants[demoNow.source]?.name ?? '' })}
+              · {demoNow.mode === 'fullscreen' ? t('share.fullscreen') : t('share.window')}
+            </p>
+            {#if demoNow.source !== 'teacher' && store}
+              <!-- What the class sees of the child's screen. -->
+              {#await import('../../lib/ui/ScreenView.svelte') then { default: ScreenView }}
+                <div class="demoview"><ScreenView {store} demo={demoNow} /></div>
+              {/await}
+            {/if}
+            <Button variant="danger" block onclick={() => store?.demoStop()}
+              >{t('share.stop')}</Button
+            >
+          {:else if canShareMine}
+            <div class="lockbtns">
+              <Button size="sm" onclick={() => store?.demoStart('fullscreen', 'teacher')}>
+                {t('share.mine.fullscreen')}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onclick={() => store?.demoStart('window', 'teacher')}
+              >
+                {t('share.mine.window')}
+              </Button>
+            </div>
+          {:else}
+            <p class="soft">{t('share.appOnly')}</p>
+          {/if}
         </div>
 
         <h2>
@@ -407,6 +579,20 @@
             text={t('session.joinHint')}
           />
         {:else}
+          {#each store?.moves ?? [] as m (m.n)}
+            <div class="moved">
+              <Notice kind="warn">{moveText(m)}</Notice>
+              <button
+                type="button"
+                class="act"
+                aria-label={t('common.close')}
+                title={t('common.close')}
+                onclick={() => store?.dismissMove(m.n)}
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+          {/each}
           <div class="selbar">
             <button
               type="button"
@@ -421,9 +607,35 @@
             {#if selected.length}<span class="muted"
                 >{t('session.selected', { count: selected.length })}</span
               >{/if}
+            {#if inClassroom > 0}
+              <!-- Screens of classroom computers (H5): the selected ones, or everybody's. -->
+              <button
+                type="button"
+                class="link"
+                onclick={() => store?.screenshot(selected.length ? selected : 'all')}
+              >
+                {selected.length ? t('session.shot.selected') : t('session.shot.all')}
+              </button>
+            {/if}
           </div>
+          {#if inClassroom > 0}
+            <div class="order" role="group" aria-label={t('session.order')}>
+              <button
+                type="button"
+                class="link"
+                aria-pressed={order === 'list'}
+                onclick={() => setOrder('list')}>{t('session.order.list')}</button
+              >
+              <button
+                type="button"
+                class="link"
+                aria-pressed={order === 'seats'}
+                onclick={() => setOrder('seats')}>{t('session.order.seats')}</button
+              >
+            </div>
+          {/if}
           <div class="tiles">
-            {#each participants as p (p.id)}
+            {#each tiles as p (p.id)}
               <div
                 class="tile"
                 class:offline={!p.online}
@@ -436,9 +648,13 @@
                   aria-pressed={selected.includes(p.id)}
                   onclick={() => toggleSelect(p.id)}
                 >
+                  {#if store?.thumbs[p.id]}
+                    <img class="thumb" src={store.thumbs[p.id]} alt={t('session.thumb')} />
+                  {/if}
                   <div class="tname">
                     <span class="dot" class:on={p.online}></span>
                     {p.name ?? t('session.participant', { number: p.number })}
+                    {#if p.pc}<span class="pcname">{p.pc}</span>{/if}
                     {#if p.virtual}<span class="virt" title={t('virtual.badge')}
                         >{t('virtual.short')}</span
                       >{/if}
@@ -463,6 +679,21 @@
                       </span>
                     </div>
                   {/if}
+                  {#if p.check}
+                    <!-- The practice file, checked at every save (H16). -->
+                    <div class="tmeta">
+                      <span
+                        class="check"
+                        class:full={p.check.passed === p.check.total}
+                        data-check={`${p.check.passed}/${p.check.total}`}
+                      >
+                        {t('session.check', { passed: p.check.passed, total: p.check.total })}
+                      </span>
+                      {#if p.check.file !== 'ok'}<span class="flag away"
+                          >{t('session.check.look')}</span
+                        >{/if}
+                    </div>
+                  {/if}
                   {#if stepScreens.length > 0}
                     <div class="tmeta">
                       <span>
@@ -483,6 +714,17 @@
                   </div>
                 </button>
                 <div class="acts">
+                  {#if store?.thumbs[p.id]}
+                    <button
+                      type="button"
+                      class="act"
+                      title={t('session.zoom')}
+                      aria-label={t('session.zoom')}
+                      onclick={() => (zoomed = p.id)}
+                    >
+                      <Icon name="screen" size={16} />
+                    </button>
+                  {/if}
                   <button
                     type="button"
                     class="act"
@@ -536,7 +778,108 @@
   {/if}
 </div>
 
+<!-- One screen, large (H8). Esc closes it as well: the dialog's own "cancel". -->
+<dialog
+  class="zoom"
+  bind:this={zoomDialog}
+  aria-label={t('session.zoom')}
+  onclose={() => (zoomed = null)}
+>
+  {#if zoomedP}
+    <div class="zhead">
+      <b>{zoomedP.name ?? t('session.participant', { number: zoomedP.number })}</b>
+      {#if zoomedP.pc}<span class="pcname">{zoomedP.pc}</span>{/if}
+      <button
+        type="button"
+        class="act"
+        aria-label={t('common.close')}
+        title={t('common.close')}
+        onclick={() => (zoomed = null)}
+      >
+        <Icon name="close" size={16} />
+      </button>
+    </div>
+    {#if store?.thumbs[zoomedP.id]}
+      <img class="zimg" src={store.thumbs[zoomedP.id]} alt={t('session.thumb')} />
+    {/if}
+    <div class="zacts">
+      <Button
+        variant={isLocked(zoomedP) ? 'secondary' : 'danger'}
+        disabled={isLocked(zoomedP) && lockedAll}
+        onclick={() => zoomedP && toggleLockOne(zoomedP)}
+      >
+        {isLocked(zoomedP) ? t('session.unlock.one') : t('session.lock.one')}
+      </Button>
+      {#if zoomedP.pc}
+        <Button variant="secondary" onclick={() => zoomedP && store?.screenshot([zoomedP.id])}>
+          {t('session.shot.one')}
+        </Button>
+        <!-- A good piece of work, to everybody (H14, "Экран ученика"). -->
+        <Button
+          variant="secondary"
+          onclick={() => {
+            if (zoomedP) store?.demoStart('fullscreen', zoomedP.id);
+            zoomed = null;
+          }}
+        >
+          {t('share.showChild')}
+        </Button>
+      {/if}
+    </div>
+  {/if}
+</dialog>
+
 <style>
+  .zoom {
+    width: min(92vw, 960px);
+    padding: var(--space-4);
+    border: 1px solid var(--c-line);
+    border-radius: var(--radius-lg);
+    background: var(--c-surface);
+  }
+  .zoom::backdrop {
+    background: rgb(0 0 0 / 0.45);
+  }
+  .zhead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .zhead .act {
+    margin-left: auto;
+  }
+  .zimg {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    background: var(--c-bg-2);
+  }
+  .zacts {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+  .moved {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .moved > :global(.notice) {
+    flex: 1;
+  }
+  .order {
+    display: flex;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+  }
+  .order [aria-pressed='true'] {
+    font-weight: 700;
+    text-decoration: none;
+    color: var(--c-dark);
+  }
   .screen {
     height: 100vh;
     display: flex;
@@ -725,6 +1068,19 @@
     font-size: var(--text-md);
     color: var(--c-danger-strong);
   }
+  .appchecks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+  }
+  .demoview {
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: var(--space-2);
+  }
   .lockbox input {
     min-height: var(--control);
     padding: 0 var(--space-3);
@@ -846,6 +1202,21 @@
     font-size: var(--text-xs);
     font-weight: 600;
   }
+  .thumb {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    margin-bottom: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--c-bg-2);
+  }
+  .pcname {
+    margin-left: var(--space-1);
+    color: var(--c-muted);
+    font-size: var(--text-xs);
+    font-weight: 600;
+  }
   .tname {
     font-weight: 700;
     color: var(--c-dark);
@@ -918,5 +1289,12 @@
     .panel {
       grid-template-columns: minmax(0, 1fr) 300px;
     }
+  }
+  .check {
+    font-weight: 700;
+    color: var(--c-teal);
+  }
+  .check.full {
+    color: var(--c-ok);
   }
 </style>

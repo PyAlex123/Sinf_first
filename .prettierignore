@@ -6,3 +6,10 @@ content
 content-src
 pnpm-lock.yaml
 *.md
+# .NET build output
+**/bin
+**/obj
+**/TestResults
+
+# Эталонные файлы проверщиков: байты должны остаться как есть (tools/fixtures)
+packages/checkers/fixtures

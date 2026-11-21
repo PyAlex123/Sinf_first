@@ -1,6 +1,9 @@
 import {
   lockFor,
+  type LessonApp,
+  type LockTargets,
   type Participant,
+  type ScreenshotReason,
   type Role,
   type ServerMessage,
   type SessionState,
@@ -39,12 +42,39 @@ export class SessionStore {
   lastError = $state<{ code: string; message: string } | null>(null);
   /** The same student logged in from another device (S1.7). */
   kicked = $state(false);
+  /** Teacher: the latest screen thumbnail of each classroom computer, as data URLs (H5). */
+  thumbs = $state<Record<string, string>>({});
+  /** Student: a teacher's panel is open, so thumbnails are wanted (H5, CLAUDE.md §3.1). */
+  thumbsWanted = $state(false);
+  /** Student: the latest screenshot request that names this child (H5); `n` makes each one new. */
+  screenshotAsked = $state<{ n: number; reason: ScreenshotReason } | null>(null);
+  /** Teacher: children who logged in on a second computer, newest last, until dismissed (H8). */
+  moves = $state<{ n: number; participantId: string; from: string | null; to: string | null }[]>(
+    [],
+  );
+  private moveCount = 0;
+  /**
+   * Who draws the frames of a screen broadcast (H14): the screen view, while it is open. Not state:
+   * nothing on the page depends on who listens.
+   */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  private readonly frameListeners = new Set<(frame: Uint8Array) => void>();
+
+  /** Listens to broadcast frames; returns the way to stop. */
+  onFrame(listener: (frame: Uint8Array) => void): () => void {
+    this.frameListeners.add(listener);
+    return () => this.frameListeners.delete(listener);
+  }
   private socket: SessionSocket | null = null;
 
   constructor(
     readonly sessionId: string,
     readonly role: Role,
   ) {}
+
+  dismissMove(n: number): void {
+    this.moves = this.moves.filter((x) => x.n !== n);
+  }
 
   connect(): void {
     const token = this.role === 'student' ? readParticipantToken(this.sessionId) : null;
@@ -53,6 +83,9 @@ export class SessionStore {
       role: this.role,
       participantToken: token,
       onMessage: (m) => this.apply(m),
+      onBinary: (frame) => {
+        for (const listener of this.frameListeners) listener(frame);
+      },
       onStatus: (s) => {
         this.status = s;
       },
@@ -125,6 +158,31 @@ export class SessionStore {
 
   setDemoSpeed(speed: number): void {
     this.socket?.send({ type: 'teacher.demoSpeed.set', speed });
+  }
+  /** "Мой экран" or a child's screen to the class (H14). */
+  demoStart(mode: 'fullscreen' | 'window', source: string): void {
+    this.socket?.send({ type: 'teacher.demo.start', mode, source });
+  }
+
+  demoStop(): void {
+    this.socket?.send({ type: 'teacher.demo.stop' });
+  }
+
+  /** Program tiles for everybody or chosen children; null — the lesson's own (H15). */
+  setApps(targets: 'all' | string[], apps: LessonApp[] | null): void {
+    this.socket?.send({ type: 'teacher.apps.set', targets, apps });
+  }
+
+  // ---------- screens of classroom computers (H5)
+
+  /** Teacher: photograph these children's screens now, or everybody's. */
+  screenshot(targets: LockTargets): void {
+    this.socket?.send({ type: 'teacher.screenshot', targets });
+  }
+
+  /** Student: a thumbnail of this screen, base64 JPEG from the classroom app. */
+  sendThumb(jpeg: string): void {
+    this.socket?.send({ type: 'student.thumb', jpeg });
   }
 
   /** Server time now, by the offset from the last snapshot or pong. */
@@ -245,6 +303,32 @@ export class SessionStore {
         return;
       case 'pong':
         return;
+      case 'thumb':
+        this.thumbs = { ...this.thumbs, [m.participantId]: `data:image/jpeg;base64,${m.jpeg}` };
+        return;
+      case 'apps.changed':
+        if (this.state) this.state = { ...this.state, apps: m.apps };
+        return;
+      case 'demo.changed':
+        if (this.state) this.state = { ...this.state, demo: m.demo };
+        return;
+      case 'student.moved':
+        this.moveCount += 1;
+        this.moves = [
+          ...this.moves.filter((x) => x.participantId !== m.participantId),
+          { n: this.moveCount, participantId: m.participantId, from: m.from, to: m.to },
+        ];
+        return;
+      case 'thumbs.wanted':
+        this.thumbsWanted = m.on;
+        return;
+      case 'screenshot.request': {
+        const me = this.you?.participantId;
+        if (me && (m.targets === 'all' || m.targets.includes(me))) {
+          this.screenshotAsked = { n: (this.screenshotAsked?.n ?? 0) + 1, reason: m.reason };
+        }
+        return;
+      }
     }
   }
 }

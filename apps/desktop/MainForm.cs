@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
+using Sinf.Desktop.Core;
 
 namespace Sinf.Desktop;
 
@@ -16,7 +17,7 @@ internal sealed class MainForm : Form
     private static readonly Color BarColor = Color.FromArgb(19, 35, 58);
     private static readonly Color AccentColor = Color.FromArgb(255, 106, 0);
 
-    private readonly AppPaths paths = AppPaths.Create();
+    private readonly AppPaths paths;
     private readonly WebView2 view = new() { Dock = DockStyle.Fill, Visible = false };
     private readonly Panel bar = new() { Dock = DockStyle.Top, Height = 52, BackColor = BarColor };
     private readonly Label addressLabel = new() { AutoSize = true, ForeColor = Color.White };
@@ -26,6 +27,7 @@ internal sealed class MainForm : Form
     private readonly Button reloadButton = new() { Text = "Обновить", AutoSize = true };
     private readonly Button schoolButton = new() { Text = "Школа", AutoSize = true };
     private readonly Button updateButton = new() { Text = "Обновить материалы", AutoSize = true };
+    private readonly Button exitPasswordButton = new() { Text = "Пароль учеников", AutoSize = true };
     private readonly Label splash = new()
     {
         Dock = DockStyle.Fill,
@@ -37,12 +39,18 @@ internal sealed class MainForm : Form
     private HostConfig config;
     private readonly Platform platform;
     private ServerProcess? server;
+    /// <summary>"Мой экран" (H14): this computer's screen for the class, while the teacher shows it.</summary>
+    private ScreenShare? share;
+    /// <summary>Answers student computers that look for this lesson on the network (ADR-014 §3).</summary>
+    private TeacherBeacon? beacon;
+    private TeacherIdentity? identity;
     private FormWindowState beforeFullScreen = FormWindowState.Maximized;
     private bool fullScreen;
 
-    public MainForm()
+    public MainForm(AppPaths paths, HostConfig config)
     {
-        config = HostConfig.Load(paths);
+        this.paths = paths;
+        this.config = config;
         platform = new Platform(message => BeginInvoke(() => accountLabel.Text = message));
 
         Text = "Sinf";
@@ -90,7 +98,7 @@ internal sealed class MainForm : Form
             Padding = new Padding(8, 10, 12, 10),
             WrapContents = false,
         };
-        foreach (var button in new[] { reloadButton, fullScreenButton, updateButton, schoolButton, copyButton })
+        foreach (var button in new[] { reloadButton, fullScreenButton, updateButton, schoolButton, exitPasswordButton, copyButton })
         {
             button.FlatStyle = FlatStyle.Flat;
             button.BackColor = Color.White;
@@ -103,6 +111,7 @@ internal sealed class MainForm : Form
         reloadButton.Click += (_, _) => view.CoreWebView2?.Reload();
         fullScreenButton.Click += (_, _) => ToggleFullScreen();
         schoolButton.Click += (_, _) => PairWithSchool();
+        exitPasswordButton.Click += (_, _) => SetExitPassword();
         updateButton.Click += async (_, _) => await UpdateContentAsync(manual: true).ConfigureAwait(true);
 
         bar.Controls.Add(left);
@@ -146,6 +155,12 @@ internal sealed class MainForm : Form
             : $"Ученики заходят: {lanUrl}";
         accountLabel.Text = $"Учитель: demo@sinf.local · пароль: {config.TeacherPassword}";
         copyButton.Enabled = lanUrl is not null;
+        StartBeacon(lanUrl);
+        if (identity is not null)
+        {
+            // Read off this screen and the student's when a student computer meets its teacher (H9).
+            accountLabel.Text += $" · ключ: {TeacherIdentity.Fingerprint(identity.PublicKey)}";
+        }
 
         splash.Text = "Открываем панель учителя…";
         try
@@ -168,6 +183,56 @@ internal sealed class MainForm : Form
         bar.Visible = true;
         ShowSchool();
         platform.StartHeartbeat(config);
+        if (!config.HasExitPassword)
+        {
+            // Without it the student kiosks have no way out for the administrator (H3).
+            SetExitPassword();
+        }
+    }
+
+    /// <summary>
+    /// The one exit password of the student kiosks in this room (H3, author's choice). Only the hash
+    /// is kept; the beacon hands it to student computers at their next search.
+    /// </summary>
+    private void SetExitPassword()
+    {
+        using var dialog = new NewExitPasswordDialog();
+        if (dialog.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        config = config with { ExitPasswordHash = dialog.Hash };
+        HostConfig.Save(paths, config);
+        MessageBox.Show(
+            this,
+            "Пароль сохранён. Компьютеры учеников получат его, когда в следующий раз найдут этот компьютер.",
+            "Sinf",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
+    }
+
+    /// <summary>
+    /// Student computers find this one by a broadcast question (ADR-014 §3). If the port is taken —
+    /// another Sinf already answers on this machine — the lesson still runs; students type the address.
+    /// </summary>
+    private void StartBeacon(string? lanUrl)
+    {
+        if (lanUrl is null)
+        {
+            return;
+        }
+
+        try
+        {
+            // The key that signs every answer (H9); student computers remember it at their first meeting.
+            identity = TeacherIdentity.LoadOrCreate(paths.TeacherKeyFile);
+            beacon = new TeacherBeacon(() => lanUrl, Environment.MachineName, identity, () => config.ExitPasswordHash);
+        }
+        catch (System.Net.Sockets.SocketException)
+        {
+            accountLabel.Text += " · поиск по сети недоступен: ученики вводят адрес вручную";
+        }
     }
 
     /// <summary>
@@ -308,7 +373,71 @@ internal sealed class MainForm : Form
             }
         };
 
+        // The panel asks this app for one thing only: to film this screen for the class (H14).
+        core.WebMessageReceived += (_, e) =>
+        {
+            if (server is not null && Uri.TryCreate(e.Source, UriKind.Absolute, out var from) && IsOurs(from.ToString()))
+            {
+                OnPanelMessage(e.WebMessageAsJson);
+            }
+        };
+
         core.Navigate($"{server!.LocalUrl}/teacher");
+    }
+
+    private void OnPanelMessage(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("type", out var type)
+                || type.GetString() != "share")
+            {
+                return;
+            }
+
+            var on = root.TryGetProperty("on", out var o) && o.ValueKind == JsonValueKind.True;
+            var sessionId = root.TryGetProperty("sessionId", out var s) ? s.GetString() : null;
+            _ = SetShareAsync(on ? sessionId : null);
+        }
+        catch (JsonException)
+        {
+            // Not ours.
+        }
+    }
+
+    /// <summary>
+    /// "Мой экран" on (a lesson id) or off (null). The screen goes to this computer's own lesson
+    /// server with the secret it was started with; the server passes it on to every child.
+    /// </summary>
+    private async Task SetShareAsync(string? sessionId)
+    {
+        var old = share;
+        share = null;
+        if (old is not null)
+        {
+            await old.DisposeAsync().ConfigureAwait(true);
+        }
+
+        if (sessionId is null || server is null)
+        {
+            return;
+        }
+
+        var next = new ScreenShare(
+            new Uri($"ws://127.0.0.1:{server.Port}/ws/demo?session={Uri.EscapeDataString(sessionId)}"),
+            server.HostToken);
+        try
+        {
+            await next.StartAsync().ConfigureAwait(true);
+            share = next;
+        }
+        catch (Exception error) when (error is System.Net.WebSockets.WebSocketException or OperationCanceledException)
+        {
+            await next.DisposeAsync().ConfigureAwait(true);
+        }
     }
 
     private bool IsOurs(string uri)
@@ -408,6 +537,16 @@ internal sealed class MainForm : Form
         splash.Text = "Завершаем урок…";
         splash.Visible = true;
         platform.Dispose();
+        if (share is not null)
+        {
+            await share.DisposeAsync().ConfigureAwait(true);
+            share = null;
+        }
+
+        beacon?.Dispose();
+        beacon = null;
+        identity?.Dispose();
+        identity = null;
         await stopping.DisposeAsync().ConfigureAwait(true);
         Close();
     }

@@ -10,6 +10,7 @@ on:
       - 'packages/**'
       - 'content/**'
       - 'tools/package-windows.ps1'
+      - 'tools/installer/**'
       - '.github/workflows/windows-app.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -39,6 +40,9 @@ jobs:
       # better-sqlite3 is native: this is the step that cannot happen on Linux.
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+
+      - name: Tests of the Windows-free logic (xUnit, ADR-014)
+        run: dotnet test apps/desktop-core.Tests
 
       - name: Our window (self-contained, .NET not required on the school PC)
         run: >
@@ -115,6 +119,48 @@ jobs:
             if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
           }
 
+      # The installer carries the WebView2 offline installer (CLAUDE.md §3.2): only Microsoft's
+      # signed standalone file, never the small online bootstrapper.
+      - name: WebView2 offline installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = 'tools/installer/redist'
+          $file = Join-Path $dir 'MicrosoftEdgeWebView2RuntimeInstallerX64.exe'
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/?linkid=2124701' -OutFile $file
+          $size = (Get-Item $file).Length
+          $sig = Get-AuthenticodeSignature $file
+          Write-Host ("WebView2: {0:N1} МБ, подпись: {1}, {2}" -f ($size / 1MB), $sig.Status, $sig.SignerCertificate.Subject)
+          if ($size -lt 50MB) { throw 'Это не офлайн-установщик WebView2' }
+          if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+            throw 'Подпись установщика WebView2 не Microsoft'
+          }
+
+      - name: Installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress | Out-Null
+          }
+          & $iscc /Qp "/DAppVersion=0.3.${{ github.run_number }}" tools/installer/sinf.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC: код $LASTEXITCODE" }
+          Get-ChildItem out/installer | Select-Object Name, @{ Name = 'МБ'; Expression = { '{0:N1}' -f ($_.Length / 1MB) } } | Format-Table -AutoSize
+
+      # Installed, reinstalled as the teacher's and removed on the runner, silently, as on a school PC.
+      - name: Silent install, reinstall and removal
+        shell: pwsh
+        run: ./tools/installer/smoke.ps1
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-logs
+          path: out/installer-logs
+          if-no-files-found: ignore
+
       # Top level only: a full listing is thousands of lines of node_modules.
       - name: Package contents
         shell: pwsh
@@ -133,4 +179,10 @@ jobs:
         with:
           name: Sinf-windows-x64
           path: out/Sinf
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sinf-setup-x64
+          path: out/installer/*.exe
           if-no-files-found: error

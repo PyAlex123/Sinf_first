@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PracticeCheckStateSchema } from './practice.js';
 
 /**
  * Realtime protocol between the server and the lesson clients (teacher, student, projector) — ADR-006,
@@ -23,6 +24,16 @@ export type SessionMode = z.infer<typeof SessionModeSchema>;
 
 export const LockTargetsSchema = z.union([z.literal('all'), z.array(id).min(1)]);
 export type LockTargets = z.infer<typeof LockTargetsSchema>;
+
+/** Why a screenshot is taken (CLAUDE.md §4.8, §6 Screenshot.kind). */
+export const ScreenshotReasonSchema = z.enum(['manual', 'before_end', 'stage_end']);
+export type ScreenshotReason = z.infer<typeof ScreenshotReasonSchema>;
+
+/**
+ * A screen thumbnail as base64 JPEG (stage 3, H5): 320 px, at most 30 KB (CLAUDE.md §3.1), which is
+ * about 40 000 base64 characters; the limit leaves a margin and still fits one frame.
+ */
+export const MAX_THUMB_BASE64 = 48_000;
 
 const LockTextSchema = z.string().max(200);
 
@@ -69,6 +80,16 @@ export const ParticipantSchema = z.strictObject({
    * snapshots readable.
    */
   virtual: z.boolean().default(false),
+  /**
+   * The classroom computer the child sits at, "ПК-05" (stage 3). Set only for the classroom app,
+   * where "Attention!" really locks keyboard and mouse (H4); null in a browser.
+   */
+  pc: z.string().nullable().default(null),
+  /**
+   * The child's practice file as last checked (H16): the tile shows "3/5", the child their
+   * check-list. Null until the first save of a lesson with a practice task.
+   */
+  check: PracticeCheckStateSchema.nullable().default(null),
   lastSeenAt: serverTime,
 });
 export type Participant = z.infer<typeof ParticipantSchema>;
@@ -86,6 +107,11 @@ export const StageStateSchema = z.strictObject({
   countdownUntil: serverTime.nullable(),
   /** Part of a split stage: practice is work → rest → work. */
   part: z.enum(['work', 'rest']).nullable(),
+  /**
+   * The practice's screenshots before its end have been asked for (stage 3, H5): once per stage,
+   * so a teacher pressing "+5 min" does not get a second round. `default` keeps old snapshots readable.
+   */
+  shotRequested: z.boolean().default(false),
 });
 export type StageState = z.infer<typeof StageStateSchema>;
 
@@ -118,6 +144,37 @@ export const QuizStateSchema = z.strictObject({
 });
 export type QuizState = z.infer<typeof QuizStateSchema>;
 
+/**
+ * "Мой экран" and "Экран ученика" (CLAUDE.md §4.4; stage 3, H14; ADR-017). `fullscreen`: the
+ * picture covers the whole screen and the classroom computer's input is locked; `window`: a panel,
+ * and the child may work alongside. `epoch` tells frames of this broadcast from an earlier one.
+ */
+export const DemoStateSchema = z.strictObject({
+  mode: z.enum(['fullscreen', 'window']),
+  source: z.union([z.literal('teacher'), id]),
+  epoch: z.number().int().nonnegative(),
+});
+export type DemoState = z.infer<typeof DemoStateSchema>;
+
+/**
+ * Programs a classroom computer may open (H15): only ids travel, a student computer finds the
+ * program itself and opens nothing else (apps/desktop-core/AppCatalog.cs).
+ */
+export const LESSON_APPS = ['paint', 'notepad', 'word', 'excel', 'powerpoint'] as const;
+export const LessonAppSchema = z.enum(LESSON_APPS);
+export type LessonApp = z.infer<typeof LessonAppSchema>;
+
+/**
+ * Which program tiles the children see (CLAUDE.md §4.2; H15). `all: null` — what the lesson's stage
+ * gives by itself; the teacher can change it for everybody or for chosen children. A new stage
+ * brings back the lesson's own set.
+ */
+export const AppsStateSchema = z.strictObject({
+  all: z.array(LessonAppSchema).nullable(),
+  byParticipant: z.record(id, z.array(LessonAppSchema)),
+});
+export type AppsState = z.infer<typeof AppsStateSchema>;
+
 export const SessionStateSchema = z.strictObject({
   id,
   lessonId: id,
@@ -133,6 +190,10 @@ export const SessionStateSchema = z.strictObject({
   lock: LockStateSchema,
   /** The live quiz, while it is on (S1.12). */
   quiz: QuizStateSchema.nullable().default(null),
+  /** A screen broadcast, while it is on (H14). */
+  demo: DemoStateSchema.nullable().default(null),
+  /** Program tiles set by the teacher (H15); by default the lesson's own. */
+  apps: AppsStateSchema.default({ all: null, byParticipant: {} }),
   participants: z.record(id, ParticipantSchema),
 });
 export type SessionState = z.infer<typeof SessionStateSchema>;
@@ -186,6 +247,21 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({ v, type: z.literal('teacher.quiz.next') }),
   z.strictObject({ v, type: z.literal('teacher.quiz.finish') }),
   z.strictObject({ v, type: z.literal('teacher.session.end') }),
+  /** Show the teacher's screen, or a child's, to the class (H14). */
+  z.strictObject({
+    v,
+    type: z.literal('teacher.demo.start'),
+    mode: z.enum(['fullscreen', 'window']),
+    source: z.union([z.literal('teacher'), id]),
+  }),
+  z.strictObject({ v, type: z.literal('teacher.demo.stop') }),
+  /** Program tiles for everybody or chosen children; null brings back the lesson's own (H15). */
+  z.strictObject({
+    v,
+    type: z.literal('teacher.apps.set'),
+    targets: LockTargetsSchema,
+    apps: z.array(LessonAppSchema).max(LESSON_APPS.length).nullable(),
+  }),
   z.strictObject({ v, type: z.literal('student.screen.set'), index: screenIndex }),
   z.strictObject({
     v,
@@ -207,6 +283,14 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     optionIndex: z.number().int().nonnegative(),
   }),
   z.strictObject({ v, type: z.literal('student.hand'), up: z.boolean() }),
+  /** A thumbnail of this classroom computer's screen, only while a teacher watches (H5). */
+  z.strictObject({
+    v,
+    type: z.literal('student.thumb'),
+    jpeg: z.string().min(1).max(MAX_THUMB_BASE64),
+  }),
+  /** "Take a screenshot" of chosen children or everybody (H5, CLAUDE.md §4.8). */
+  z.strictObject({ v, type: z.literal('teacher.screenshot'), targets: LockTargetsSchema }),
   z.strictObject({
     v,
     type: z.literal('student.visibility'),
@@ -255,7 +339,33 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     serverNow: serverTime,
   }),
   z.strictObject({ v, type: z.literal('participant.updated'), participant: ParticipantSchema }),
+  /** A screen broadcast started, changed or stopped (H14); the frames come as binary messages. */
+  z.strictObject({ v, type: z.literal('demo.changed'), demo: DemoStateSchema.nullable() }),
+  z.strictObject({ v, type: z.literal('apps.changed'), apps: AppsStateSchema }),
   z.strictObject({ v, type: z.literal('session.ended') }),
+  /** To teachers only: the latest thumbnail of one child's screen (H5). */
+  z.strictObject({ v, type: z.literal('thumb'), participantId: id, jpeg: z.string().min(1) }),
+  /** To students: send thumbnails or stop — only while a teacher's panel is open (CLAUDE.md §3.1). */
+  z.strictObject({ v, type: z.literal('thumbs.wanted'), on: z.boolean() }),
+  /** To students: take a screenshot and upload it (H5). */
+  z.strictObject({
+    v,
+    type: z.literal('screenshot.request'),
+    targets: LockTargetsSchema,
+    reason: ScreenshotReasonSchema,
+  }),
+  /**
+   * To teachers only: a child logged in on another device while still connected on the first one;
+   * the first one is closed (CLAUDE.md §4.1 item 7, H8). `from`/`to` are classroom computers, null
+   * for a browser.
+   */
+  z.strictObject({
+    v,
+    type: z.literal('student.moved'),
+    participantId: id,
+    from: z.string().nullable(),
+    to: z.string().nullable(),
+  }),
   /** The same student logged in from another device; this connection is closed. */
   z.strictObject({ v, type: z.literal('session.kicked') }),
   z.strictObject({ v, type: z.literal('error'), code: z.string(), message: z.string() }),

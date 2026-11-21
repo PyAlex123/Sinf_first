@@ -84,3 +84,20 @@ jobs:
       - name: Container log
         if: always()
         run: docker logs sinf || true
+
+  # Stage 3 (ADR-014): the Windows app's own logic is tested on Linux, and the app itself must compile
+  # here too (EnableWindowsTargeting) — compile errors surface before anyone downloads an archive.
+  desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Tests of the Windows-free logic (xUnit)
+        run: dotnet test apps/desktop-core.Tests
+
+      - name: The Windows app compiles
+        run: dotnet build apps/desktop/Sinf.Desktop.csproj -c Release

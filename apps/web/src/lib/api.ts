@@ -6,11 +6,16 @@ import {
   CourseListResponseSchema,
   JoinClassesResponseSchema,
   JoinLookupResponseSchema,
+  JoinRoomResponseSchema,
+  ScreenshotUploadResponseSchema,
+  SeatPlanSchema,
+  type ScreenshotUpload,
   JoinResponseSchema,
   JoinSessionResponseSchema,
   LessonSchema,
   MeResponseSchema,
   PicsSchema,
+  PracticeResponseSchema,
   SessionResponseSchema,
   SessionStateSchema,
   StudentCodeResponseSchema,
@@ -60,7 +65,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   url: string,
   schema: ZodType<T>,
   body?: unknown,
@@ -97,6 +102,9 @@ export const api = {
   lesson: (id: string) => request('GET', `/api/lessons/${encodeURIComponent(id)}`, LessonSchema),
   quiz: (id: string) =>
     request('GET', `/api/lessons/${encodeURIComponent(id)}/quiz`, QuizResponseSchema),
+  /** The lesson's practice task in a real program (H16); most lessons have none. */
+  practice: (id: string) =>
+    request('GET', `/api/lessons/${encodeURIComponent(id)}/practice`, PracticeResponseSchema),
   pics: (url: string) => request('GET', url, PicsSchema),
   createSession: (body: CreateSession) =>
     request('POST', '/api/sessions', SessionResponseSchema, body),
@@ -109,6 +117,22 @@ export const api = {
   resetDemo: () => request('POST', '/api/demo/reset', DemoResetResponseSchema),
   sessionResults: (id: string) =>
     request('GET', `/api/sessions/${encodeURIComponent(id)}/results`, SessionResultsSchema),
+  /** Confirm or change grades of a finished lesson; null goes back to the suggestion (H10). */
+  setGrades: (sessionId: string, grades: { studentId: string; value: number | null }[]) =>
+    request('PUT', `/api/sessions/${encodeURIComponent(sessionId)}/grades`, SessionResultsSchema, {
+      grades,
+    }),
+  /** The teacher's marks on the practice's criteria; null gives one back (H16). */
+  setPracticeMarks: (sessionId: string, studentId: string, marks: Record<string, boolean | null>) =>
+    request(
+      'PUT',
+      `/api/sessions/${encodeURIComponent(sessionId)}/practice-marks`,
+      SessionResultsSchema,
+      { studentId, marks },
+    ),
+  /** A plain link: the browser downloads the practice file handed in. */
+  practiceFileUrl: (sessionId: string, studentId: string) =>
+    `/api/sessions/${encodeURIComponent(sessionId)}/practice/${encodeURIComponent(studentId)}/file`,
   journal: (classId: string) =>
     request('GET', `/api/journal/${encodeURIComponent(classId)}`, JournalSchema),
   /** A plain link, not a request: the browser downloads the file itself. */
@@ -121,6 +145,14 @@ export const api = {
       ClassDetailsResponseSchema,
       { starsToGrade },
     ),
+  /** The class's seating on the classroom's teacher computer; 404 anywhere else (H8). */
+  seatPlan: (classId: string) =>
+    request('GET', `/api/classes/${encodeURIComponent(classId)}/seats`, SeatPlanSchema),
+  moveSeat: (classId: string, pc: string, studentId: string | null) =>
+    request('PUT', `/api/classes/${encodeURIComponent(classId)}/seats`, SeatPlanSchema, {
+      pc,
+      studentId,
+    }),
   classDetails: (id: string) =>
     request('GET', `/api/classes/${encodeURIComponent(id)}`, ClassDetailsResponseSchema),
   createClass: (body: CreateClass) =>
@@ -203,6 +235,18 @@ export const api = {
   syncStatus: () => request('GET', '/api/sync/status', SyncStatusSchema),
   syncNow: () => request('POST', '/api/sync/now', SyncStatusSchema),
   joinClasses: () => request('GET', '/api/join/classes', JoinClassesResponseSchema),
+  /** A classroom computer's screenshot, sent with the child's lesson token (H5). */
+  uploadScreenshot: async (sessionId: string, token: string, body: ScreenshotUpload) => {
+    const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/screenshots`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-participant-token': token },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new ApiError(res.status, 'http', `HTTP ${res.status}`);
+    return ScreenshotUploadResponseSchema.parse(await res.json());
+  },
+  joinRoom: (pc: string) =>
+    request('GET', `/api/join/room?pc=${encodeURIComponent(pc)}`, JoinRoomResponseSchema),
   joinLookup: (code: string) =>
     request('POST', '/api/join/lookup', JoinLookupResponseSchema, { code }),
   join: (body: JoinRequest) => request('POST', '/api/join', JoinResponseSchema, body),

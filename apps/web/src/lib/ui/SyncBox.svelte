@@ -52,7 +52,9 @@
   <Card muted>
     <h3>{t('sync.title')}</h3>
     <p class="state">
-      {#if status.pending === 0}
+      {#if status.pending === 0 && status.pendingShots > 0}
+        <Badge tone="warn">{t('sync.shots', { count: status.pendingShots })}</Badge>
+      {:else if status.pending === 0}
         <Badge tone="ok">{t('sync.allSent')}</Badge>
       {:else}
         <Badge tone="warn">{t('sync.pending', { count: status.pending })}</Badge>
@@ -64,7 +66,7 @@
     {#if problem}
       <p class="muted small">{t('sync.error', { text: problem })}</p>
     {/if}
-    {#if status.pending > 0}
+    {#if status.pending > 0 || status.pendingShots > 0}
       <Button variant="secondary" size="sm" disabled={busy} onclick={sendNow}>
         <Icon name="forward" size={16} />
         {t('sync.now')}

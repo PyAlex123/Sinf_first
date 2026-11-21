@@ -6,21 +6,25 @@ import {
   AddStudentsSchema,
   CreateClassSchema,
   MAX_STUDENTS_PER_CLASS,
+  SeatUpdateSchema,
   UpdateClassSettingsSchema,
   UpdateStudentSchema,
   type AddStudentsResponse,
   type ClassDetailsResponse,
   type ClassSettings,
   type ClassSummary,
+  type SeatPlan,
   type Student,
   type StudentCodeResponse,
   type Teacher,
 } from '@sinf/shared';
 import { requireClass, requireStudent, schoolsOf, type ClassRow } from '../auth/access.js';
 import { hashSecretSync } from '../auth/password.js';
+import { ensureHomeCodes } from '../services/student-files.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
-import { ApiHttpError } from '../errors.js';
+import { ApiHttpError, notFound } from '../errors.js';
+import { moveSeat, seatPlan } from '../services/seats.js';
 import {
   DEFAULT_CODE_PICS,
   randomDigitCode,
@@ -96,6 +100,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
     studentCount,
     schoolId: cls.schoolId,
     schoolName: schoolNameOf(cls.schoolId),
+    homeCode: cls.homeCode,
   });
 
   /**
@@ -147,6 +152,39 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
     const { id } = Params.parse(request.params);
     const teacher = request.teacher as Teacher;
     return details(requireClass(db, teacher, id), teacher);
+  });
+
+  /**
+   * The seating of the class (stage 3, H8): which child sits at which computer of the room. It lives
+   * on the teacher's computer only (`CLASSROOM_MODE`, ADR-014); elsewhere there is no room.
+   */
+  app.get('/classes/:id/seats', { preHandler: requireTeacher }, (request): SeatPlan => {
+    if (!app.ctx.config.classroom) throw notFound('Not a classroom computer');
+    const { id } = Params.parse(request.params);
+    const cls = requireClass(db, request.teacher as Teacher, id);
+    return seatPlan(db, cls.id);
+  });
+
+  /** The teacher moves a child to a computer, swaps two, or frees a computer (H8). */
+  app.put('/classes/:id/seats', { preHandler: requireTeacher }, (request): SeatPlan => {
+    if (!app.ctx.config.classroom) throw notFound('Not a classroom computer');
+    const { id } = Params.parse(request.params);
+    const body = SeatUpdateSchema.parse(request.body);
+    const cls = requireClass(db, request.teacher as Teacher, id);
+    if (body.studentId !== null) {
+      const student = db
+        .select()
+        .from(schema.students)
+        .where(eq(schema.students.id, body.studentId))
+        .get();
+      // Only a real child of this class sits at a computer: virtual ones play on the server (S1.15).
+      if (!student || student.classId !== cls.id || !student.isActive || student.isVirtual) {
+        throw new ApiHttpError(400, 'not_in_class', 'Student is not in this class');
+      }
+    }
+    moveSeat(db, cls.id, body.pc, body.studentId);
+    request.log.info({ classId: cls.id, pc: body.pc, studentId: body.studentId }, 'seat moved');
+    return seatPlan(db, cls.id);
   });
 
   /** "Turn stars into a 2–5 grade" (S1.13). Grades are worked out on reading, so past lessons follow. */
@@ -205,6 +243,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
       academicYear: body.academicYear ?? currentAcademicYear(),
       settings,
       createdAt: new Date().toISOString(),
+      homeCode: null as string | null,
     };
     db.transaction((tx) => {
       tx.insert(schema.classes).values(row).run();
@@ -212,6 +251,14 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
         .values({ classId: row.id, userId: teacher.id, createdAt: row.createdAt })
         .run();
     });
+    // The code for "Мои работы" at home; a school computer gets the platform's with the roster.
+    if (!app.sync) ensureHomeCodes(db);
+    row.homeCode =
+      db
+        .select({ homeCode: schema.classes.homeCode })
+        .from(schema.classes)
+        .where(eq(schema.classes.id, row.id))
+        .get()?.homeCode ?? null;
     request.log.info({ classId: row.id, schoolId }, 'class created');
     return { class: summaryOf(row, 0) };
   });

@@ -1,0 +1,6 @@
+/* Оформление сайта школы */
+body { font-family: Arial, sans-serif; background: #f4f4f4; }
+h1 { color: navy; }
+@media (max-width: 600px) {
+  table { width: 100%; }
+}

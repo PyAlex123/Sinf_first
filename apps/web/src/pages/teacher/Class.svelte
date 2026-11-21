@@ -20,6 +20,7 @@
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
   import StudentList from '../../lib/ui/StudentList.svelte';
+  import SeatPlan from './SeatPlan.svelte';
 
   /** Class page (S2.2): the register, pasting a roster, fixing names, cards for printing. */
 
@@ -127,6 +128,10 @@
         <Button variant="secondary" href={`/teacher/class/${cls?.id}/cards`}>
           {t('teacher.cards')}
         </Button>
+        <!-- "Собрать работы" (H12): every child's folder in one ZIP, a folder per child. -->
+        <Button variant="secondary" href={`/api/classes/${cls?.id}/works.zip`} download>
+          {t('files.collect')}
+        </Button>
       {/snippet}
     </PageHeader>
 
@@ -144,11 +149,14 @@
             {students}
             {pics}
             editable
+            filesLink
             onChange={(u: Student) => (students = students.map((s) => (s.id === u.id ? u : s)))}
             onRename={rename}
             onRemove={remove}
           />
         {/if}
+        <!-- Only on the classroom's teacher computer; elsewhere it shows nothing (H8). -->
+        {#if students.length > 0}<SeatPlan {classId} {students} />{/if}
       </section>
 
       <aside class="stack">

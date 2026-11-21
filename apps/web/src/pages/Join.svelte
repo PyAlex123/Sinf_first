@@ -3,6 +3,7 @@
   import { onMount } from 'svelte';
   import { api, ApiError } from '../lib/api.js';
   import { loadPics } from '../lib/content.js';
+  import { platform } from '../lib/platform.js';
   import { t } from '../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
   import { saveParticipantToken } from '../lib/stores/session.svelte.js';
@@ -16,11 +17,18 @@
   const SEAT_KEY = (classId: string): string => `sinf.seat.${classId}`;
   const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
 
-  type Step = 'code' | 'name' | 'personal';
+  type Step = 'waiting' | 'code' | 'name' | 'personal';
+
+  /**
+   * A student computer in the classroom (stage 3, H2): no lesson code. It waits until the teacher
+   * starts a lesson, then names the child who sat here last time. In a browser nothing changes.
+   */
+  const pc = platform.role === 'student' ? platform.pcName : null;
+  const ROOM_POLL_MS = 3000;
 
   // svelte-ignore state_referenced_locally
   let codeInput = $state((query.get('code') ?? '').replace(/\D/g, '').slice(0, 4));
-  let step = $state<Step>('code');
+  let step = $state<Step>(pc ? 'waiting' : 'code');
   let lookup = $state<JoinLookupResponse | null>(null);
   let pics = $state<Pics>({});
   let student = $state<JoinStudent | null>(null);
@@ -61,6 +69,46 @@
     }
   }
 
+  /**
+   * Asks the teacher's computer which lesson is on, every few seconds for as long as this screen is
+   * open: a lesson that starts opens the class list, one that ends while a child is still choosing
+   * goes back to waiting (H8), and a new lesson replaces the old list.
+   */
+  async function pollRoom(): Promise<void> {
+    clearTimeout(roomTimer);
+    if (!pc || step === 'code') return;
+    try {
+      const { lesson } = await api.joinRoom(pc);
+      if (!lesson) {
+        if (step !== 'waiting') {
+          lookup = null;
+          student = null;
+          entered = [];
+          error = null;
+          step = 'waiting';
+        }
+      } else if (step === 'waiting' || lesson.session.id !== lookup?.session.id) {
+        const { seatedStudentId, ...found } = lesson;
+        pics = await loadPics();
+        lookup = found;
+        const seated = found.students.find((s) => s.id === seatedStudentId);
+        student = seated ?? null;
+        entered = [];
+        error = null;
+        step = seated ? 'personal' : 'name';
+      }
+    } catch (e) {
+      // An older teacher's computer does not know rooms: fall back to the lesson code.
+      if (e instanceof ApiError && e.status === 404) {
+        step = 'code';
+        return;
+      }
+    }
+    roomTimer = setTimeout(() => void pollRoom(), ROOM_POLL_MS);
+  }
+
+  let roomTimer: ReturnType<typeof setTimeout> | undefined;
+
   function pickStudent(s: JoinStudent): void {
     student = s;
     entered = [];
@@ -90,6 +138,7 @@
         sessionId: lookup.session.id,
         studentId: student.id,
         code: entered,
+        ...(pc ? { pc } : {}),
       });
       saveParticipantToken(res.session.id, res.token);
       try {
@@ -100,6 +149,14 @@
       router.navigate(`/s/${res.session.id}`);
     } catch (e) {
       entered = [];
+      if (pc && e instanceof ApiError && e.status === 404) {
+        // The lesson ended while the child was typing: wait for the next one.
+        lookup = null;
+        student = null;
+        step = 'waiting';
+        void pollRoom();
+        return;
+      }
       if (e instanceof ApiError && e.code === 'wrong_code') {
         error = t('join.wrongCode', { count: Number(e.details?.['attemptsLeft'] ?? 0) });
       } else if (e instanceof ApiError && e.code === 'locked') {
@@ -113,14 +170,32 @@
   }
 
   onMount(() => {
-    if (codeInput.length === 4) void lookupCode();
+    if (pc) void pollRoom();
+    else if (codeInput.length === 4) void lookupCode();
+    return () => clearTimeout(roomTimer);
   });
 </script>
 
 <main class="join">
-  <div class="top"><a class="home" href="/">{t('app.name')}</a><LangSwitch /></div>
+  <div class="top">
+    {#if platform.role === 'student'}
+      <!-- A kiosk has no home page to go to (H3). -->
+      <span class="home">{t('app.name')}</span>
+    {:else}
+      <a class="home" href="/">{t('app.name')}</a>
+    {/if}
+    <!-- On a classroom computer the child sees which one it is (ADR-014): "ПК-05". -->
+    {#if platform.pcName}<span class="pc" title={t('join.pc')}>{platform.pcName}</span>{/if}
+    <LangSwitch />
+  </div>
 
-  {#if step === 'code'}
+  {#if step === 'waiting'}
+    <div class="waiting" aria-live="polite">
+      <h1>{t('join.waiting')}</h1>
+      <p class="muted">{t('join.waiting.hint')}</p>
+      <Button variant="ghost" onclick={() => (step = 'code')}>{t('join.byCode')}</Button>
+    </div>
+  {:else if step === 'code'}
     <h1>{t('join.code.title')}</h1>
     <p class="muted">{t('join.code.hint')}</p>
     <form
@@ -195,6 +270,20 @@
 </main>
 
 <style>
+  .waiting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-7);
+    text-align: center;
+  }
+  .pc {
+    margin-left: auto;
+    margin-right: var(--space-3);
+    color: var(--c-muted);
+    font-weight: 600;
+  }
   .join {
     min-height: 100vh;
     padding: var(--space-4);

@@ -24,6 +24,8 @@ export interface SessionSocketOptions {
   /** Anonymous student token from a previous connection, if any. */
   participantToken?: string | null;
   onMessage: (message: ServerMessage) => void;
+  /** A frame of a screen broadcast (H14): binary, passed on untouched. */
+  onBinary?: (frame: Uint8Array) => void;
   onStatus?: (status: ConnectionStatus) => void;
 }
 
@@ -82,6 +84,8 @@ export class SessionSocket {
     if (this.ended) return;
     this.options.onStatus?.('connecting');
     const socket = new WebSocket(this.url());
+    // Frames of a screen broadcast arrive as binary messages on the same socket (H14).
+    socket.binaryType = 'arraybuffer';
     this.socket = socket;
     socket.onopen = () => {
       this.attempt = 0;
@@ -89,6 +93,10 @@ export class SessionSocket {
       this.pingTimer = setInterval(() => this.send({ type: 'ping' }), PING_INTERVAL_MS);
     };
     socket.onmessage = (event) => {
+      if (event.data instanceof ArrayBuffer) {
+        this.options.onBinary?.(new Uint8Array(event.data));
+        return;
+      }
       let raw: unknown;
       try {
         raw = JSON.parse(String(event.data));

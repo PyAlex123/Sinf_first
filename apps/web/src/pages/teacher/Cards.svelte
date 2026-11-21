@@ -66,6 +66,13 @@
           <span>{t('cards.hint')}</span>
           <span>{t('cards.site')}: {site}</span>
         </div>
+        {#if s.codeKind === 'digits' && details.class.homeCode}
+          <!-- "Мои работы" from home (H12): site/my, the class code, then one's own code. -->
+          <div class="foot homecode">
+            <span>{t('cards.home', { site: `${site}/my` })}</span>
+            <b>{t('cards.classCode', { code: details.class.homeCode })}</b>
+          </div>
+        {/if}
       </article>
     {/each}
   </main>
@@ -138,6 +145,14 @@
     font-size: 18pt;
     color: #b04a12;
     font-weight: 800;
+  }
+  .homecode {
+    border-top: 1px dotted #c8ced6;
+    padding-top: 1.5mm;
+  }
+  .homecode b {
+    font-size: 10pt;
+    color: #13233a;
   }
   .foot {
     display: flex;

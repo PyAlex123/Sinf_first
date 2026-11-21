@@ -70,6 +70,7 @@ export function buildSchoolSnapshot(db: Db, schoolId: string): SchoolSnapshot | 
       academicYear: c.academicYear,
       settings: c.settings,
       teacherIds: teacherLinks.filter((l) => l.classId === c.id).map((l) => l.userId),
+      homeCode: c.homeCode,
     })),
     students: studentRows.map((s) => ({
       id: s.id,

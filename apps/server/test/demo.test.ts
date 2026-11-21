@@ -1,256 +1,341 @@
-import { eq } from 'drizzle-orm';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
-  ClassDetailsResponseSchema,
-  DemoStatusSchema,
-  JoinLookupResponseSchema,
-  JournalSchema,
-  MeResponseSchema,
+  encodeFrame,
+  JoinResponseSchema,
+  parseFrame,
+  PROTOCOL_VERSION,
   SessionResponseSchema,
-  SessionResultsSchema,
+  type ClientMessage,
+  type ServerMessage,
 } from '@sinf/shared';
-import { schema } from '../src/db/index.js';
-import { loginTeacher, testApp, type TestApp } from './helpers.js';
+import { buildApp } from '../src/app.js';
+import type { DemoSource } from '../src/realtime/demo-relay.js';
+import type { RoomSocket } from '../src/realtime/session-store.js';
+import { loginTeacher, testConfig, testContent, testDatabase } from './helpers.js';
 
-/**
- * S1.15: the demo page — virtual students for the demo lesson, and a reset that touches the demo
- * class alone (ADR-013). On the platform real teachers live beside the demo.
- */
+/** H14: a screen broadcast — who may send it, who gets it, and a viewer who cannot keep up. */
 
-let t: TestApp;
-let cookie: string;
-
-beforeEach(async () => {
-  t = await testApp();
-  cookie = await loginTeacher(t.app);
-});
+type App = Awaited<ReturnType<typeof buildApp>>;
+const opened: { app: App; close: () => void }[] = [];
 
 afterEach(async () => {
-  await t.close();
+  for (const { app, close } of opened.splice(0)) {
+    for (const id of app.sessions.liveSessionIds()) app.sessions.end(id);
+    await app.close();
+    close();
+  }
 });
 
-async function outsider(): Promise<string> {
-  const res = await t.app.inject({
-    method: 'POST',
-    url: '/api/auth/register',
-    payload: { fullName: 'Чужой Учитель', email: 'other@example.com', password: 'parol12345' },
+interface Sock extends RoomSocket {
+  text: ServerMessage[];
+  frames: Uint8Array[];
+  bufferedAmount: number;
+}
+
+function socket(): Sock {
+  const s: Sock = {
+    text: [],
+    frames: [],
+    bufferedAmount: 0,
+    readyState: 1,
+    OPEN: 1,
+    send(data) {
+      if (typeof data === 'string') s.text.push(JSON.parse(data) as ServerMessage);
+      else s.frames.push(data);
+    },
+    close: () => undefined,
+    ping: () => undefined,
+    terminate: () => undefined,
+  };
+  return s;
+}
+
+function source(): DemoSource & { said: string[]; closed: boolean } {
+  const s = {
+    said: [] as string[],
+    closed: false,
+    tell: (m: string) => s.said.push(m),
+    close: () => {
+      s.closed = true;
+    },
+  };
+  return s;
+}
+
+const frame = (keyframe: boolean, seq = 1) =>
+  encodeFrame({
+    keyframe,
+    epoch: 0,
+    seq,
+    width: 1280,
+    height: 720,
+    cursor: null,
+    rects: [{ x: 0, y: 0, w: 80, h: 80, jpeg: new Uint8Array([0xff, 0xd8, 0xff, 1]) }],
   });
-  expect(res.statusCode).toBe(200);
-  const c = res.cookies.find((x) => x.name === 'sinf_teacher');
-  if (!c) throw new Error('no cookie');
-  return `${c.name}=${c.value}`;
-}
 
-async function startSession(classId = 'class-1a', as = cookie): Promise<string> {
-  const res = await t.app.inject({
-    method: 'POST',
-    url: '/api/sessions',
-    headers: { cookie: as },
-    payload: { classId, lessonId: 'g10' },
+async function lesson() {
+  const database = testDatabase();
+  const app = await buildApp({
+    config: testConfig({ CLASSROOM_MODE: '1' }),
+    db: database.db,
+    content: testContent(),
   });
-  expect(res.statusCode).toBe(200);
-  return SessionResponseSchema.parse(res.json()).session.id;
+  await app.ready();
+  opened.push({ app, close: () => database.close() });
+  const cookie = await loginTeacher(app);
+  const sessionId = SessionResponseSchema.parse(
+    (
+      await app.inject({
+        method: 'POST',
+        url: '/api/sessions',
+        headers: { cookie },
+        payload: { classId: 'class-1a', lessonId: 'k10' },
+      })
+    ).json(),
+  ).session.id;
+  const store = app.sessions;
+  const students = await Promise.all(
+    ['student-01', 'student-02', 'student-03'].map(async (id, i) => {
+      const row = database.db.query.students
+        .findFirst({ where: (s, { eq }) => eq(s.id, id) })
+        .sync();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/join',
+        payload: { sessionId, studentId: id, code: row?.codePublic.split('+'), pc: `ПК-0${i + 1}` },
+      });
+      const { token } = JoinResponseSchema.parse(res.json());
+      const sock = socket();
+      store.attach(sessionId, sock, 'student', token);
+      return { id, sock, token };
+    }),
+  );
+  const teacher = socket();
+  store.attach(sessionId, teacher, 'teacher', null);
+  const projector = socket();
+  store.attach(sessionId, projector, 'projector', null);
+  const command = (message: ClientMessage) =>
+    store.dispatch(sessionId, teacher, {
+      kind: 'command',
+      role: 'teacher',
+      participantId: null,
+      message,
+      now: Date.now(),
+    });
+  return { app, store, sessionId, students, teacher, projector, command, relay: app.demo };
 }
 
-async function addVirtual(sessionId: string, count: number, as = cookie) {
-  return t.app.inject({
-    method: 'POST',
-    url: '/api/demo/virtual',
-    headers: { cookie: as },
-    payload: { sessionId, count },
-  });
-}
+describe('a screen broadcast', () => {
+  it('sends the teacher’s screen to every child and the projector, stamped with this broadcast', async () => {
+    const l = await lesson();
+    expect(l.relay.canSource(l.sessionId, 'teacher')).toBe(false);
+    l.command({
+      v: PROTOCOL_VERSION,
+      type: 'teacher.demo.start',
+      mode: 'fullscreen',
+      source: 'teacher',
+    });
+    const demo = l.store.getState(l.sessionId)?.demo;
+    expect(demo).toMatchObject({ mode: 'fullscreen', source: 'teacher' });
+    expect(l.students[0]?.sock.text.some((m) => m.type === 'demo.changed')).toBe(true);
+    expect(l.relay.canSource(l.sessionId, 'teacher')).toBe(true);
 
-/** Lets the server's own timer bring them in (they join within 20 seconds). */
-function bringIn(): void {
-  t.app.virtual.tick(Date.now() + 25_000);
-}
-
-describe('demo page', () => {
-  it('belongs to the demo teacher only', async () => {
-    const other = await outsider();
-    for (const [method, url] of [
-      ['GET', '/api/demo'],
-      ['POST', '/api/demo/reset'],
-    ] as const) {
-      const res = await t.app.inject({ method, url, headers: { cookie: other } });
-      expect(res.statusCode, url).toBe(404);
+    const host = source();
+    l.relay.attachSource(l.sessionId, 'teacher', host);
+    expect(host.said).toEqual(['keyframe']);
+    expect(l.relay.frame(l.sessionId, host, frame(true))).toBeNull();
+    for (const s of l.students) {
+      expect(s.sock.frames).toHaveLength(1);
+      expect(parseFrame(s.sock.frames[0] ?? new Uint8Array())?.epoch).toBe(demo?.epoch);
     }
-    const res = await t.app.inject({ method: 'GET', url: '/api/demo', headers: { cookie } });
-    expect(DemoStatusSchema.parse(res.json())).toEqual({
-      classId: 'class-1a',
-      session: null,
-      virtualInSession: 0,
-      virtualMax: 20,
+    expect(l.projector.frames).toHaveLength(1);
+    // The teacher does not need their own screen back.
+    expect(l.teacher.frames).toHaveLength(0);
+  });
+
+  it('drops frames of nobody, broken frames and a flood', async () => {
+    const l = await lesson();
+    const stranger = source();
+    expect(l.relay.frame(l.sessionId, stranger, frame(true))).toBe('not the source');
+    l.command({
+      v: PROTOCOL_VERSION,
+      type: 'teacher.demo.start',
+      mode: 'window',
+      source: 'teacher',
     });
+    const host = source();
+    l.relay.attachSource(l.sessionId, 'teacher', host);
+    const bad = frame(true);
+    bad[0] = 0;
+    expect(l.relay.frame(l.sessionId, host, bad)).toBe('bad frame');
+    expect(l.relay.frame(l.sessionId, host, frame(false, 1))).toBeNull();
+    expect(l.relay.frame(l.sessionId, host, frame(false, 2))).toBe('too fast');
+    expect(l.students[0]?.sock.frames).toHaveLength(1);
   });
 
-  it('adds up to twenty virtual students to the demo lesson, no more', async () => {
-    const id = await startSession();
-    const res = await addVirtual(id, 15);
-    expect(res.statusCode).toBe(200);
-    expect(DemoStatusSchema.parse(res.json()).virtualInSession).toBe(15);
-
-    const tooMany = await addVirtual(id, 6);
-    expect(tooMany.statusCode).toBe(400);
-    expect(tooMany.json()).toMatchObject({ error: 'too_many', details: { room: 5 } });
-    expect((await addVirtual(id, 21)).statusCode).toBe(400);
-
-    const rest = await addVirtual(id, 5);
-    expect(DemoStatusSchema.parse(rest.json()).virtualInSession).toBe(20);
-
-    bringIn();
-    const state = t.app.sessions.getState(id);
-    const virtual = Object.values(state?.participants ?? {}).filter((p) => p.virtual);
-    expect(virtual).toHaveLength(20);
-    expect(new Set(virtual.map((p) => p.studentId)).size).toBe(20);
-  });
-
-  it('never puts them into a real class', async () => {
-    const other = await outsider();
-    const created = await t.app.inject({
-      method: 'POST',
-      url: '/api/classes',
-      headers: { cookie: other },
-      payload: { name: '5Б', grade: 5 },
+  it('shows a child’s screen only from a classroom computer, to everybody but that child', async () => {
+    const l = await lesson();
+    const [aliev, karimova] = l.students;
+    if (!aliev || !karimova) throw new Error('no students');
+    l.command({
+      v: PROTOCOL_VERSION,
+      type: 'teacher.demo.start',
+      mode: 'fullscreen',
+      source: aliev.id,
     });
-    const classId = created.json<{ class: { id: string } }>().class.id;
-    const theirs = await startSession(classId, other);
-    // Neither the owner of that class (not the demo teacher) nor the demo teacher may.
-    expect((await addVirtual(theirs, 3, other)).statusCode).toBe(404);
-    expect((await addVirtual(theirs, 3)).statusCode).toBe(404);
-  });
+    expect(l.relay.canSource(l.sessionId, aliev.id)).toBe(true);
+    expect(l.relay.canSource(l.sessionId, karimova.id)).toBe(false);
+    const app = source();
+    l.relay.attachSource(l.sessionId, aliev.id, app);
+    l.relay.frame(l.sessionId, app, frame(true));
+    expect(aliev.sock.frames).toHaveLength(0);
+    expect(karimova.sock.frames).toHaveLength(1);
+    expect(l.teacher.frames).toHaveLength(1);
 
-  it('keeps them off the register, the join list and the cards', async () => {
-    const id = await startSession();
-    await addVirtual(id, 10);
-    bringIn();
-
-    const details = ClassDetailsResponseSchema.parse(
-      (
-        await t.app.inject({ method: 'GET', url: '/api/classes/class-1a', headers: { cookie } })
-      ).json(),
-    );
-    expect(details.students).toHaveLength(20);
-    expect(details.class.studentCount).toBe(20);
-    const me = MeResponseSchema.parse(
-      (await t.app.inject({ method: 'GET', url: '/api/me', headers: { cookie } })).json(),
-    );
-    expect(me.classes.find((c) => c.id === 'class-1a')?.studentCount).toBe(20);
-
-    const joinCode = t.app.sessions.summary(id)?.joinCode;
-    const lookup = JoinLookupResponseSchema.parse(
-      (
-        await t.app.inject({
-          method: 'POST',
-          url: '/api/join/lookup',
-          payload: { code: joinCode },
-        })
-      ).json(),
-    );
-    expect(lookup.students).toHaveLength(20);
-    const asVirtual = await t.app.inject({
-      method: 'POST',
-      url: '/api/join',
-      payload: { sessionId: id, studentId: 'virtual-01', code: ['sun', 'ball'] },
+    // Another child's screen next: the first app is told to stop.
+    l.command({
+      v: PROTOCOL_VERSION,
+      type: 'teacher.demo.start',
+      mode: 'fullscreen',
+      source: karimova.id,
     });
-    expect(asVirtual.statusCode).toBe(404);
+    expect(app.said.at(-1)).toBe('stop');
+    expect(app.closed).toBe(true);
+    // Stopping clears it for everybody.
+    l.command({ v: PROTOCOL_VERSION, type: 'teacher.demo.stop' });
+    expect(l.store.getState(l.sessionId)?.demo).toBeNull();
   });
 
-  it('marks them in results and the journal, and only where they played', async () => {
-    const first = await startSession();
-    await addVirtual(first, 3);
-    bringIn();
-    await t.app.inject({ method: 'POST', url: `/api/sessions/${first}/end`, headers: { cookie } });
-    // A second lesson without them: they are not "absent" there, they were never in it.
-    const second = await startSession();
-    await t.app.inject({ method: 'POST', url: `/api/sessions/${second}/end`, headers: { cookie } });
+  it('refuses a child in a browser: a browser cannot film its screen', async () => {
+    const l = await lesson();
+    const p = l.store.getState(l.sessionId)?.participants['student-01'];
+    if (!p) throw new Error('no participant');
+    // Make it a browser participant by taking its computer away.
+    l.store.getState(l.sessionId)!.participants['student-01'] = { ...p, pc: null };
+    l.command({
+      v: PROTOCOL_VERSION,
+      type: 'teacher.demo.start',
+      mode: 'fullscreen',
+      source: 'student-01',
+    });
+    expect(l.store.getState(l.sessionId)?.demo).toBeNull();
+  });
 
-    const results = SessionResultsSchema.parse(
-      (
-        await t.app.inject({
-          method: 'GET',
-          url: `/api/sessions/${first}/results`,
-          headers: { cookie },
-        })
-      ).json(),
-    );
-    const virtualRows = results.rows.filter((r) => r.isVirtual);
-    expect(virtualRows).toHaveLength(3);
-    expect(virtualRows.every((r) => r.present)).toBe(true);
-    expect(results.rows).toHaveLength(23);
+  it('lets a slow viewer skip frames until a whole picture, and asks the source for one', async () => {
+    let now = 1_000_000;
+    const l = await lesson();
+    // The relay's clock, so the test decides what "a second later" is.
+    (l.relay as unknown as { now: () => number }).now = () => now;
+    l.command({
+      v: PROTOCOL_VERSION,
+      type: 'teacher.demo.start',
+      mode: 'fullscreen',
+      source: 'teacher',
+    });
+    const host = source();
+    l.relay.attachSource(l.sessionId, 'teacher', host);
+    const [fast, slow] = l.students;
+    if (!fast || !slow) throw new Error('no students');
+    l.relay.frame(l.sessionId, host, frame(true, 1));
 
-    const journal = JournalSchema.parse(
-      (
-        await t.app.inject({ method: 'GET', url: '/api/journal/class-1a', headers: { cookie } })
-      ).json(),
-    );
-    const virtualKids = journal.students.filter((s) => s.isVirtual);
-    expect(virtualKids).toHaveLength(3);
-    expect(virtualKids.every((s) => s.cells[1] === null)).toBe(true);
-    const absentInSecond = t.database.db
-      .select()
-      .from(schema.attendance)
-      .all()
-      .filter((a) => a.sessionId === second && a.studentId.startsWith('virtual-'));
-    expect(absentInSecond).toHaveLength(0);
+    slow.sock.bufferedAmount = 5 * 1024 * 1024;
+    now += 2000;
+    l.relay.frame(l.sessionId, host, frame(false, 2));
+    expect(slow.sock.frames).toHaveLength(1);
+    expect(host.said).toEqual(['keyframe', 'keyframe']);
+
+    // Caught up, but a change is no use without the picture it changes: still waiting.
+    slow.sock.bufferedAmount = 0;
+    now += 200;
+    l.relay.frame(l.sessionId, host, frame(false, 3));
+    expect(slow.sock.frames).toHaveLength(1);
+    // Asked at most once a second.
+    expect(host.said).toHaveLength(2);
+    now += 200;
+    l.relay.frame(l.sessionId, host, frame(true, 4));
+    expect(slow.sock.frames).toHaveLength(2);
+    expect(fast.sock.frames).toHaveLength(4);
+  });
+
+  it('starts a newcomer with a whole picture', async () => {
+    let now = 1_000_000;
+    const l = await lesson();
+    (l.relay as unknown as { now: () => number }).now = () => now;
+    l.command({
+      v: PROTOCOL_VERSION,
+      type: 'teacher.demo.start',
+      mode: 'fullscreen',
+      source: 'teacher',
+    });
+    const host = source();
+    l.relay.attachSource(l.sessionId, 'teacher', host);
+    l.relay.frame(l.sessionId, host, frame(true, 1));
+    now += 2000;
+    const late = socket();
+    l.store.attach(l.sessionId, late, 'projector', null);
+    expect(host.said).toEqual(['keyframe', 'keyframe']);
+    now += 200;
+    l.relay.frame(l.sessionId, host, frame(false, 2));
+    expect(late.frames).toHaveLength(0);
+    now += 200;
+    l.relay.frame(l.sessionId, host, frame(true, 3));
+    expect(late.frames).toHaveLength(1);
   });
 });
 
-describe('demo reset', () => {
-  it('returns class 1А to its start and leaves everybody else alone', async () => {
-    const other = await outsider();
-    const created = await t.app.inject({
-      method: 'POST',
-      url: '/api/classes',
-      headers: { cookie: other },
-      payload: { name: '5Б', grade: 5 },
+describe('/ws/demo over a real socket', () => {
+  it('takes the teacher’s app by its token, only during a broadcast, and nobody else', async () => {
+    const { default: WebSocket } = await import('ws');
+    const database = testDatabase();
+    const app = await buildApp({
+      config: testConfig({ CLASSROOM_MODE: '1', HOST_TOKEN: 'host-token-of-this-computer' }),
+      db: database.db,
+      content: testContent(),
     });
-    const theirClass = created.json<{ class: { id: string } }>().class.id;
-    const theirs = await startSession(theirClass, other);
-    await t.app.inject({
-      method: 'POST',
-      url: `/api/sessions/${theirs}/end`,
-      headers: { cookie: other },
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    opened.push({ app, close: () => database.close() });
+    const port = (app.server.address() as { port: number }).port;
+    const cookie = await loginTeacher(app);
+    const sessionId = SessionResponseSchema.parse(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/sessions',
+          headers: { cookie },
+          payload: { classId: 'class-1a', lessonId: 'k10' },
+        })
+      ).json(),
+    ).session.id;
+
+    /** Connects and reports how it ended: the first text heard, or the close code. */
+    const connect = (token: string) =>
+      new Promise<string>((resolve) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/demo?session=${sessionId}`, {
+          headers: { 'x-host-token': token },
+        });
+        ws.on('message', (data: Buffer) => {
+          resolve(`said ${data.toString('utf8')}`);
+          ws.close();
+        });
+        ws.on('close', (code) => resolve(`closed ${code}`));
+      });
+
+    expect(await connect('host-token-of-this-computer')).toBe('closed 4001');
+    const teacher = socket();
+    app.sessions.attach(sessionId, teacher, 'teacher', null);
+    app.sessions.dispatch(sessionId, teacher, {
+      kind: 'command',
+      role: 'teacher',
+      participantId: null,
+      message: {
+        v: PROTOCOL_VERSION,
+        type: 'teacher.demo.start',
+        mode: 'fullscreen',
+        source: 'teacher',
+      },
+      now: Date.now(),
     });
-
-    const demo = await startSession();
-    await addVirtual(demo, 5);
-    bringIn();
-    t.database.db
-      .update(schema.students)
-      .set({ firstName: 'Изменён' })
-      .where(eq(schema.students.id, 'student-01'))
-      .run();
-
-    const res = await t.app.inject({ method: 'POST', url: '/api/demo/reset', headers: { cookie } });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true, students: 20 });
-
-    const { db } = t.database;
-    const students = db.select().from(schema.students).all();
-    const demoKids = students.filter((s) => s.classId === 'class-1a');
-    expect(demoKids).toHaveLength(20);
-    expect(demoKids.some((s) => s.isVirtual)).toBe(false);
-    expect(demoKids.find((s) => s.id === 'student-01')?.firstName).toBe('Тимур');
-    const sessions = db.select().from(schema.sessions).all();
-    expect(sessions.map((s) => s.id)).toEqual([theirs]);
-    expect(t.app.sessions.getState(demo)).toBeUndefined();
-    expect(t.app.virtual.count(demo)).toBe(0);
-    // The other teacher, their class and their lesson are all still there.
-    expect(
-      db
-        .select()
-        .from(schema.classes)
-        .all()
-        .some((c) => c.id === theirClass),
-    ).toBe(true);
-    expect(
-      db
-        .select()
-        .from(schema.users)
-        .all()
-        .some((u) => u.email === 'other@example.com'),
-    ).toBe(true);
+    expect(await connect('a-guess-of-the-token')).toBe('closed 4001');
+    expect(await connect('host-token-of-this-computer')).toBe('said keyframe');
   });
 });

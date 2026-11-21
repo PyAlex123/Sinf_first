@@ -26,7 +26,14 @@ dist-demo/
 # Windows app build (apps/desktop) and packaging output
 apps/desktop/bin/
 apps/desktop/obj/
+# .NET build output of every C# project (apps/desktop-core, its tests)
+apps/**/bin/
+apps/**/obj/
+apps/**/TestResults/
 /out/
+# The WebView2 offline installer is downloaded by CI into the setup, not kept in git (H17)
+tools/installer/redist/
 
 # Снимки и временные базы сквозных сценариев (tools/e2e/README.md)
 tools/e2e/out/
+tools/load/out/

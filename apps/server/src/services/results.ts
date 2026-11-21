@@ -1,21 +1,29 @@
+import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import {
   DEFAULT_GRADE_THRESHOLDS,
   gradeFor,
+  GradeValueSchema,
   lessonDate,
   practiceStepCount,
   PRACTICE_MAX_STARS,
+  practiceScore,
   scorePercent,
   SessionStateSchema,
   trainerMaxStars,
   type ClassSettings,
   type Journal,
   type JournalCell,
+  type ResultCheck,
+  type ResultPractice,
   type ResultRow,
   type SessionResults,
+  type PracticeTask,
+  type SetGrades,
 } from '@sinf/shared';
 import type { ContentStore } from '../content/index.js';
 import { schema, type Db } from '../db/index.js';
+import { ApiHttpError } from '../errors.js';
 
 /**
  * Lesson results and the class journal (S1.13, ADR-012), worked out from the rows a lesson leaves:
@@ -41,7 +49,15 @@ const fullName = (s: { lastName: string; firstName: string }): string =>
 /** Everything a set of lessons left behind, read in four queries whatever the number of lessons. */
 function loadRows(db: Db, sessionIds: string[]) {
   if (sessionIds.length === 0) {
-    return { attendance: [], screens: [], practice: [], quiz: [] };
+    return {
+      attendance: [],
+      screens: [],
+      practice: [],
+      checks: [],
+      quiz: [],
+      shots: [],
+      grades: [],
+    };
   }
   return {
     attendance: db
@@ -59,10 +75,30 @@ function loadRows(db: Db, sessionIds: string[]) {
       .from(schema.practiceResults)
       .where(inArray(schema.practiceResults.sessionId, sessionIds))
       .all(),
+    checks: db
+      .select()
+      .from(schema.practiceChecks)
+      .where(inArray(schema.practiceChecks.sessionId, sessionIds))
+      .all(),
     quiz: db
       .select()
       .from(schema.quizAttempts)
       .where(inArray(schema.quizAttempts.sessionId, sessionIds))
+      .all(),
+    shots: db
+      .select({
+        id: schema.screenshots.id,
+        sessionId: schema.screenshots.sessionId,
+        studentId: schema.screenshots.studentId,
+        takenAt: schema.screenshots.takenAt,
+      })
+      .from(schema.screenshots)
+      .where(inArray(schema.screenshots.sessionId, sessionIds))
+      .all(),
+    grades: db
+      .select()
+      .from(schema.grades)
+      .where(inArray(schema.grades.sessionId, sessionIds))
       .all(),
   };
 }
@@ -84,6 +120,33 @@ function stepsFromSnapshot(session: SessionRow): Map<string, number> {
   return steps;
 }
 
+type CheckRow = typeof schema.practiceChecks.$inferSelect;
+
+/**
+ * A child's practice at the lesson (H16): what was handed in, or until then the version checked last,
+ * with the teacher's marks over the checker's verdicts. Null when the child neither saved nor was
+ * marked.
+ */
+function resultCheck(task: PracticeTask, row: CheckRow | undefined): ResultCheck | null {
+  if (!row) return null;
+  const handedIn = !!row.submittedSha && !!row.submittedReport;
+  const report = handedIn ? row.submittedReport : row.report;
+  const score = practiceScore(task, report, row.marks);
+  const found: Record<string, string> = {};
+  for (const r of report?.results ?? []) if (r.found) found[r.id] = r.found;
+  return {
+    fileName: (handedIn ? row.submittedName : row.fileName) ?? null,
+    file: report?.file ?? null,
+    outcomes: score.outcomes,
+    found,
+    marks: row.marks,
+    points: score.points,
+    max: score.max,
+    submitted: handedIn,
+    checkedAt: (handedIn ? row.submittedAt : row.checkedAt) ?? null,
+  };
+}
+
 function computeSession(
   session: SessionRow,
   cls: ClassRow,
@@ -93,12 +156,16 @@ function computeSession(
 ): SessionResults {
   const lesson = content.getLesson(session.lessonId);
   const quiz = content.getQuiz(session.lessonId);
+  const task = content.getPractice(session.lessonId) ?? null;
   const mine = <T extends { sessionId: string }>(list: T[]): T[] =>
     list.filter((r) => r.sessionId === session.id);
   const attendance = mine(rows.attendance);
   const screens = mine(rows.screens);
   const practice = mine(rows.practice);
   const answers = mine(rows.quiz);
+  const shots = mine(rows.shots);
+  const confirmed = rows.grades.filter((g) => g.sessionId === session.id);
+  const checks = mine(rows.checks);
 
   const practiceSteps = lesson ? practiceStepCount(lesson) : 0;
   const maxima = {
@@ -107,6 +174,8 @@ function computeSession(
     practice: practiceSteps > 0 && practice.length > 0 ? PRACTICE_MAX_STARS : 0,
     // Questions that were really asked: someone answered them.
     quiz: new Set(answers.map((a) => a.questionIndex)).size,
+    // The practice in a real program counts once anybody saved a file or was marked (H16).
+    check: task && checks.length > 0 ? task.criteria.reduce((sum, c) => sum + c.points, 0) : 0,
   };
   const settings: ClassSettings = cls.settings;
   const thresholds = settings.gradeThresholds ?? DEFAULT_GRADE_THRESHOLDS;
@@ -117,6 +186,7 @@ function computeSession(
     ...attendance.map((a) => a.studentId),
     ...screens.map((r) => r.studentId),
     ...practice.map((r) => r.studentId),
+    ...checks.map((r) => r.studentId),
     ...answers.map((r) => r.studentId),
   ]);
   const people = students.filter((s) => ids.has(s.id)).sort(byStudentName);
@@ -132,12 +202,37 @@ function computeSession(
     const trainerStars = ownScreens.reduce((sum, r) => sum + r.stars, 0);
     const practiceStars = ownPractice?.stars ?? null;
     const quizCorrect = ownAnswers.filter((a) => a.correct).length;
-    const percent = present
-      ? scorePercent({ trainerStars, practiceStars: practiceStars ?? 0, quizCorrect }, maxima)
+    const check = task
+      ? resultCheck(
+          task,
+          checks.find((c) => c.studentId === student.id),
+        )
       : null;
+    const percent = present
+      ? scorePercent(
+          {
+            trainerStars,
+            practiceStars: practiceStars ?? 0,
+            quizCorrect,
+            checkPoints: check?.points ?? 0,
+          },
+          maxima,
+        )
+      : null;
+    // The latest photograph is the one that counts: the practice as it ended (H5).
+    const shot = shots
+      .filter((s) => s.studentId === student.id)
+      .reduce<(typeof shots)[number] | null>((a, b) => (!a || b.takenAt > a.takenAt ? b : a), null);
+    // The teacher's word stands over the calculation (H10); until then the calculation is offered.
+    const suggestedGrade =
+      settings.starsToGrade && percent !== null ? gradeFor(percent, thresholds) : null;
+    const own = confirmed.find((g) => g.studentId === student.id);
+    const ownGrade = own?.value != null ? GradeValueSchema.safeParse(own.value) : null;
+    const confirmedGrade = ownGrade?.success ? ownGrade.data : null;
     return {
       studentId: student.id,
       name: fullName(student),
+      screenshotId: shot?.id ?? null,
       isActive: student.isActive,
       isVirtual: student.isVirtual,
       present,
@@ -151,9 +246,12 @@ function computeSession(
       quizPoints: ownAnswers.reduce((sum, a) => sum + a.points, 0),
       quizCorrect,
       quizAnswered: ownAnswers.length,
+      check,
       totalStars: trainerStars + (practiceStars ?? 0),
       percent,
-      grade: settings.starsToGrade && percent !== null ? gradeFor(percent, thresholds) : null,
+      grade: confirmedGrade ?? suggestedGrade,
+      suggestedGrade,
+      gradeConfirmed: confirmedGrade !== null,
     };
   });
 
@@ -172,6 +270,18 @@ function computeSession(
       thresholds,
     },
     maxima,
+    practice: task
+      ? ({
+          app: task.app,
+          fileName: task.fileName,
+          criteria: task.criteria.map((c) => ({
+            id: c.id,
+            kind: c.kind,
+            label: c.label,
+            points: c.points,
+          })),
+        } satisfies ResultPractice)
+      : null,
     practiceSteps,
     quizQuestions: quiz?.questions.length ?? 0,
     presentCount: result.filter((r) => r.present).length,
@@ -246,8 +356,80 @@ export function classJournal(db: Db, content: ContentStore, classId: string): Jo
       isVirtual: student.isVirtual,
       cells: perSession.map((r): JournalCell | null => {
         const row = r.rows.find((x) => x.studentId === student.id);
-        return row ? { present: row.present, stars: row.totalStars, grade: row.grade } : null;
+        return row
+          ? {
+              present: row.present,
+              stars: row.totalStars,
+              grade: row.grade,
+              confirmed: row.gradeConfirmed,
+            }
+          : null;
       }),
     })),
   };
+}
+
+/**
+ * The teacher confirms or changes grades of a finished lesson (H10). A value that equals the
+ * suggestion is recorded as confirmed (`session`), any other as the teacher's own (`manual`); null
+ * removes the row, and the suggestion shows again. Only a child who was at the lesson can be graded.
+ * The lesson goes back into the queue for the platform, so the grades follow it there.
+ */
+export function setSessionGrades(
+  db: Db,
+  content: ContentStore,
+  sessionId: string,
+  input: SetGrades,
+  now = new Date(),
+): SessionResults | undefined {
+  const results = sessionResults(db, content, sessionId);
+  if (!results) return undefined;
+  if (results.status !== 'ended') {
+    throw new ApiHttpError(409, 'lesson_running', 'Grades are set when the lesson is over');
+  }
+  const rows = new Map(results.rows.map((r) => [r.studentId, r]));
+  for (const g of input.grades) {
+    if (!rows.get(g.studentId)?.present) {
+      throw new ApiHttpError(400, 'not_at_lesson', 'This student was not at the lesson');
+    }
+  }
+  const at = now.toISOString();
+  db.transaction((tx) => {
+    for (const g of input.grades) {
+      const row = rows.get(g.studentId);
+      if (!row) continue;
+      const where = and(
+        eq(schema.grades.sessionId, sessionId),
+        eq(schema.grades.studentId, g.studentId),
+      );
+      if (g.value === null) {
+        tx.delete(schema.grades).where(where).run();
+        continue;
+      }
+      const source = g.value === row.suggestedGrade ? 'session' : 'manual';
+      tx.insert(schema.grades)
+        .values({
+          id: randomUUID(),
+          studentId: g.studentId,
+          classId: results.class.id,
+          sessionId,
+          date: results.date,
+          stars: row.totalStars,
+          value: g.value,
+          source,
+          createdAt: at,
+        })
+        .onConflictDoUpdate({
+          target: [schema.grades.sessionId, schema.grades.studentId],
+          set: { value: g.value, source, stars: row.totalStars, createdAt: at },
+        })
+        .run();
+    }
+    // What the platform holds for this lesson is now out of date: send the lesson again (ADR-011).
+    tx.update(schema.sessions)
+      .set({ syncedAt: null })
+      .where(eq(schema.sessions.id, sessionId))
+      .run();
+  });
+  return sessionResults(db, content, sessionId);
 }

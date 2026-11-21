@@ -43,6 +43,48 @@
       "when": 1795024967450,
       "tag": "0005_colossal_jean_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1795181699984,
+      "tag": "0006_narrow_thanos",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1795198905667,
+      "tag": "0007_round_synch",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795205460697,
+      "tag": "0008_friendly_lilandra",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1795256592354,
+      "tag": "0009_sturdy_demogoblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1795257641781,
+      "tag": "0010_naive_captain_cross",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1795262446054,
+      "tag": "0011_dusty_arclight",
+      "breakpoints": true
     }
   ]
 }

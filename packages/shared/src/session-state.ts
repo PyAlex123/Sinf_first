@@ -11,6 +11,7 @@ import {
   stageScreenRange,
   startStage,
 } from './stage-timer.js';
+import type { PracticeCheckState } from './practice.js';
 import {
   PROTOCOL_VERSION,
   type ClientMessage,
@@ -52,6 +53,11 @@ export const EMPTY_PLAN: LessonPlan = {
 /** The stage the quiz takes over: its time is the reflection's (docs/stage1-architecture.md §7). */
 export const QUIZ_STAGE_KEY = 'reflection';
 
+/** The practice stage: its screenshots are taken by themselves (stage 3, H5; CLAUDE.md §4.8). */
+export const PRACTICE_STAGE_KEY = 'practice';
+/** How long before the practice ends the screenshots are taken, in lesson time (CLAUDE.md §4.8). */
+export const SCREENSHOT_BEFORE_END_MS = 5 * 60_000;
+
 export type SessionEvent =
   | {
       kind: 'participant.join';
@@ -61,6 +67,8 @@ export type SessionEvent =
       name: string | null;
       /** A demo student played by the server (S1.15). */
       virtual?: boolean;
+      /** The classroom computer, when the child logged in from the classroom app (stage 3). */
+      pc?: string | null;
       now: number;
     }
   | { kind: 'participant.leave'; participantId: string; now: number }
@@ -73,7 +81,9 @@ export type SessionEvent =
       now: number;
     }
   /** The server timer fired: the engine decides whether to start a countdown or switch the stage. */
-  | { kind: 'tick'; now: number };
+  | { kind: 'tick'; now: number }
+  /** The lesson server checked a child's saved practice file (H16). */
+  | { kind: 'practice.checked'; participantId: string; check: PracticeCheckState; now: number };
 
 /** Something worth writing to `activity_events`. */
 export interface ActivityRecord {
@@ -92,6 +102,7 @@ export interface ActivityRecord {
     | 'mode'
     | 'screen'
     | 'stage_change'
+    | 'demo_start'
     | 'session_end';
   participantId: string | null;
   data?: Record<string, unknown>;
@@ -131,6 +142,8 @@ export function createSessionState(input: NewSessionInput): SessionState {
     demoSpeed: input.demoSpeed ?? 1,
     lock: { all: null, byParticipant: {} },
     quiz: null,
+    demo: null,
+    apps: { all: null, byParticipant: {} },
     participants: {},
   };
 }
@@ -158,6 +171,10 @@ export function reduce(
       return tick(result, event.now, plan);
     case 'command':
       return command(result, event, plan);
+    case 'practice.checked': {
+      const p = state.participants[event.participantId];
+      return p ? updateParticipant(result, { ...p, check: event.check }) : result;
+    }
   }
 }
 
@@ -183,6 +200,15 @@ function tick(r: ReduceResult, now: number, plan: LessonPlan): ReduceResult {
   if (part !== r.state.stage.part) {
     return setStage(r, { ...r.state.stage, part }, now);
   }
+  // Five lesson minutes before the practice ends: everybody's work is photographed (H5).
+  if (
+    stage?.key === PRACTICE_STAGE_KEY &&
+    !r.state.stage.shotRequested &&
+    left <= SCREENSHOT_BEFORE_END_MS
+  ) {
+    r = setStage(r, { ...r.state.stage, shotRequested: true }, now);
+    r.broadcast.push({ v, type: 'screenshot.request', targets: 'all', reason: 'before_end' });
+  }
   // Countdown in the last ten lesson seconds.
   const countdownAt = left <= COUNTDOWN_SEC * 1000;
   if (countdownAt && r.state.stage.countdownUntil === null) {
@@ -195,6 +221,11 @@ function tick(r: ReduceResult, now: number, plan: LessonPlan): ReduceResult {
 /** Switches to a stage: resets its timer, moves everybody to its first screen and picks the mode. */
 function goToStage(r: ReduceResult, index: number, now: number, plan: LessonPlan): ReduceResult {
   const stage = plan.stages[index];
+  // Leaving the practice: the work as it stands is photographed (H5, CLAUDE.md §4.8).
+  const leaving = plan.stages[r.state.stage.index];
+  if (leaving?.key === PRACTICE_STAGE_KEY && index !== r.state.stage.index) {
+    r.broadcast.push({ v, type: 'screenshot.request', targets: 'all', reason: 'stage_end' });
+  }
   const part = partAt(stage, 0);
   r = setStage(r, startStage(index, now, part), now);
   const screenIndex = firstScreenOfStage(plan.screenStages, stage?.key, r.state.screenIndex);
@@ -212,6 +243,11 @@ function goToStage(r: ReduceResult, index: number, now: number, plan: LessonPlan
   if (mode !== r.state.mode) {
     r.state = { ...r.state, mode };
     r.broadcast.push({ v, type: 'mode.changed', mode });
+  }
+  // A new stage brings its own programs back (H15).
+  if (r.state.apps.all !== null || Object.keys(r.state.apps.byParticipant).length > 0) {
+    r.state = { ...r.state, apps: { all: null, byParticipant: {} } };
+    r.broadcast.push({ v, type: 'apps.changed', apps: r.state.apps });
   }
   r.activity.push({
     type: 'stage_change',
@@ -330,7 +366,13 @@ function join(
 ): ReduceResult {
   const existing = r.state.participants[e.participantId];
   const participant: Participant = existing
-    ? { ...existing, online: true, lastSeenAt: e.now }
+    ? {
+        ...existing,
+        online: true,
+        lastSeenAt: e.now,
+        // A child who logs in again from another computer is now at that one.
+        ...(e.pc !== undefined ? { pc: e.pc } : {}),
+      }
     : {
         id: e.participantId,
         number: e.number,
@@ -347,6 +389,8 @@ function join(
         fullscreen: false,
         escapes: 0,
         virtual: e.virtual ?? false,
+        pc: e.pc ?? null,
+        check: null,
         lastSeenAt: e.now,
       };
   return updateParticipant(r, participant, { type: 'join', participantId: participant.id });
@@ -414,6 +458,47 @@ function command(
     }
     case 'teacher.lock':
       return setLock(r, m.targets, m.text ?? '');
+    case 'teacher.demo.start': {
+      // A child's screen only from a classroom computer: a browser cannot film its screen.
+      if (m.source !== 'teacher' && !r.state.participants[m.source]?.pc) return r;
+      // A new number for every broadcast, so a frame of the last one is never drawn in this one.
+      const demo = { mode: m.mode, source: m.source, epoch: (e.now % 0xfffffff0) + 1 };
+      r.state = { ...r.state, demo };
+      r.broadcast.push({ v, type: 'demo.changed', demo });
+      r.activity.push({
+        type: 'demo_start',
+        participantId: m.source === 'teacher' ? null : m.source,
+      });
+      return r;
+    }
+    case 'teacher.apps.set': {
+      const apps = r.state.apps;
+      let next: SessionState['apps'];
+      if (m.targets === 'all') {
+        // For everybody: individual sets give way to it.
+        next = { all: m.apps, byParticipant: {} };
+      } else {
+        const byParticipant = { ...apps.byParticipant };
+        for (const pid of m.targets) {
+          if (!r.state.participants[pid]) continue;
+          if (m.apps === null) delete byParticipant[pid];
+          else byParticipant[pid] = m.apps;
+        }
+        next = { all: apps.all, byParticipant };
+      }
+      r.state = { ...r.state, apps: next };
+      r.broadcast.push({ v, type: 'apps.changed', apps: next });
+      return r;
+    }
+    case 'teacher.demo.stop':
+      if (!r.state.demo) return r;
+      r.state = { ...r.state, demo: null };
+      r.broadcast.push({ v, type: 'demo.changed', demo: null });
+      return r;
+    case 'teacher.screenshot':
+      // Classroom computers answer by uploading; a browser cannot photograph its screen (H5).
+      r.broadcast.push({ v, type: 'screenshot.request', targets: m.targets, reason: 'manual' });
+      return r;
     case 'teacher.unlock':
       return setLock(r, m.targets, null);
     case 'teacher.hand.clear': {
@@ -520,6 +605,7 @@ function command(
     case 'student.quiz.answer':
     case 'student.hand':
     case 'student.visibility':
+    case 'student.thumb':
       return studentCommand(r, e, m, plan);
   }
 }
@@ -577,6 +663,9 @@ function studentCommand(
     }
     case 'student.quiz.answer':
       return answerQuiz(r, p.id, m.questionIndex, m.optionIndex, e.now, plan);
+    case 'student.thumb':
+      // Thumbnails are relayed by the room to the teacher's screens; they are not lesson state (H5).
+      return r;
     case 'student.hand': {
       if (m.up === p.hand) return r;
       return updateParticipant(

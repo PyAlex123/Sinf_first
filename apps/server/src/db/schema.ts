@@ -6,7 +6,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
-import type { ClassSettings } from '@sinf/shared';
+import type { CheckReport, ClassSettings, PracticeMarks } from '@sinf/shared';
 
 /**
  * Stage 1 schema (STAGE1.md S1.3, docs/stage1-architecture.md §3). Portable to PostgreSQL:
@@ -139,8 +139,17 @@ export const classes = sqliteTable(
     academicYear: text('academic_year').notNull(),
     settings: text('settings', { mode: 'json' }).$type<ClassSettings>().notNull(),
     createdAt: timestamp('created_at').notNull(),
+    /**
+     * Six digits printed on the cards: with them a child opens "Мои работы" at home (H12). Made by
+     * the platform, carried to school computers with the roster.
+     */
+    homeCode: text('home_code'),
   },
-  (t) => [index('classes_school_idx').on(t.schoolId), index('classes_owner_idx').on(t.ownerId)],
+  (t) => [
+    index('classes_school_idx').on(t.schoolId),
+    index('classes_owner_idx').on(t.ownerId),
+    uniqueIndex('classes_home_code_idx').on(t.homeCode),
+  ],
 );
 
 /** Teachers of a school class (CLAUDE.md §6, ClassTeacher). A personal class has only its owner. */
@@ -303,7 +312,71 @@ export const quizAttempts = sqliteTable(
   (t) => [index('quiz_attempts_session_idx').on(t.sessionId)],
 );
 
-/** Journal row: stars for a lesson and, if the class converts them, a 2–5 grade. */
+/**
+ * A photograph of a classroom computer's screen (stage 3, H5; CLAUDE.md §4.8, §6 Screenshot): asked
+ * for by the teacher, five lesson minutes before the practice ends and when it ends. The file lives
+ * in `DATA_DIR/screenshots/<sessionId>/`; the row says whose and why. Thumbnails are never stored.
+ */
+export const screenshots = sqliteTable(
+  'screenshots',
+  {
+    id: id(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id),
+    studentId: text('student_id')
+      .notNull()
+      .references(() => students.id),
+    kind: text('kind', { enum: ['manual', 'before_end', 'stage_end'] }).notNull(),
+    takenAt: timestamp('taken_at').notNull(),
+    /** Path under `DATA_DIR`, e.g. `screenshots/<sessionId>/<id>.jpg`. */
+    fileKey: text('file_key').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    bytes: integer('bytes').notNull(),
+    /** When the platform confirmed it has this picture (H10); empty while it waits for a connection. */
+    syncedAt: timestamp('synced_at'),
+  },
+  (t) => [index('screenshots_session_idx').on(t.sessionId, t.studentId)],
+);
+
+/**
+ * Seating (CLAUDE.md §4.1, §6 Seat; stage 3 step H2): who of this class sat at this classroom
+ * computer last time, so the next lesson shows their name straight away. The computer is known by
+ * the name the school gave it ("ПК-05"), because student computers are not registered as devices
+ * yet (ADR-014). It lives on the teacher's computer only: seating is a fact about one room.
+ */
+export const seats = sqliteTable(
+  'seats',
+  {
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id),
+    pc: text('pc').notNull(),
+    studentId: text('student_id')
+      .notNull()
+      .references(() => students.id),
+    lastUsedAt: timestamp('last_used_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.classId, t.pc] }), index('seats_student_idx').on(t.studentId)],
+);
+
+/**
+ * The room's computers as the teacher's computer has heard of them (stage 3, H8): every student
+ * computer that asked for the lesson. The seating editor lists them, so a computer stays there when
+ * its child moves away, and shows up before anybody has logged in at it.
+ */
+export const roomComputers = sqliteTable('room_computers', {
+  pc: text('pc').primaryKey(),
+  lastSeenAt: timestamp('last_seen_at').notNull(),
+});
+
+/**
+ * A grade the teacher confirmed or set for a child in a lesson (H10, ADR-012): `source` is `session`
+ * when it is the suggested grade taken as it was, `manual` when the teacher chose another. Until
+ * there is a row, the journal shows the calculated grade as a suggestion. One row per child and
+ * lesson.
+ */
 export const grades = sqliteTable(
   'grades',
   {
@@ -323,7 +396,10 @@ export const grades = sqliteTable(
     comment: text('comment'),
     createdAt: timestamp('created_at').notNull(),
   },
-  (t) => [index('grades_class_date_idx').on(t.classId, t.date)],
+  (t) => [
+    index('grades_class_date_idx').on(t.classId, t.date),
+    uniqueIndex('grades_session_student_idx').on(t.sessionId, t.studentId),
+  ],
 );
 
 /**
@@ -337,8 +413,80 @@ export const syncState = sqliteTable('sync_state', {
   updatedAt: timestamp('updated_at').notNull(),
 });
 
+/**
+ * A child's own files, "Мои работы" (CLAUDE.md §4.9; stage 3, H12; ADR-015). The bytes are kept once
+ * per content in `DATA_DIR/files/<sha256>`; a row gives one of them a name in one child's folder.
+ *
+ * On a school computer a row also remembers what the platform has: `cloudSha` is the content the
+ * platform confirmed under this name, and `dirty` says this computer has a change to send. A deleted
+ * file stays as a row without content (`deletedAt`) until the platform has heard of it.
+ */
+export const studentFiles = sqliteTable(
+  'student_files',
+  {
+    id: id(),
+    studentId: text('student_id')
+      .notNull()
+      .references(() => students.id),
+    name: text('name').notNull(),
+    /** Lower-case NFC: "Рисунок.PNG" and "рисунок.png" are one file, as on Windows. */
+    nameKey: text('name_key').notNull(),
+    size: integer('size').notNull(),
+    sha256: text('sha256'),
+    updatedAt: timestamp('updated_at').notNull(),
+    /** Where the latest version came from: "ПК-05", "браузер", "облако". */
+    origin: text('origin').notNull(),
+    deletedAt: timestamp('deleted_at'),
+    cloudSha: text('cloud_sha'),
+    dirty: integer('dirty', { mode: 'boolean' }).notNull().default(false),
+  },
+  (t) => [
+    uniqueIndex('student_files_name_idx').on(t.studentId, t.nameKey),
+    index('student_files_sha_idx').on(t.sha256),
+  ],
+);
+
+/**
+ * A child's practice file at a lesson (CLAUDE.md §4.7–4.8, §6 CheckResult and Submission; stage 3,
+ * H16). One row per child and lesson: the latest version checked, and the version handed in — frozen
+ * with the photographs before the end of the practice. The bytes stay in the file store while either
+ * version names them (`collect`), so a change after the lesson does not alter what was handed in.
+ */
+export const practiceChecks = sqliteTable(
+  'practice_checks',
+  {
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id),
+    studentId: text('student_id')
+      .notNull()
+      .references(() => students.id),
+    /** Null in a row that holds only the teacher's marks: the child saved nothing. */
+    fileName: text('file_name'),
+    fileSha: text('file_sha'),
+    report: text('report', { mode: 'json' }).$type<CheckReport>(),
+    checkedAt: timestamp('checked_at'),
+    submittedName: text('submitted_name'),
+    submittedSha: text('submitted_sha'),
+    submittedReport: text('submitted_report', { mode: 'json' }).$type<CheckReport>(),
+    submittedAt: timestamp('submitted_at'),
+    /** The teacher's marks by criterion: manual ones, and automatic ones decided by hand. */
+    marks: text('marks', { mode: 'json' }).$type<PracticeMarks>().notNull().default({}),
+  },
+  (t) => [
+    primaryKey({ columns: [t.sessionId, t.studentId] }),
+    index('practice_checks_file_idx').on(t.fileSha),
+    index('practice_checks_submitted_idx').on(t.submittedSha),
+  ],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  practiceChecks,
+  studentFiles,
+  screenshots,
+  seats,
+  roomComputers,
   grades,
   quizAttempts,
   practiceResults,

@@ -3,6 +3,8 @@ import { and, eq, notInArray } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import {
   COUNTDOWN_SEC,
+  PRACTICE_STAGE_KEY,
+  SCREENSHOT_BEFORE_END_MS,
   createSessionState,
   EMPTY_PLAN,
   PROTOCOL_VERSION,
@@ -13,6 +15,7 @@ import {
   type ActivityRecord,
   type LessonPlan,
   type Participant,
+  type PracticeCheckState,
   type Role,
   type ServerMessage,
   type SessionEvent,
@@ -35,7 +38,10 @@ import { ApiHttpError, notFound } from '../errors.js';
 export interface RoomSocket {
   readonly readyState: number;
   readonly OPEN: number;
-  send(data: string): void;
+  /** Bytes waiting to go out; a viewer far behind skips broadcast frames (H14). */
+  readonly bufferedAmount?: number;
+  /** Text for messages; binary for the frames of a screen broadcast (H14). */
+  send(data: string | Uint8Array): void;
   close(code?: number, reason?: string): void;
   ping(): void;
   terminate(): void;
@@ -57,7 +63,12 @@ interface LiveSession {
   /** participantToken → participantId. Anonymous participants reconnect with their token. */
   tokens: Map<string, string>;
   saveTimer: NodeJS.Timeout | null;
+  /** When each child's last thumbnail was relayed: one in three seconds is the budget (H5). */
+  thumbAt: Map<string, number>;
 }
+
+/** Thumbnails faster than this are dropped (CLAUDE.md §3.1: no more than one frame in 3 s). */
+const THUMB_MIN_INTERVAL_MS = 2500;
 
 /** What is persisted in `state_json` (a type alias, so it is assignable to the column's `Record<string, unknown>`). */
 type PersistedState = {
@@ -67,14 +78,22 @@ type PersistedState = {
 
 const SAVE_DEBOUNCE_MS = 2000;
 
+/**
+ * After the lesson ends a classroom computer still sends the last saves of its working folder (H15):
+ * the lesson tokens keep opening the child's own folder for this long, and nothing else.
+ */
+export const FILES_AFTER_END_MS = 2 * 60_000;
+
 export class SessionStore {
   private readonly live = new Map<string, LiveSession>();
+  /** Tokens of lessons that ended a moment ago, for the last saves only. */
+  private readonly closing = new Map<string, { tokens: Map<string, string>; until: number }>();
 
   constructor(
     private readonly db: Db,
     private readonly content: ContentStore,
     private readonly log: FastifyBaseLogger,
-    private readonly now: () => number = Date.now,
+    private readonly now: () => number = () => Date.now(),
   ) {}
 
   /**
@@ -82,6 +101,16 @@ export class SessionStore {
    * at once instead of waiting for the next tick (S2.6). Nothing on the platform sets it.
    */
   onSessionEnded: ((sessionId: string) => void) | null = null;
+  /** A screen broadcast started, changed or stopped (H14); the relay follows it. */
+  onDemoChanged: ((sessionId: string, demo: SessionState['demo']) => void) | null = null;
+  /** A socket joined a room; during a broadcast it needs a whole picture to start from (H14). */
+  onAttached: ((sessionId: string, socket: RoomSocket) => void) | null = null;
+  /**
+   * The practice's works are handed in (H16; CLAUDE.md §4.8): with the photographs before its end and
+   * when it is over, and when the lesson ends. Called before the lesson's rows are closed.
+   */
+  onHandIn:
+    ((sessionId: string, reason: 'before_end' | 'stage_end' | 'session_end') => void) | null = null;
 
   /** Starts a session for a class; the previous active session of the class is ended. */
   create(input: {
@@ -138,6 +167,7 @@ export class SessionStore {
       sockets: new Map(),
       tokens: new Map(),
       saveTimer: null,
+      thumbAt: new Map(),
     };
     this.live.set(id, session);
     this.schedule(id, session);
@@ -229,7 +259,15 @@ export class SessionStore {
       this.apply(id, session, result, null);
     }
     const connection: Connection = { role, participantId, alive: true };
+    const watchedBefore = this.teacherWatching(session);
     session.sockets.set(socket, connection);
+    if (role === 'student') {
+      // A child who comes in learns at once whether a teacher is watching (H5).
+      this.send(socket, { v: PROTOCOL_VERSION, type: 'thumbs.wanted', on: watchedBefore });
+    } else if (role === 'teacher' && !watchedBefore) {
+      this.tellThumbs(session, true);
+    }
+    if (session.state.demo) this.onAttached?.(id, socket);
     return { connection, participantToken: role === 'student' ? participantToken : null };
   }
 
@@ -245,6 +283,8 @@ export class SessionStore {
       lastName: string;
       sortOrder: number;
       isVirtual?: boolean;
+      /** The classroom computer (stage 3): its "Attention!" is a real lock (H4). */
+      pc?: string | null;
     },
   ): { token: string; participantId: string } {
     const session = this.get(id);
@@ -254,11 +294,27 @@ export class SessionStore {
     }
     const participantId = student.id;
     // Other devices of the same student: tell them and close.
+    let kicked = false;
     for (const [socket, connection] of session.sockets) {
       if (connection.participantId === participantId) {
         this.send(socket, { v: PROTOCOL_VERSION, type: 'session.kicked' });
         session.sockets.delete(socket);
         socket.close(4001, 'kicked');
+        kicked = true;
+      }
+    }
+    // The teacher hears of it when a live lesson really was closed somewhere (§4.1 item 7, H8):
+    // a page reloaded on the same device has no socket left by the time it logs in again.
+    if (kicked) {
+      const moved = {
+        v: PROTOCOL_VERSION,
+        type: 'student.moved',
+        participantId,
+        from: session.state.participants[participantId]?.pc ?? null,
+        to: student.pc ?? null,
+      } as const;
+      for (const [socket, connection] of session.sockets) {
+        if (connection.role === 'teacher') this.send(socket, moved);
       }
     }
     for (const [token, pid] of [...session.tokens]) {
@@ -278,6 +334,7 @@ export class SessionStore {
         studentId: student.id,
         name: `${student.lastName} ${student.firstName}`,
         virtual: student.isVirtual ?? false,
+        pc: student.pc ?? null,
         now,
       },
       session.plan,
@@ -315,6 +372,10 @@ export class SessionStore {
     if (!session) return;
     const connection = session.sockets.get(socket);
     session.sockets.delete(socket);
+    if (connection?.role === 'teacher' && !this.teacherWatching(session)) {
+      // The last teacher's panel closed: the classroom computers stop photographing (CLAUDE.md §3.1).
+      this.tellThumbs(session, false);
+    }
     if (!connection?.participantId) return;
     // Still connected from another tab? Then the participant stays online.
     for (const other of session.sockets.values()) {
@@ -332,8 +393,79 @@ export class SessionStore {
   dispatch(id: string, socket: RoomSocket, message: SessionEvent & { kind: 'command' }): void {
     const session = this.live.get(id);
     if (!session) return;
+    if (message.message.type === 'student.thumb') {
+      this.relayThumb(session, message.participantId, message.message.jpeg);
+      return;
+    }
     const result = reduce(session.state, message, session.plan);
     this.apply(id, session, result, socket);
+  }
+
+  /** The lesson server checked a child's saved practice file (H16): the tile and the check-list follow. */
+  practiceChecked(id: string, participantId: string, check: PracticeCheckState): void {
+    const session = this.live.get(id);
+    if (!session || session.state.status !== 'active') return;
+    const result = reduce(
+      session.state,
+      { kind: 'practice.checked', participantId, check, now: this.now() },
+      session.plan,
+    );
+    this.apply(id, session, result, null);
+  }
+
+  /**
+   * The participant behind a token from `POST /api/join` — how a classroom computer proves who it is
+   * when it uploads a screenshot (H5).
+   */
+  participantByToken(id: string, token: string): string | undefined {
+    const session = this.get(id);
+    return session?.state.status === 'active' ? session.tokens.get(token) : undefined;
+  }
+
+  /**
+   * The child behind a lesson token, for their own files: while the lesson runs, and for
+   * `FILES_AFTER_END_MS` after it ended, so the last save of the working folder is not lost (H16).
+   */
+  studentByToken(id: string, token: string): string | undefined {
+    const participantId = this.participantByToken(id, token);
+    if (participantId)
+      return this.getState(id)?.participants[participantId]?.studentId ?? undefined;
+    const closing = this.closing.get(id);
+    if (!closing) return undefined;
+    if (this.now() > closing.until) {
+      this.closing.delete(id);
+      return undefined;
+    }
+    return closing.tokens.get(token);
+  }
+
+  private teacherWatching(session: LiveSession): boolean {
+    for (const connection of session.sockets.values()) {
+      if (connection.role === 'teacher') return true;
+    }
+    return false;
+  }
+
+  private tellThumbs(session: LiveSession, on: boolean): void {
+    for (const [socket, connection] of session.sockets) {
+      if (connection.role === 'student') {
+        this.send(socket, { v: PROTOCOL_VERSION, type: 'thumbs.wanted', on });
+      }
+    }
+  }
+
+  /** A thumbnail goes to the teachers' screens only, at most one per child in three seconds (H5). */
+  private relayThumb(session: LiveSession, participantId: string | null, jpeg: string): void {
+    if (!participantId || !session.state.participants[participantId]) return;
+    const now = this.now();
+    const last = session.thumbAt.get(participantId) ?? 0;
+    if (now - last < THUMB_MIN_INTERVAL_MS) return;
+    session.thumbAt.set(participantId, now);
+    for (const [socket, connection] of session.sockets) {
+      if (connection.role === 'teacher') {
+        this.send(socket, { v: PROTOCOL_VERSION, type: 'thumb', participantId, jpeg });
+      }
+    }
   }
 
   connections(id: string): Connection[] {
@@ -397,6 +529,7 @@ export class SessionStore {
       sockets: new Map(),
       tokens: new Map(Object.entries(persisted.tokens ?? {})),
       saveTimer: null,
+      thumbAt: new Map(),
     };
     this.live.set(id, session);
     this.log.info({ sessionId: id }, 'session restored from snapshot (paused)');
@@ -416,6 +549,14 @@ export class SessionStore {
     if (result.broadcast.length > 0) {
       for (const socket of session.sockets.keys()) {
         for (const message of result.broadcast) this.send(socket, message);
+      }
+      const demo = result.broadcast.find((m) => m.type === 'demo.changed');
+      if (demo) this.onDemoChanged?.(id, result.state.demo);
+      // The photographs of the whole class at the practice's end are the moment of handing in.
+      for (const m of result.broadcast) {
+        if (m.type === 'screenshot.request' && m.targets === 'all' && m.reason !== 'manual') {
+          this.onHandIn?.(id, m.reason);
+        }
       }
     }
     this.recordActivity(id, session, result.activity);
@@ -552,7 +693,13 @@ export class SessionStore {
       session.state.stage.countdownUntil === null
         ? untilEnd - Math.ceil((COUNTDOWN_SEC * 1000) / session.state.demoSpeed)
         : null;
-    const candidates = [untilEnd, untilPart, untilCountdown].filter(
+    // The practice's screenshots five lesson minutes before its end (H5).
+    const stageKey = session.plan.stages[session.state.stage.index]?.key;
+    const untilShot =
+      stageKey === PRACTICE_STAGE_KEY && !session.state.stage.shotRequested
+        ? untilEnd - Math.ceil(SCREENSHOT_BEFORE_END_MS / session.state.demoSpeed)
+        : null;
+    const candidates = [untilEnd, untilPart, untilCountdown, untilShot].filter(
       (value): value is number => value !== null && value > 0,
     );
     const delay = Math.max(50, Math.min(...candidates, untilEnd));
@@ -599,6 +746,7 @@ export class SessionStore {
   }
 
   private finish(id: string, session: LiveSession): void {
+    this.onHandIn?.(id, 'session_end');
     if (session.timer) {
       clearTimeout(session.timer);
       session.timer = null;
@@ -621,6 +769,18 @@ export class SessionStore {
       socket.close(1000, 'session ended');
     }
     session.sockets.clear();
+    for (const [key, value] of this.closing) {
+      if (this.now() > value.until) this.closing.delete(key);
+    }
+    this.closing.set(id, {
+      tokens: new Map(
+        [...session.tokens].flatMap(([token, pid]): [string, string][] => {
+          const studentId = session.state.participants[pid]?.studentId;
+          return studentId ? [[token, studentId]] : [];
+        }),
+      ),
+      until: this.now() + FILES_AFTER_END_MS,
+    });
     this.live.delete(id);
     this.log.info({ sessionId: id }, 'session ended');
     this.onSessionEnded?.(id);

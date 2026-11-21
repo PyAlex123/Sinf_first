@@ -76,7 +76,15 @@ export function realMsUntilPartChange(
 
 /** Fresh stage state when a stage starts (or restarts after "back"). */
 export function startStage(index: number, now: number, part: 'work' | 'rest' | null): StageState {
-  return { index, startedAt: now, pausedAt: null, extraMs: 0, countdownUntil: null, part };
+  return {
+    index,
+    startedAt: now,
+    pausedAt: null,
+    extraMs: 0,
+    countdownUntil: null,
+    part,
+    shotRequested: false,
+  };
 }
 
 /** Mode the lesson switches to when a stage starts: theory is shown by the teacher, practice is free work. */

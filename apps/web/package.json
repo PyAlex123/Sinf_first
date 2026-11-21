@@ -12,6 +12,7 @@
     "build:demo": "vite build --config vite.demo.config.ts && node scripts/build-demo-content.mjs g10 k10"
   },
   "dependencies": {
+    "@sinf/checkers": "workspace:*",
     "@sinf/shared": "workspace:*",
     "qrcode-generator": "^2.0.4",
     "svelte": "^5.57.3",

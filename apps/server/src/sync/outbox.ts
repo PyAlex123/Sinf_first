@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, or } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, lt, or } from 'drizzle-orm';
 import type { LessonSyncBundle } from '@sinf/shared';
 import { schema, type Db } from '../db/index.js';
 
@@ -59,6 +59,17 @@ export function buildLessonBundle(db: Db, sessionId: string): LessonSyncBundle |
     .where(eq(schema.quizAttempts.sessionId, sessionId))
     .all();
 
+  const grades = db
+    .select()
+    .from(schema.grades)
+    .where(eq(schema.grades.sessionId, sessionId))
+    .all();
+  const checks = db
+    .select()
+    .from(schema.practiceChecks)
+    .where(eq(schema.practiceChecks.sessionId, sessionId))
+    .all();
+
   return {
     session: {
       id: session.id,
@@ -98,9 +109,87 @@ export function buildLessonBundle(db: Db, sessionId: string): LessonSyncBundle |
       points: a.points,
       at: a.at,
     })),
+    grades: grades.flatMap((g) =>
+      g.value !== null && g.value >= 2 && g.value <= 5
+        ? [
+            {
+              studentId: g.studentId,
+              value: g.value,
+              source: g.source,
+              stars: g.stars,
+              at: g.createdAt,
+            },
+          ]
+        : [],
+    ),
+    // What was handed in, where there is such a version; otherwise what was checked last (H16).
+    checks: checks.map((c) =>
+      c.submittedSha
+        ? {
+            studentId: c.studentId,
+            fileName: c.submittedName,
+            fileSha: c.submittedSha,
+            report: c.submittedReport ?? null,
+            marks: c.marks,
+            checkedAt: c.submittedAt,
+            submittedAt: c.submittedAt,
+          }
+        : {
+            studentId: c.studentId,
+            fileName: c.fileName,
+            fileSha: c.fileSha,
+            report: c.report ?? null,
+            marks: c.marks,
+            checkedAt: c.checkedAt,
+            submittedAt: null,
+          },
+    ),
   };
 }
 
 export function markSynced(db: Db, sessionId: string, at = new Date().toISOString()): void {
   db.update(schema.sessions).set({ syncedAt: at }).where(eq(schema.sessions.id, sessionId)).run();
+}
+
+/**
+ * Screenshots waiting to go up (H10): only of lessons the platform already has — a picture of a
+ * lesson it does not know would be refused — and only of lessons that are over, so nothing is sent
+ * while the class is working (CLAUDE.md §3.1: "in the background, after the lesson").
+ */
+export function pendingScreenshots(db: Db, limit = 30) {
+  return db
+    .select({
+      id: schema.screenshots.id,
+      sessionId: schema.screenshots.sessionId,
+      studentId: schema.screenshots.studentId,
+      kind: schema.screenshots.kind,
+      takenAt: schema.screenshots.takenAt,
+      fileKey: schema.screenshots.fileKey,
+      width: schema.screenshots.width,
+      height: schema.screenshots.height,
+    })
+    .from(schema.screenshots)
+    .innerJoin(schema.sessions, eq(schema.sessions.id, schema.screenshots.sessionId))
+    .where(
+      and(
+        isNull(schema.screenshots.syncedAt),
+        isNotNull(schema.sessions.syncedAt),
+        eq(schema.sessions.status, 'ended'),
+      ),
+    )
+    .orderBy(schema.screenshots.takenAt)
+    .limit(limit)
+    .all();
+}
+
+export function countPendingScreenshots(db: Db): number {
+  return db
+    .select({ id: schema.screenshots.id })
+    .from(schema.screenshots)
+    .where(isNull(schema.screenshots.syncedAt))
+    .all().length;
+}
+
+export function markScreenshotSynced(db: Db, id: string, at = new Date().toISOString()): void {
+  db.update(schema.screenshots).set({ syncedAt: at }).where(eq(schema.screenshots.id, id)).run();
 }

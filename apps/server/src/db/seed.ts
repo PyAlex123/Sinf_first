@@ -127,6 +127,8 @@ function demoStudentRows() {
 
 export interface SeedResult {
   students: number;
+  /** Contents of files that went with the demo children; the caller drops them from the store. */
+  freedShas?: string[];
 }
 
 /** Inserts the demo data into an empty database. */
@@ -260,8 +262,39 @@ export function resetDemoClass(db: Db, now = new Date()): SeedResult {
       .where(eq(schema.sessions.classId, DEMO.classId))
       .all()
       .map((r) => r.id);
+    const childIds = tx
+      .select({ id: schema.students.id })
+      .from(schema.students)
+      .where(eq(schema.students.classId, DEMO.classId))
+      .all()
+      .map((r) => r.id);
+    const freedShas: string[] = [];
+    if (childIds.length > 0) {
+      // "Мои работы" of the demo children (H12) and their practice files (H16) go with them.
+      for (const f of tx
+        .select({ sha: schema.studentFiles.sha256 })
+        .from(schema.studentFiles)
+        .where(inArray(schema.studentFiles.studentId, childIds))
+        .all()) {
+        if (f.sha) freedShas.push(f.sha);
+      }
+      for (const c of tx
+        .select({ file: schema.practiceChecks.fileSha, handed: schema.practiceChecks.submittedSha })
+        .from(schema.practiceChecks)
+        .where(inArray(schema.practiceChecks.studentId, childIds))
+        .all()) {
+        if (c.file) freedShas.push(c.file);
+        if (c.handed) freedShas.push(c.handed);
+      }
+      tx.delete(schema.practiceChecks)
+        .where(inArray(schema.practiceChecks.studentId, childIds))
+        .run();
+      tx.delete(schema.studentFiles).where(inArray(schema.studentFiles.studentId, childIds)).run();
+    }
     if (sessionIds.length > 0) {
       for (const table of [
+        schema.practiceChecks,
+        schema.screenshots,
         schema.quizAttempts,
         schema.practiceResults,
         schema.screenResults,
@@ -272,6 +305,7 @@ export function resetDemoClass(db: Db, now = new Date()): SeedResult {
       }
     }
     tx.delete(schema.grades).where(eq(schema.grades.classId, DEMO.classId)).run();
+    tx.delete(schema.seats).where(eq(schema.seats.classId, DEMO.classId)).run();
     tx.delete(schema.sessions).where(eq(schema.sessions.classId, DEMO.classId)).run();
     tx.delete(schema.students).where(eq(schema.students.classId, DEMO.classId)).run();
     const cls = tx.select().from(schema.classes).where(eq(schema.classes.id, DEMO.classId)).get();
@@ -298,7 +332,7 @@ export function resetDemoClass(db: Db, now = new Date()): SeedResult {
         .run();
     }
     tx.insert(schema.students).values(demoStudentRows()).run();
-    return { students: DEMO_STUDENTS.length };
+    return { students: DEMO_STUDENTS.length, freedShas };
   });
 }
 

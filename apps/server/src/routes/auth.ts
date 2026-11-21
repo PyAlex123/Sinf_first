@@ -115,6 +115,7 @@ export const authRoutes: FastifyPluginCallback<{
         studentCount: count(schema.students.id),
         schoolId: schema.classes.schoolId,
         schoolName: schema.schools.name,
+        homeCode: schema.classes.homeCode,
       })
       .from(schema.classes)
       // Virtual students of the demo (S1.15) are not members of the class.

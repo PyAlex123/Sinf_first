@@ -222,3 +222,63 @@ describe('session reducer', () => {
     expect(r.state.screenIndex).toBe(0);
   });
 });
+
+describe('program tiles (H15)', () => {
+  it('are the lesson’s own until the teacher sets them, for everybody or chosen children', () => {
+    const plan = {
+      stages: [
+        {
+          key: 'theory' as const,
+          title: 'Теория',
+          startMin: 0,
+          endMin: 10,
+          place: 'projector' as const,
+        },
+        {
+          key: 'practice' as const,
+          title: 'Практика',
+          startMin: 10,
+          endMin: 35,
+          place: 'computer' as const,
+        },
+      ],
+      screenStages: [],
+      stepScreens: [],
+      quiz: null,
+    };
+    let r = joined(base(), 'a', 1);
+    r = joined(r.state, 'b', 2);
+    expect(r.state.apps).toEqual({ all: null, byParticipant: {} });
+    const set = (state: SessionState, message: ClientMessage) =>
+      reduce(
+        state,
+        { kind: 'command', role: 'teacher', participantId: null, message, now: 1000 },
+        plan,
+      );
+
+    r = set(r.state, { v: 1, type: 'teacher.apps.set', targets: 'all', apps: ['word'] });
+    expect(r.state.apps).toEqual({ all: ['word'], byParticipant: {} });
+    expect(r.broadcast).toEqual([
+      { v: 1, type: 'apps.changed', apps: { all: ['word'], byParticipant: {} } },
+    ]);
+    r = set(r.state, {
+      v: 1,
+      type: 'teacher.apps.set',
+      targets: ['a', 'nobody'],
+      apps: ['paint', 'notepad'],
+    });
+    expect(r.state.apps).toEqual({ all: ['word'], byParticipant: { a: ['paint', 'notepad'] } });
+    r = set(r.state, { v: 1, type: 'teacher.apps.set', targets: ['a'], apps: null });
+    expect(r.state.apps.byParticipant).toEqual({});
+    r = set(r.state, { v: 1, type: 'teacher.apps.set', targets: ['b'], apps: [] });
+    // A student may not change it.
+    expect(
+      student(r.state, 'a', { v: 1, type: 'teacher.apps.set', targets: 'all', apps: null }).state
+        .apps,
+    ).toEqual(r.state.apps);
+    // The next stage brings the lesson's own back.
+    r = set(r.state, { v: 1, type: 'teacher.stage.skip' });
+    expect(r.state.apps).toEqual({ all: null, byParticipant: {} });
+    expect(r.broadcast.some((m) => m.type === 'apps.changed')).toBe(true);
+  });
+});

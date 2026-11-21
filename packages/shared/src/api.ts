@@ -71,6 +71,8 @@ export const ClassSummarySchema = z.strictObject({
   /** Null for a teacher's personal class (ADR-009). */
   schoolId: id.nullable(),
   schoolName: z.string().min(1).nullable(),
+  /** Six digits on the cards for "Мои работы" at home (H12); null until the platform gives one. */
+  homeCode: z.string().nullable().default(null),
 });
 
 /** Creating a class (S2.2). `schoolId` is only needed when the teacher belongs to several schools. */
@@ -427,11 +429,39 @@ export const JoinLookupResponseSchema = z.strictObject({
 });
 export type JoinLookupResponse = z.infer<typeof JoinLookupResponseSchema>;
 
+/** What the school calls a classroom computer, "ПК-05" (ADR-014). */
+export const PcNameSchema = z.string().trim().min(1).max(20);
+
+/**
+ * A student computer in the classroom asks the teacher's computer which lesson to open (stage 3, H2).
+ * No lesson code: the room has one lesson at a time. `seatedStudentId` is who sat here last time.
+ */
+export const JoinRoomResponseSchema = z.strictObject({
+  lesson: JoinLookupResponseSchema.extend({ seatedStudentId: id.nullable() }).nullable(),
+});
+export type JoinRoomResponse = z.infer<typeof JoinRoomResponseSchema>;
+
+/** A screenshot is at most 400 KB of JPEG (CLAUDE.md §3.1); in base64 that is about 546 000 characters. */
+export const MAX_SCREENSHOT_BASE64 = 560_000;
+
+/** A classroom computer uploads a photograph of its screen (stage 3, H5). */
+export const ScreenshotUploadSchema = z.strictObject({
+  jpeg: z.string().min(1).max(MAX_SCREENSHOT_BASE64),
+  width: z.number().int().min(1).max(4096),
+  height: z.number().int().min(1).max(4096),
+  reason: z.enum(['manual', 'before_end', 'stage_end']),
+});
+export type ScreenshotUpload = z.infer<typeof ScreenshotUploadSchema>;
+export const ScreenshotUploadResponseSchema = z.strictObject({ id });
+export type ScreenshotUploadResponse = z.infer<typeof ScreenshotUploadResponseSchema>;
+
 export const JoinRequestSchema = z.strictObject({
   sessionId: id,
   studentId: id,
   /** Picture keys in order, or digits. */
   code: z.array(z.string().min(1)).min(1).max(6),
+  /** The classroom computer the child logs in at: their seat is remembered (H2). */
+  pc: PcNameSchema.optional(),
 });
 export type JoinRequest = z.infer<typeof JoinRequestSchema>;
 

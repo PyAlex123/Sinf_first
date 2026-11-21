@@ -171,7 +171,7 @@ describe('lesson results', () => {
 
     // g10: nine levels and three typed words — 16 stars; one Paint slide, but no drawing stars
     // given, so the drawing does not count; two quiz questions were asked.
-    expect(r.maxima).toEqual({ trainer: 16, practice: 0, quiz: 2 });
+    expect(r.maxima).toEqual({ trainer: 16, practice: 0, quiz: 2, check: 0 });
     expect(r.practiceSteps).toBe(1);
     expect(r.quizQuestions).toBe(6);
 
@@ -226,7 +226,7 @@ describe('lesson results', () => {
 
     const r = await results(id);
     // k10: three typed words and sixteen Paint steps.
-    expect(r.maxima).toEqual({ trainer: 3, practice: 3, quiz: 0 });
+    expect(r.maxima).toEqual({ trainer: 3, practice: 3, quiz: 0, check: 0 });
     expect(r.practiceSteps).toBe(16);
     expect(r.rows.find((row) => row.studentId === 'student-01')).toMatchObject({
       trainerStars: 3,
@@ -285,13 +285,13 @@ describe('class journal', () => {
     ]);
     const aliev = journal.students.find((s) => s.id === 'student-01');
     expect(aliev?.cells).toEqual([
-      { present: true, stars: 5, grade: null },
-      { present: true, stars: 2, grade: null },
+      { present: true, stars: 5, grade: null, confirmed: false },
+      { present: true, stars: 2, grade: null, confirmed: false },
     ]);
     const karimova = journal.students.find((s) => s.id === 'student-02');
     expect(karimova?.cells).toEqual([
-      { present: true, stars: 0, grade: null },
-      { present: false, stars: 0, grade: null },
+      { present: true, stars: 0, grade: null, confirmed: false },
+      { present: false, stars: 0, grade: null, confirmed: false },
     ]);
     expect(journal.students.find((s) => s.name === 'Аминов Карим')?.cells).toEqual([null, null]);
   });
@@ -449,5 +449,120 @@ describe('who may see results and change settings', () => {
   it('asks for a teacher at all', async () => {
     const res = await t.app.inject({ method: 'GET', url: '/api/journal/class-1a' });
     expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('confirming grades (H10)', () => {
+  const put = (
+    sessionId: string,
+    grades: { studentId: string; value: number | null }[],
+    as = cookie,
+  ) =>
+    t.app.inject({
+      method: 'PUT',
+      url: `/api/sessions/${sessionId}/grades`,
+      headers: { cookie: as },
+      payload: { grades },
+    });
+  const row = async (sessionId: string, studentId: string) =>
+    (await results(sessionId)).rows.find((r) => r.studentId === studentId);
+
+  async function lesson(): Promise<string> {
+    await setStarsToGrade(true);
+    const sessionId = await startSession('g10');
+    await join(sessionId, 'student-01');
+    await join(sessionId, 'student-02');
+    screenStars(sessionId, 'student-01', [3, 3]);
+    screenStars(sessionId, 'student-02', [1]);
+    return sessionId;
+  }
+
+  it('offers the calculated grade until the teacher confirms or changes it', async () => {
+    const sessionId = await lesson();
+    await endSession(sessionId);
+    const before = await row(sessionId, 'student-01');
+    expect(before?.suggestedGrade).not.toBeNull();
+    expect(before).toMatchObject({ grade: before?.suggestedGrade, gradeConfirmed: false });
+
+    // Taken as offered: a confirmed "session" grade.
+    const suggested = before?.suggestedGrade ?? 2;
+    expect((await put(sessionId, [{ studentId: 'student-01', value: suggested }])).statusCode).toBe(
+      200,
+    );
+    expect(await row(sessionId, 'student-01')).toMatchObject({
+      grade: suggested,
+      gradeConfirmed: true,
+    });
+    const other = suggested === 5 ? 4 : 5;
+    await put(sessionId, [{ studentId: 'student-01', value: other }]);
+    expect(await row(sessionId, 'student-01')).toMatchObject({
+      grade: other,
+      suggestedGrade: suggested,
+      gradeConfirmed: true,
+    });
+    const stored = t.database.db.select().from(schema.grades).all();
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ value: other, source: 'manual', sessionId });
+
+    // The journal carries the teacher's grade and says which cells are still suggestions.
+    const journal = JournalSchema.parse(
+      (
+        await t.app.inject({ method: 'GET', url: '/api/journal/class-1a', headers: { cookie } })
+      ).json(),
+    );
+    const cellOf = (id: string) => journal.students.find((s) => s.id === id)?.cells[0];
+    expect(cellOf('student-01')).toMatchObject({ grade: other, confirmed: true });
+    expect(cellOf('student-02')).toMatchObject({ confirmed: false });
+
+    // Null takes it back to the suggestion.
+    await put(sessionId, [{ studentId: 'student-01', value: null }]);
+    expect(await row(sessionId, 'student-01')).toMatchObject({
+      grade: suggested,
+      gradeConfirmed: false,
+    });
+    expect(t.database.db.select().from(schema.grades).all()).toHaveLength(0);
+  });
+
+  it('grades the whole class in one request', async () => {
+    const sessionId = await lesson();
+    await endSession(sessionId);
+    const res = await put(sessionId, [
+      { studentId: 'student-01', value: 5 },
+      { studentId: 'student-02', value: 3 },
+    ]);
+    const rows = SessionResultsSchema.parse(res.json()).rows;
+    expect(rows.filter((r) => r.gradeConfirmed).map((r) => [r.studentId, r.grade])).toEqual([
+      ['student-01', 5],
+      ['student-02', 3],
+    ]);
+  });
+
+  it('refuses a running lesson, an absent child, a bad value and a stranger', async () => {
+    const sessionId = await lesson();
+    expect((await put(sessionId, [{ studentId: 'student-01', value: 5 }])).statusCode).toBe(409);
+    await endSession(sessionId);
+    expect((await put(sessionId, [{ studentId: 'student-03', value: 5 }])).statusCode).toBe(400);
+    expect((await put(sessionId, [{ studentId: 'student-01', value: 6 }])).statusCode).toBe(400);
+    expect((await put(sessionId, [])).statusCode).toBe(400);
+    expect(
+      (
+        await t.app.inject({
+          method: 'PUT',
+          url: `/api/sessions/${sessionId}/grades`,
+          payload: { grades: [{ studentId: 'student-01', value: 5 }] },
+        })
+      ).statusCode,
+    ).toBe(401);
+    const reg = await t.app.inject({
+      method: 'POST',
+      url: '/api/auth/register',
+      payload: { fullName: 'Чужой Учитель', email: 'other@example.com', password: 'parol12345' },
+    });
+    const c = reg.cookies.find((x) => x.name === 'sinf_teacher');
+    expect(
+      (await put(sessionId, [{ studentId: 'student-01', value: 5 }], `${c?.name}=${c?.value}`))
+        .statusCode,
+    ).toBe(404);
+    expect(t.database.db.select().from(schema.grades).all()).toHaveLength(0);
   });
 });

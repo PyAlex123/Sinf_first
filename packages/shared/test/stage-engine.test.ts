@@ -570,3 +570,60 @@ describe('the live quiz (S1.12)', () => {
     expect(plain.state.quiz).toBeNull();
   });
 });
+
+describe('screenshots of the practice (stage 3, H5)', () => {
+  const requests = (messages: { type: string }[]) =>
+    messages.filter((m) => m.type === 'screenshot.request') as {
+      type: 'screenshot.request';
+      targets: unknown;
+      reason: string;
+    }[];
+
+  it('asks everybody once, five lesson minutes before the practice ends', () => {
+    let state = teacher(start(), { v: 1, type: 'teacher.stage.set', index: 3 }, T0).state;
+    // The practice lasts 22 minutes: nothing asked during the first 16.
+    const early = tick(state, T0 + 16 * MS_PER_MIN);
+    expect(requests(early.broadcast)).toHaveLength(0);
+    state = early.state;
+
+    const due = tick(state, T0 + 17 * MS_PER_MIN + 1000);
+    expect(requests(due.broadcast)).toEqual([
+      { v: 1, type: 'screenshot.request', targets: 'all', reason: 'before_end' },
+    ]);
+    expect(due.state.stage.shotRequested).toBe(true);
+
+    // "+5 min" afterwards does not bring a second round.
+    const extended = teacher(
+      due.state,
+      { v: 1, type: 'teacher.stage.extend', minutes: 5 },
+      T0 + 18 * MS_PER_MIN,
+    );
+    expect(requests(tick(extended.state, T0 + 19 * MS_PER_MIN).broadcast)).toHaveLength(0);
+  });
+
+  it('asks again when the practice ends, however it ends', () => {
+    const inPractice = teacher(start(), { v: 1, type: 'teacher.stage.set', index: 3 }, T0).state;
+    const skipped = teacher(inPractice, { v: 1, type: 'teacher.stage.skip' }, T0 + MS_PER_MIN);
+    expect(requests(skipped.broadcast)).toEqual([
+      { v: 1, type: 'screenshot.request', targets: 'all', reason: 'stage_end' },
+    ]);
+    // Leaving the theory is no reason to photograph anything.
+    const fromTheory = teacher(start(), { v: 1, type: 'teacher.stage.set', index: 2 }, T0).state;
+    expect(
+      requests(teacher(fromTheory, { v: 1, type: 'teacher.stage.skip' }, T0).broadcast),
+    ).toHaveLength(0);
+  });
+
+  it('lets the teacher ask for chosen children, and only the teacher', () => {
+    const asked = teacher(start(), { v: 1, type: 'teacher.screenshot', targets: ['p1'] }, T0);
+    expect(requests(asked.broadcast)).toEqual([
+      { v: 1, type: 'screenshot.request', targets: ['p1'], reason: 'manual' },
+    ]);
+    const byChild = student(withStudent(start()), {
+      v: 1,
+      type: 'teacher.screenshot',
+      targets: 'all',
+    });
+    expect(requests(byChild.broadcast)).toHaveLength(0);
+  });
+});

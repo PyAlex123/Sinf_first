@@ -1,15 +1,21 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
   DeviceSchema,
   JoinResponseSchema,
   PairDeviceResponseSchema,
   SessionResponseSchema,
+  FileUploadResponseSchema,
+  SessionResultsSchema,
+  StudentFilesResponseSchema,
   SyncStatusSchema,
 } from '@sinf/shared';
 import { buildApp } from '../src/app.js';
+import { REPO_ROOT } from '../src/config.js';
 import { openDatabase, schema, type DatabaseHandle } from '../src/db/index.js';
 import { runMigrations } from '../src/db/migrate.js';
 import { DEMO } from '../src/db/seed.js';
@@ -29,6 +35,7 @@ let cloudCookie: string;
 let school: FastifyInstance;
 let schoolDb: DatabaseHandle;
 let worker: SyncWorker;
+let schoolDataDir: string;
 /** The classroom's internet. Flip it to see what the lesson does without one. */
 let online = true;
 
@@ -38,12 +45,16 @@ function fetchTo(app: FastifyInstance): typeof fetch {
     if (!online) throw new TypeError('fetch failed');
     const url = new URL(typeof input === 'string' ? input : (input as URL).toString());
     const res = await app.inject({
-      method: (init?.method ?? 'GET') as 'GET' | 'POST',
+      method: (init?.method ?? 'GET') as 'GET' | 'POST' | 'PUT' | 'DELETE',
       url: url.pathname + url.search,
       headers: (init?.headers ?? {}) as Record<string, string>,
-      ...(typeof init?.body === 'string' ? { payload: init.body } : {}),
+      ...(typeof init?.body === 'string'
+        ? { payload: init.body }
+        : init?.body instanceof Uint8Array
+          ? { payload: Buffer.from(init.body) }
+          : {}),
     });
-    return new Response(res.body, {
+    return new Response(new Uint8Array(res.rawPayload), {
       status: res.statusCode,
       headers: { 'content-type': res.headers['content-type']?.toString() ?? 'application/json' },
     });
@@ -76,6 +87,7 @@ beforeEach(async () => {
   schoolDb = openDatabase(':memory:');
   runMigrations(schoolDb.db);
   const config = testConfig({ PLATFORM_URL: 'http://platform.test', DEVICE_TOKEN: token });
+  schoolDataDir = config.dataDir;
   const toCloud = fetchTo(cloud.app);
   worker = new SyncWorker(schoolDb.db, config, console as never, {
     fetchImpl: toCloud,
@@ -341,5 +353,408 @@ describe('results going up', () => {
     });
     expect(worker.status().pending).toBe(0);
     expect(await worker.push()).toBe(0);
+  });
+  /** A photograph of the child's screen, the way the classroom app leaves it on this computer (H5). */
+  function leaveAScreenshot(sessionId: string, id: string, bytes: Buffer): void {
+    const fileKey = `screenshots/${sessionId}/${id}.jpg`;
+    const path = join(schoolDataDir, fileKey);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, bytes);
+    schoolDb.db
+      .insert(schema.screenshots)
+      .values({
+        id,
+        sessionId,
+        studentId: 'student-01',
+        kind: 'stage_end',
+        takenAt: new Date().toISOString(),
+        fileKey,
+        width: 1366,
+        height: 768,
+        bytes: bytes.length,
+      })
+      .run();
+  }
+  const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(500, 9)]);
+  const SHOT_ID = '6f0e8d3a-5b1c-4f7e-9a2d-3c4b5a697881';
+
+  it('sends the screenshots after the lesson, once, and the platform shows them (H10)', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    online = false;
+    const sessionId = await holdALesson(cookie);
+    leaveAScreenshot(sessionId, SHOT_ID, JPEG);
+    // Nothing can go: neither the lesson nor its picture.
+    expect(await worker.push()).toBe(0);
+    expect(worker.status()).toMatchObject({ pending: 1, pendingShots: 1 });
+
+    online = true;
+    expect(await worker.push()).toBe(1);
+    expect(worker.status()).toMatchObject({ pending: 0, pendingShots: 0 });
+
+    const stored = cloud.database.db.select().from(schema.screenshots).all();
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ id: SHOT_ID, sessionId, studentId: 'student-01' });
+    expect(readFileSync(join(cloud.config.dataDir, stored[0]?.fileKey ?? '')).equals(JPEG)).toBe(
+      true,
+    );
+    // The teacher sees it in the lesson's results on the platform.
+    const results = SessionResultsSchema.parse(
+      (
+        await cloud.app.inject({
+          method: 'GET',
+          url: `/api/sessions/${sessionId}/results`,
+          headers: { cookie: cloudCookie },
+        })
+      ).json(),
+    );
+    expect(results.rows.find((r) => r.studentId === 'student-01')?.screenshotId).toBe(SHOT_ID);
+    const picture = await cloud.app.inject({
+      method: 'GET',
+      url: `/api/screenshots/${SHOT_ID}`,
+      headers: { cookie: cloudCookie },
+    });
+    expect(picture.statusCode).toBe(200);
+
+    // A second tick has nothing to send, and sending the same picture again stores nothing new.
+    expect(await worker.push()).toBe(0);
+    schoolDb.db.update(schema.screenshots).set({ syncedAt: null }).run();
+    await worker.push();
+    expect(cloud.database.db.select().from(schema.screenshots).all()).toHaveLength(1);
+  });
+
+  it('drops a picture whose file is gone or which is no picture, and sends the rest', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    online = false;
+    const sessionId = await holdALesson(cookie);
+    leaveAScreenshot(sessionId, '11111111-1111-4111-8111-111111111111', Buffer.from('not a jpeg'));
+    leaveAScreenshot(sessionId, SHOT_ID, JPEG);
+    schoolDb.db
+      .insert(schema.screenshots)
+      .values({
+        id: '22222222-2222-4222-8222-222222222222',
+        sessionId,
+        studentId: 'student-01',
+        kind: 'manual',
+        takenAt: new Date().toISOString(),
+        fileKey: 'screenshots/none/gone.jpg',
+        width: 10,
+        height: 10,
+        bytes: 1,
+      })
+      .run();
+    online = true;
+    await worker.push();
+    expect(worker.status().pendingShots).toBe(0);
+    expect(
+      cloud.database.db
+        .select()
+        .from(schema.screenshots)
+        .all()
+        .map((s) => s.id),
+    ).toEqual([SHOT_ID]);
+    expect(existsSync(join(cloud.config.dataDir, 'screenshots', 'none'))).toBe(false);
+  });
+
+  it('carries the confirmed grades up, and takes back the ones the teacher removed (H10)', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    schoolDb.db
+      .update(schema.classes)
+      .set({ settings: { starsToGrade: true, codePics: [] } })
+      .where(eq(schema.classes.id, DEMO.classId))
+      .run();
+    online = false;
+    const sessionId = await holdALesson(cookie);
+    online = true;
+    await worker.push();
+    expect(worker.status().pending).toBe(0);
+
+    const put = (value: number | null) =>
+      school.inject({
+        method: 'PUT',
+        url: `/api/sessions/${sessionId}/grades`,
+        headers: { cookie },
+        payload: { grades: [{ studentId: 'student-01', value }] },
+      });
+    online = false;
+    const graded = SessionResultsSchema.parse((await put(5)).json());
+    expect(graded.rows.find((r) => r.studentId === 'student-01')).toMatchObject({
+      grade: 5,
+      gradeConfirmed: true,
+    });
+    // The lesson waits again, now with its grade.
+    expect(worker.status().pending).toBe(1);
+    online = true;
+    const inCloud = () =>
+      cloud.database.db
+        .select()
+        .from(schema.grades)
+        .where(eq(schema.grades.sessionId, sessionId))
+        .all();
+    await vi.waitFor(async () => {
+      await worker.push();
+      expect(inCloud()).toHaveLength(1);
+    });
+    expect(inCloud()[0]).toMatchObject({ studentId: 'student-01', value: 5 });
+
+    // Setting a grade starts the sending by itself; wait for whichever send carries the change.
+    await put(null);
+    await vi.waitFor(async () => {
+      await worker.push();
+      expect(inCloud()).toHaveLength(0);
+    });
+  });
+});
+
+describe('the practice going up (H16)', () => {
+  it('carries the work handed in and the teacher’s marks to the platform’s results', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    const created = await school.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      headers: { cookie },
+      payload: { classId: DEMO.classId, lessonId: 'proba-dokument' },
+    });
+    const { session } = SessionResponseSchema.parse(created.json());
+    const student = schoolDb.db
+      .select()
+      .from(schema.students)
+      .where(eq(schema.students.id, 'student-01'))
+      .get();
+    if (!student) throw new Error('no student');
+    const joined = await school.inject({
+      method: 'POST',
+      url: '/api/join',
+      payload: {
+        sessionId: session.id,
+        studentId: student.id,
+        code: student.codePublic.split('+'),
+      },
+    });
+    const { token } = JoinResponseSchema.parse(joined.json());
+    const lesson = { 'x-session-id': session.id, 'x-participant-token': token };
+    const folder = StudentFilesResponseSchema.parse(
+      (await school.inject({ method: 'GET', url: '/api/my/files', headers: lesson })).json(),
+    );
+    const template = folder.files.find((f) => f.name === 'Оформи документ.docx');
+    expect(template).toBeDefined();
+    const done = readFileSync(
+      join(REPO_ROOT, 'apps/server/test/fixtures/practice/oformi-dokument-done.docx'),
+    );
+    const saved = await school.inject({
+      method: 'PUT',
+      url: `/api/my/files?name=${encodeURIComponent('Оформи документ.docx')}&base=${template?.sha256 ?? ''}`,
+      headers: { ...lesson, 'content-type': 'application/octet-stream' },
+      payload: done,
+    });
+    expect(saved.statusCode).toBe(200);
+    await school.inject({
+      method: 'PUT',
+      url: `/api/sessions/${session.id}/practice-marks`,
+      headers: { cookie },
+      payload: { studentId: 'student-01', marks: { spelling: true } },
+    });
+    await school.inject({
+      method: 'POST',
+      url: `/api/sessions/${session.id}/end`,
+      headers: { cookie },
+    });
+
+    const cloudRow = async () =>
+      SessionResultsSchema.parse(
+        (
+          await cloud.app.inject({
+            method: 'GET',
+            url: `/api/sessions/${session.id}/results`,
+            headers: { cookie: cloudCookie },
+          })
+        ).json(),
+      ).rows.find((r) => r.studentId === 'student-01');
+    await vi.waitFor(async () => {
+      await worker.push();
+      expect((await cloudRow())?.check).toMatchObject({ points: 12, max: 14, submitted: true });
+    });
+
+    // A mark after the lesson sends the lesson again.
+    await school.inject({
+      method: 'PUT',
+      url: `/api/sessions/${session.id}/practice-marks`,
+      headers: { cookie },
+      payload: { studentId: 'student-01', marks: { neat: true } },
+    });
+    await vi.waitFor(async () => {
+      await worker.push();
+      expect((await cloudRow())?.check?.points).toBe(14);
+    });
+  });
+});
+
+describe('"Мои работы" between the school and the platform (H12)', () => {
+  /** The platform's view of a child's folder: home, or a teacher there. */
+  const cloudFiles = async (studentId = 'student-01') =>
+    StudentFilesResponseSchema.parse(
+      (
+        await cloud.app.inject({
+          method: 'GET',
+          url: `/api/students/${studentId}/files`,
+          headers: { cookie: cloudCookie },
+        })
+      ).json(),
+    ).files;
+  const schoolFiles = () =>
+    schoolDb.db
+      .select()
+      .from(schema.studentFiles)
+      .all()
+      .filter((f) => !f.deletedAt)
+      .map((f) => f.name)
+      .sort();
+
+  /** A child in a lesson on the school computer, with the headers their page sends. */
+  async function childOnSchoolPc(cookie: string): Promise<Record<string, string>> {
+    const created = await school.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      headers: { cookie },
+      payload: { classId: DEMO.classId, lessonId: 'k10' },
+    });
+    const { session } = SessionResponseSchema.parse(created.json());
+    const student = schoolDb.db
+      .select()
+      .from(schema.students)
+      .where(eq(schema.students.id, 'student-01'))
+      .get();
+    const joined = await school.inject({
+      method: 'POST',
+      url: '/api/join',
+      payload: {
+        sessionId: session.id,
+        studentId: 'student-01',
+        code: student?.codePublic.split('+'),
+      },
+    });
+    const { token } = JoinResponseSchema.parse(joined.json());
+    return { 'x-session-id': session.id, 'x-participant-token': token };
+  }
+  const saveAt = (
+    app: FastifyInstance,
+    headers: Record<string, string>,
+    name: string,
+    text: string,
+    base?: string,
+  ) =>
+    app.inject({
+      method: 'PUT',
+      url: `/api/my/files?${new URLSearchParams({ name, ...(base ? { base } : {}) }).toString()}`,
+      headers: { ...headers, 'content-type': 'application/octet-stream' },
+      payload: Buffer.from(text),
+    });
+
+  /** The child at home: on the platform, with the home cookie made by hand for the test. */
+  function childAtHome(): Record<string, string> {
+    // The demo class uses picture codes (no home login), so the cookie is signed directly.
+    const signed = cloud.app.signCookie(`student-01|${Date.now() + 3_600_000}`);
+    return { cookie: `sinf_student=${signed}` };
+  }
+
+  it('sends the lesson’s work up, brings the home work down, and keeps both when both changed', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    const child = await childOnSchoolPc(cookie);
+
+    // In the lesson, without internet: saved on the teacher's computer, waiting.
+    online = false;
+    const v1 = FileUploadResponseSchema.parse(
+      (await saveAt(school, child, 'Рисунок.png', 'v1')).json(),
+    );
+    expect(worker.status().pendingFiles).toBe(1);
+    online = true;
+    await worker.push();
+    expect(worker.status().pendingFiles).toBe(0);
+    expect((await cloudFiles()).map((f) => [f.name, f.sha256])).toEqual([
+      ['Рисунок.png', v1.file.sha256],
+    ]);
+
+    // At home the child carries on with the drawing.
+    const home = childAtHome();
+    const homeV2 = FileUploadResponseSchema.parse(
+      (await saveAt(cloud.app, home, 'Рисунок.png', 'v2 from home', v1.file.sha256)).json(),
+    );
+    expect(homeV2.conflictWith).toBeNull();
+
+    // Next lesson: logging in brings the home version down.
+    await worker.pullFiles('student-01');
+    const local = schoolDb.db.select().from(schema.studentFiles).all();
+    expect(local.map((f) => [f.name, f.sha256, f.dirty])).toEqual([
+      ['Рисунок.png', homeV2.file.sha256, false],
+    ]);
+    expect(
+      readFileSync(
+        join(schoolDataDir, 'files', homeV2.file.sha256.slice(0, 2), homeV2.file.sha256),
+      ).toString(),
+    ).toBe('v2 from home');
+
+    // Both change it without a connection between them: the platform keeps both.
+    online = false;
+    await saveAt(school, child, 'Рисунок.png', 'v3 at school', homeV2.file.sha256);
+    await saveAt(cloud.app, home, 'Рисунок.png', 'v3 at home', homeV2.file.sha256);
+    online = true;
+    await worker.push();
+    await worker.pullFiles('student-01');
+    const names = (await cloudFiles()).map((f) => f.name).sort();
+    expect(names).toEqual(['Рисунок (копия браузер).png', 'Рисунок.png']);
+    expect(schoolFiles()).toEqual(names);
+  });
+
+  it('carries a deletion both ways, and not over a newer change', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    const child = await childOnSchoolPc(cookie);
+    const a = FileUploadResponseSchema.parse(
+      (await saveAt(school, child, 'a.txt', 'a')).json(),
+    ).file;
+    await saveAt(school, child, 'b.txt', 'b');
+    await worker.push();
+    expect((await cloudFiles()).map((f) => f.name)).toEqual(['a.txt', 'b.txt']);
+
+    // Deleted at school → deleted on the platform.
+    await school.inject({ method: 'DELETE', url: `/api/my/files/${a.id}`, headers: child });
+    expect(worker.status().pendingFiles).toBe(1);
+    await worker.push();
+    expect((await cloudFiles()).map((f) => f.name)).toEqual(['b.txt']);
+    expect(schoolDb.db.select().from(schema.studentFiles).all()).toHaveLength(1);
+
+    // Deleted at home → gone from the school at the next login.
+    const home = childAtHome();
+    const b = (await cloudFiles())[0];
+    await cloud.app.inject({ method: 'DELETE', url: `/api/my/files/${b?.id}`, headers: home });
+    await worker.pullFiles('student-01');
+    expect(schoolFiles()).toEqual([]);
+  });
+
+  it('works on without internet and says what waits', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    const child = await childOnSchoolPc(cookie);
+    online = false;
+    expect(await worker.pullFiles('student-01')).toBe(0);
+    expect((await saveAt(school, child, 'c.txt', 'c')).statusCode).toBe(200);
+    const status = SyncStatusSchema.parse(
+      (await school.inject({ method: 'GET', url: '/api/sync/status', headers: { cookie } })).json(),
+    );
+    expect(status.pendingFiles).toBe(1);
+  });
+
+  it('gives a device nothing of another school', async () => {
+    await worker.pull();
+    const res = await cloud.app.inject({
+      method: 'GET',
+      url: '/api/sync/files/student-01',
+      headers: { authorization: 'Device not-a-token' },
+    });
+    expect(res.statusCode).toBe(401);
   });
 });

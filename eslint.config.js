@@ -13,12 +13,16 @@ export default tseslint.config(
       '**/dist/**',
       '**/dist-demo/**',
       '**/coverage/**',
+      '**/bin/**',
+      '**/obj/**',
       'data/**',
       'content/**',
       'content-src/**',
       // Сквозные сценарии (tools/e2e) — одноразовые скрипты для браузера, их запускают руками
       // через node, они не входят ни в сборку, ни в tsconfig. Prettier их всё равно форматирует.
       'tools/e2e/**',
+      // Нагрузочный тест класса (tools/load) — такой же скрипт для запуска руками.
+      'tools/load/**',
     ],
   },
   js.configs.recommended,

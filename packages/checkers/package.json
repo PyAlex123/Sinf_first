@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Practice file checkers (docx, xlsx, pptx, html, txt) — ADR-003. Mostly empty in stage 1 (needed for D3).",
+  "description": "Practice file checkers (docx, xlsx, pptx, html/css, txt) — ADR-003, ADR-016. Run unchanged in the browser and in Node.",
   "exports": {
     ".": {
       "@sinf/source": "./src/index.ts",
@@ -17,5 +17,11 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@sinf/shared": "workspace:*",
+    "fflate": "^0.8.3",
+    "htmlparser2": "^12.0.0",
+    "domhandler": "^6.0.1"
   }
 }

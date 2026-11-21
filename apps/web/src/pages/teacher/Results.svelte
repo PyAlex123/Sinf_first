@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { PRACTICE_MAX_STARS, registerDate, type SessionResults } from '@sinf/shared';
+  import {
+    PRACTICE_MAX_STARS,
+    registerDate,
+    type ResultRow,
+    type SessionResults,
+  } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { t } from '../../lib/i18n/index.svelte.js';
@@ -12,6 +17,7 @@
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
   import Table from '../../lib/ui/Table.svelte';
+  import PracticeWorks from './PracticeWorks.svelte';
 
   /**
    * Lesson results (S1.13): the whole class on one screen — who came, stars for the trainers and
@@ -29,11 +35,50 @@
    * the children marked steps. Some lessons carry a stray "step" slide that is no Paint at all.
    */
   const hasPractice = $derived(
-    (results?.practiceSteps ?? 0) > 0 &&
-      (results?.rows.some((r) => r.practiceStars !== null || (r.stepsDone ?? 0) > 0) ?? false),
+    ((results?.practiceSteps ?? 0) > 0 &&
+      (results?.rows.some((r) => r.practiceStars !== null || (r.stepsDone ?? 0) > 0) ?? false)) ||
+      // A screenshot of a classroom computer is worth a gallery on any lesson (H5).
+      (results?.rows.some((r) => r.screenshotId !== null) ?? false),
   );
   const hasQuiz = $derived((results?.quizQuestions ?? 0) > 0);
+  /** A lesson without trainers — the practice sample (H16) — has no trainer column. */
+  const hasTrainer = $derived((results?.maxima.trainer ?? 0) > 0);
   const present = $derived(results?.rows.filter((r) => r.present) ?? []);
+
+  /**
+   * Grades (H10): the calculated grade is only offered until the teacher takes it or picks another.
+   * One click on a number sets it; clicking the confirmed number again takes it back.
+   */
+  const GRADES = [5, 4, 3, 2];
+  const canGrade = $derived(!!results?.class.starsToGrade && results.status === 'ended');
+  const toConfirm = $derived(
+    canGrade ? present.filter((r) => !r.gradeConfirmed && r.suggestedGrade !== null) : [],
+  );
+  let grading = $state(false);
+
+  async function saveGrades(grades: { studentId: string; value: number | null }[]): Promise<void> {
+    if (grading || grades.length === 0) return;
+    grading = true;
+    error = null;
+    try {
+      results = await api.setGrades(sessionId, grades);
+    } catch {
+      error = t('common.error');
+    } finally {
+      grading = false;
+    }
+  }
+  const pick = (row: ResultRow, value: number): Promise<void> =>
+    saveGrades([
+      { studentId: row.studentId, value: row.gradeConfirmed && row.grade === value ? null : value },
+    ]);
+  const confirmAll = (): Promise<void> =>
+    saveGrades(toConfirm.map((r) => ({ studentId: r.studentId, value: r.suggestedGrade })));
+
+  /** The teacher marked a criterion of the practice (H16): the whole lesson's results come back. */
+  function replaceResults(next: SessionResults): void {
+    results = next;
+  }
 
   const subtitle = $derived.by(() => {
     if (!results) return '';
@@ -65,7 +110,7 @@
 <Header back="/teacher" title={results?.lessonTitle ?? ''} />
 
 <main class="page stack">
-  {#if error}
+  {#if error && !results}
     <Notice kind="error">{error}</Notice>
   {:else if !results}
     <p aria-busy="true" class="muted">{t('common.loading')}</p>
@@ -86,6 +131,15 @@
     {#if results.status === 'active'}
       <Notice>{t('results.live')}</Notice>
     {/if}
+    {#if error}<Notice kind="error">{error}</Notice>{/if}
+    {#if canGrade && toConfirm.length > 0}
+      <div class="confirm">
+        <span>{t('results.grades.pending', { count: toConfirm.length })}</span>
+        <Button size="sm" disabled={grading} onclick={confirmAll}>
+          {t('results.grades.confirmAll')}
+        </Button>
+      </div>
+    {/if}
 
     <Card>
       <Table>
@@ -94,9 +148,10 @@
             <th class="num">№</th>
             <th>{t('results.col.student')}</th>
             <th>{t('results.col.presence')}</th>
-            <th class="n">{t('results.col.trainer')}</th>
+            {#if hasTrainer}<th class="n">{t('results.col.trainer')}</th>{/if}
             {#if hasPractice}<th class="n">{t('results.col.drawing')}</th>{/if}
             {#if hasQuiz}<th>{t('results.col.quiz')}</th>{/if}
+            {#if results.practice}<th class="n">{t('results.col.practice')}</th>{/if}
             <th class="n">{t('results.col.total')}</th>
             {#if results.class.starsToGrade}<th class="n">{t('results.col.grade')}</th>{/if}
           </tr>
@@ -111,9 +166,11 @@
               </td>
               <td>{row.present ? t('results.here') : t('results.absent')}</td>
               {#if row.present}
-                <td class="n">
-                  ★ {t('results.of', { value: row.trainerStars, max: results.maxima.trainer })}
-                </td>
+                {#if hasTrainer}
+                  <td class="n">
+                    ★ {t('results.of', { value: row.trainerStars, max: results.maxima.trainer })}
+                  </td>
+                {/if}
                 {#if hasPractice}
                   <td class="n">
                     {#if row.practiceStars}
@@ -143,11 +200,42 @@
                     {/if}
                   </td>
                 {/if}
+                {#if results.practice}
+                  <td class="n" data-practice={row.studentId}>
+                    {#if row.check}
+                      {t('results.of', { value: row.check.points, max: row.check.max })}
+                    {:else}
+                      <span class="muted">—</span>
+                    {/if}
+                  </td>
+                {/if}
                 <td class="n total">★ {row.totalStars}</td>
                 {#if results.class.starsToGrade}
                   <td class="n">
-                    {#if row.grade !== null}
-                      <b class="grade g{row.grade}">{row.grade}</b>
+                    {#if canGrade}
+                      <span class="pickgrade" role="group" aria-label={t('results.col.grade')}>
+                        {#each GRADES as g (g)}
+                          <button
+                            type="button"
+                            class="pg g{g}"
+                            class:on={row.grade === g && row.gradeConfirmed}
+                            class:offered={row.grade === g && !row.gradeConfirmed}
+                            aria-pressed={row.grade === g && row.gradeConfirmed}
+                            title={row.grade === g && !row.gradeConfirmed
+                              ? t('results.grades.offered')
+                              : ''}
+                            disabled={grading}
+                            onclick={() => pick(row, g)}>{g}</button
+                          >
+                        {/each}
+                      </span>
+                      {#if row.percent !== null}
+                        <span class="muted small">{row.percent} %</span>
+                      {/if}
+                    {:else if row.grade !== null}
+                      <b class="grade g{row.grade}" class:offered={!row.gradeConfirmed}
+                        >{row.grade}</b
+                      >
                       <span class="muted small">{row.percent} %</span>
                     {:else}
                       <span class="muted">—</span>
@@ -155,9 +243,10 @@
                   </td>
                 {/if}
               {:else}
-                <td class="n muted">—</td>
+                {#if hasTrainer}<td class="n muted">—</td>{/if}
                 {#if hasPractice}<td class="n muted">—</td>{/if}
                 {#if hasQuiz}<td class="muted">—</td>{/if}
+                {#if results.practice}<td class="n muted">—</td>{/if}
                 <td class="n muted">—</td>
                 {#if results.class.starsToGrade}<td class="n muted">—</td>{/if}
               {/if}
@@ -172,6 +261,8 @@
       </p>
     </Card>
 
+    <PracticeWorks {results} onChange={replaceResults} />
+
     {#if hasPractice}
       <section class="stack">
         <h2>{t('results.gallery')}</h2>
@@ -182,8 +273,23 @@
             {#each present as row (row.studentId)}
               <li>
                 <Card padded={false}>
-                  <!-- Screenshots arrive with S1.14; until then the place says so honestly. -->
-                  <div class="shot"><span>{t('results.gallery.noShot')}</span></div>
+                  {#if row.screenshotId}
+                    <!-- The latest photograph of the classroom computer's screen (H5). -->
+                    <a
+                      class="shot"
+                      href={`/api/screenshots/${row.screenshotId}`}
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      <img
+                        src={`/api/screenshots/${row.screenshotId}`}
+                        alt={t('results.gallery.shot', { name: row.name })}
+                        loading="lazy"
+                      />
+                    </a>
+                  {:else}
+                    <div class="shot"><span>{t('results.gallery.noShot')}</span></div>
+                  {/if}
                   <div class="caption">
                     <b>{row.name}</b>
                     {#if row.practiceStars}
@@ -218,6 +324,50 @@
 </main>
 
 <style>
+  .confirm {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .pickgrade {
+    display: inline-flex;
+    gap: 2px;
+    margin-right: var(--space-2);
+  }
+  .pg {
+    min-width: 2em;
+    padding: 2px 0;
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius);
+    background: var(--c-surface);
+    color: var(--c-muted);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .pg.offered {
+    border-style: dashed;
+    border-color: var(--c-dark);
+    color: var(--c-dark);
+  }
+  .pg.on {
+    background: var(--c-dark);
+    border-color: var(--c-dark);
+    color: #fff;
+  }
+  .pg:disabled {
+    cursor: progress;
+  }
+  .grade.offered {
+    opacity: 0.6;
+  }
+  .shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
   .n {
     white-space: nowrap;
   }
