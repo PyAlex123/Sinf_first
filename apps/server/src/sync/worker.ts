@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import {
@@ -9,7 +11,15 @@ import {
 import { readPlatformLink, type Config, type PlatformLink } from '../config.js';
 import { schema, type Db } from '../db/index.js';
 import { applySchoolSnapshot } from './mirror.js';
-import { buildLessonBundle, countPending, markSynced, pendingSessionIds } from './outbox.js';
+import {
+  buildLessonBundle,
+  countPending,
+  countPendingScreenshots,
+  markScreenshotSynced,
+  markSynced,
+  pendingScreenshots,
+  pendingSessionIds,
+} from './outbox.js';
 
 /**
  * The school computer's side of S2.6 (ADR-011): it pulls the school's roster down and pushes what
@@ -124,16 +134,20 @@ export class SyncWorker {
     }
   }
 
-  /** Sends every lesson that is still waiting. Returns how many the platform accepted. */
+  /**
+   * Sends every lesson that is still waiting, then the screenshots of lessons already there (H10).
+   * Returns how many lessons the platform accepted.
+   */
   async push(): Promise<number> {
     const link = this.link();
     if (!link || this.running || this.stopped) return 0;
     const waiting = pendingSessionIds(this.db);
-    if (waiting.length === 0) return 0;
+    if (waiting.length === 0 && pendingScreenshots(this.db, 1).length === 0) return 0;
 
     this.running = true;
     let sent = 0;
     try {
+      let blocked = false;
       for (const id of waiting) {
         if (this.stopped) break;
         const bundle = buildLessonBundle(this.db, id);
@@ -163,12 +177,14 @@ export class SyncWorker {
           continue;
         }
         this.note(LAST_ERROR_KEY, `lesson ${response.status}`);
+        blocked = true;
         break; // 401 or a server problem: try the whole queue again on the next tick.
       }
-      if (sent > 0 && !this.stopped) {
+      const shots = blocked || this.stopped ? 0 : await this.pushScreenshots(link);
+      if (sent + shots > 0 && !this.stopped) {
         this.note(LAST_SYNC_KEY, new Date().toISOString());
         this.note(LAST_ERROR_KEY, null);
-        this.log.info({ sent }, 'lesson results sent to the platform');
+        this.log.info({ sent, shots }, 'lesson results sent to the platform');
       }
     } catch (error) {
       this.note(LAST_ERROR_KEY, OFFLINE);
@@ -179,13 +195,72 @@ export class SyncWorker {
     return sent;
   }
 
+  /**
+   * Screenshots go one per request, a few dozen per tick: they are for looking at later, and must
+   * not crowd the lessons or the classroom's thin connection. A network failure throws to `push`.
+   */
+  private async pushScreenshots(link: PlatformLink): Promise<number> {
+    let sent = 0;
+    for (const shot of pendingScreenshots(this.db)) {
+      if (this.stopped) break;
+      let jpeg: string;
+      try {
+        jpeg = (await readFile(join(this.config.dataDir, shot.fileKey))).toString('base64');
+      } catch {
+        // The file is gone from this computer; there is nothing left to send.
+        markScreenshotSynced(this.db, shot.id);
+        continue;
+      }
+      const response = await this.fetchImpl(`${link.url}/api/sync/screenshot`, {
+        method: 'POST',
+        headers: {
+          authorization: `Device ${link.deviceToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: shot.id,
+          sessionId: shot.sessionId,
+          studentId: shot.studentId,
+          kind: shot.kind,
+          takenAt: shot.takenAt,
+          width: shot.width,
+          height: shot.height,
+          jpeg,
+        }),
+      });
+      if (this.stopped) break;
+      if (response.ok) {
+        markScreenshotSynced(this.db, shot.id);
+        sent += 1;
+        continue;
+      }
+      if ([400, 404, 409, 413].includes(response.status)) {
+        // The platform will never take this picture; it must not hold up the others.
+        markScreenshotSynced(this.db, shot.id);
+        this.log.warn({ id: shot.id, status: response.status }, 'screenshot rejected by platform');
+        continue;
+      }
+      this.note(LAST_ERROR_KEY, `screenshot ${response.status}`);
+      break;
+    }
+    return sent;
+  }
+
   status(): SyncStatus {
     if (!this.link()) {
-      return { mode: 'platform', pending: 0, lastSyncAt: null, lastError: null, rosterAt: null };
+      return {
+        mode: 'platform',
+        pending: 0,
+        pendingShots: 0,
+        lastSyncAt: null,
+        lastError: null,
+        rosterAt: null,
+      };
     }
     return {
       mode: 'school',
       pending: countPending(this.db),
+      pendingShots: countPendingScreenshots(this.db),
       lastSyncAt: this.read(LAST_SYNC_KEY),
       lastError: this.read(LAST_ERROR_KEY),
       rosterAt: this.read(ROSTER_AT_KEY),

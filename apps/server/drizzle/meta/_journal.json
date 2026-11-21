@@ -64,6 +64,13 @@
       "when": 1795205460697,
       "tag": "0008_friendly_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1795256592354,
+      "tag": "0009_sturdy_demogoblin",
+      "breakpoints": true
     }
   ]
 }

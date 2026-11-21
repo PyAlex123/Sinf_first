@@ -1,4 +1,5 @@
-import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { loadConfig, REPO_ROOT, type Config } from '../src/config.js';
@@ -9,11 +10,15 @@ import { seedDemo } from '../src/db/seed.js';
 
 export const TEACHER_PASSWORD = 'demo1234';
 
+let dataDirs = 0;
+
 export function testConfig(overrides: Partial<Record<string, string>> = {}): Config {
   return loadConfig(
     {
       NODE_ENV: 'test',
       DATABASE_PATH: ':memory:',
+      // Each server of a test gets a folder of its own for files, away from the repository.
+      DATA_DIR: join(tmpdir(), `sinf-test-${process.pid}-${Date.now()}-${(dataDirs += 1)}`),
       DEMO_TEACHER_PASSWORD: TEACHER_PASSWORD,
       SESSION_SECRET: 'test-secret-at-least-16-chars',
       CONTENT_DIR: resolve(REPO_ROOT, 'content'),

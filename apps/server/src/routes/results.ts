@@ -1,11 +1,17 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
-import { LocaleSchema, type Journal, type SessionResults, type Teacher } from '@sinf/shared';
+import {
+  LocaleSchema,
+  SetGradesSchema,
+  type Journal,
+  type SessionResults,
+  type Teacher,
+} from '@sinf/shared';
 import { requireClass, requireSessionClass } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { notFound } from '../errors.js';
 import { journalFileName, journalXlsx } from '../services/journal-export.js';
-import { classJournal, sessionResults } from '../services/results.js';
+import { classJournal, sessionResults, setSessionGrades } from '../services/results.js';
 import { XLSX_MIME } from '../services/xlsx.js';
 
 const SessionParams = z.object({ id: z.string().min(1) });
@@ -79,6 +85,19 @@ export const resultRoutes: FastifyPluginCallback = (app, _opts, done) => {
     requireSessionClass(db, request.teacher as Teacher, id);
     const results = sessionResults(db, content, id);
     if (!results) throw notFound('Session not found');
+    return results;
+  });
+
+  /** The teacher confirms the suggested grades or sets their own, one child or the whole class (H10). */
+  app.put('/sessions/:id/grades', { preHandler: requireTeacher }, (request): SessionResults => {
+    const { id } = SessionParams.parse(request.params);
+    const body = SetGradesSchema.parse(request.body);
+    requireSessionClass(db, request.teacher as Teacher, id);
+    const results = setSessionGrades(db, content, id, body);
+    if (!results) throw notFound('Session not found');
+    request.log.info({ sessionId: id, grades: body.grades.length }, 'grades set');
+    // On a school computer the lesson goes to the platform again, with its grades.
+    void app.sync?.push();
     return results;
   });
 

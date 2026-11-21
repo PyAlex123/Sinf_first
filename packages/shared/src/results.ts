@@ -144,8 +144,14 @@ export const ResultRowSchema = z.strictObject({
   totalStars: count,
   /** Share of the lesson's maximum; null when absent or nothing could be scored. */
   percent: percent.nullable(),
-  /** Only when the class turns stars into grades. */
+  /**
+   * The grade that stands: the one the teacher confirmed or set (H10), otherwise the suggested one.
+   */
   grade: GradeValueSchema.nullable(),
+  /** Worked out from the lesson's results; only when the class turns stars into grades. */
+  suggestedGrade: GradeValueSchema.nullable(),
+  /** The teacher has confirmed or set `grade`; until then it is only a suggestion. */
+  gradeConfirmed: z.boolean(),
 });
 export type ResultRow = z.infer<typeof ResultRowSchema>;
 
@@ -173,6 +179,8 @@ export const JournalCellSchema = z.strictObject({
   present: z.boolean(),
   stars: count,
   grade: GradeValueSchema.nullable(),
+  /** False while `grade` is only the calculated suggestion (H10). */
+  confirmed: z.boolean(),
 });
 export type JournalCell = z.infer<typeof JournalCellSchema>;
 
@@ -199,6 +207,18 @@ export const JournalSchema = z.strictObject({
   ),
 });
 export type Journal = z.infer<typeof JournalSchema>;
+
+/**
+ * The teacher confirms or changes grades of a finished lesson (H10): a value sets the grade, null
+ * takes it back to the suggestion.
+ */
+export const SetGradesSchema = z.strictObject({
+  grades: z
+    .array(z.strictObject({ studentId: id, value: GradeValueSchema.nullable() }))
+    .min(1)
+    .max(60),
+});
+export type SetGrades = z.infer<typeof SetGradesSchema>;
 
 export const UpdateClassSettingsSchema = z.strictObject({ starsToGrade: z.boolean() });
 export type UpdateClassSettings = z.infer<typeof UpdateClassSettingsSchema>;

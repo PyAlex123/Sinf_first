@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import {
   DEFAULT_GRADE_THRESHOLDS,
   gradeFor,
+  GradeValueSchema,
   lessonDate,
   practiceStepCount,
   PRACTICE_MAX_STARS,
@@ -13,9 +15,11 @@ import {
   type JournalCell,
   type ResultRow,
   type SessionResults,
+  type SetGrades,
 } from '@sinf/shared';
 import type { ContentStore } from '../content/index.js';
 import { schema, type Db } from '../db/index.js';
+import { ApiHttpError } from '../errors.js';
 
 /**
  * Lesson results and the class journal (S1.13, ADR-012), worked out from the rows a lesson leaves:
@@ -41,7 +45,7 @@ const fullName = (s: { lastName: string; firstName: string }): string =>
 /** Everything a set of lessons left behind, read in four queries whatever the number of lessons. */
 function loadRows(db: Db, sessionIds: string[]) {
   if (sessionIds.length === 0) {
-    return { attendance: [], screens: [], practice: [], quiz: [], shots: [] };
+    return { attendance: [], screens: [], practice: [], quiz: [], shots: [], grades: [] };
   }
   return {
     attendance: db
@@ -73,6 +77,11 @@ function loadRows(db: Db, sessionIds: string[]) {
       })
       .from(schema.screenshots)
       .where(inArray(schema.screenshots.sessionId, sessionIds))
+      .all(),
+    grades: db
+      .select()
+      .from(schema.grades)
+      .where(inArray(schema.grades.sessionId, sessionIds))
       .all(),
   };
 }
@@ -110,6 +119,7 @@ function computeSession(
   const practice = mine(rows.practice);
   const answers = mine(rows.quiz);
   const shots = mine(rows.shots);
+  const confirmed = rows.grades.filter((g) => g.sessionId === session.id);
 
   const practiceSteps = lesson ? practiceStepCount(lesson) : 0;
   const maxima = {
@@ -150,6 +160,12 @@ function computeSession(
     const shot = shots
       .filter((s) => s.studentId === student.id)
       .reduce<(typeof shots)[number] | null>((a, b) => (!a || b.takenAt > a.takenAt ? b : a), null);
+    // The teacher's word stands over the calculation (H10); until then the calculation is offered.
+    const suggestedGrade =
+      settings.starsToGrade && percent !== null ? gradeFor(percent, thresholds) : null;
+    const own = confirmed.find((g) => g.studentId === student.id);
+    const ownGrade = own?.value != null ? GradeValueSchema.safeParse(own.value) : null;
+    const confirmedGrade = ownGrade?.success ? ownGrade.data : null;
     return {
       studentId: student.id,
       name: fullName(student),
@@ -169,7 +185,9 @@ function computeSession(
       quizAnswered: ownAnswers.length,
       totalStars: trainerStars + (practiceStars ?? 0),
       percent,
-      grade: settings.starsToGrade && percent !== null ? gradeFor(percent, thresholds) : null,
+      grade: confirmedGrade ?? suggestedGrade,
+      suggestedGrade,
+      gradeConfirmed: confirmedGrade !== null,
     };
   });
 
@@ -262,8 +280,80 @@ export function classJournal(db: Db, content: ContentStore, classId: string): Jo
       isVirtual: student.isVirtual,
       cells: perSession.map((r): JournalCell | null => {
         const row = r.rows.find((x) => x.studentId === student.id);
-        return row ? { present: row.present, stars: row.totalStars, grade: row.grade } : null;
+        return row
+          ? {
+              present: row.present,
+              stars: row.totalStars,
+              grade: row.grade,
+              confirmed: row.gradeConfirmed,
+            }
+          : null;
       }),
     })),
   };
+}
+
+/**
+ * The teacher confirms or changes grades of a finished lesson (H10). A value that equals the
+ * suggestion is recorded as confirmed (`session`), any other as the teacher's own (`manual`); null
+ * removes the row, and the suggestion shows again. Only a child who was at the lesson can be graded.
+ * The lesson goes back into the queue for the platform, so the grades follow it there.
+ */
+export function setSessionGrades(
+  db: Db,
+  content: ContentStore,
+  sessionId: string,
+  input: SetGrades,
+  now = new Date(),
+): SessionResults | undefined {
+  const results = sessionResults(db, content, sessionId);
+  if (!results) return undefined;
+  if (results.status !== 'ended') {
+    throw new ApiHttpError(409, 'lesson_running', 'Grades are set when the lesson is over');
+  }
+  const rows = new Map(results.rows.map((r) => [r.studentId, r]));
+  for (const g of input.grades) {
+    if (!rows.get(g.studentId)?.present) {
+      throw new ApiHttpError(400, 'not_at_lesson', 'This student was not at the lesson');
+    }
+  }
+  const at = now.toISOString();
+  db.transaction((tx) => {
+    for (const g of input.grades) {
+      const row = rows.get(g.studentId);
+      if (!row) continue;
+      const where = and(
+        eq(schema.grades.sessionId, sessionId),
+        eq(schema.grades.studentId, g.studentId),
+      );
+      if (g.value === null) {
+        tx.delete(schema.grades).where(where).run();
+        continue;
+      }
+      const source = g.value === row.suggestedGrade ? 'session' : 'manual';
+      tx.insert(schema.grades)
+        .values({
+          id: randomUUID(),
+          studentId: g.studentId,
+          classId: results.class.id,
+          sessionId,
+          date: results.date,
+          stars: row.totalStars,
+          value: g.value,
+          source,
+          createdAt: at,
+        })
+        .onConflictDoUpdate({
+          target: [schema.grades.sessionId, schema.grades.studentId],
+          set: { value: g.value, source, stars: row.totalStars, createdAt: at },
+        })
+        .run();
+    }
+    // What the platform holds for this lesson is now out of date: send the lesson again (ADR-011).
+    tx.update(schema.sessions)
+      .set({ syncedAt: null })
+      .where(eq(schema.sessions.id, sessionId))
+      .run();
+  });
+  return sessionResults(db, content, sessionId);
 }

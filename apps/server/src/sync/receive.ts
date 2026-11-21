@@ -1,5 +1,14 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import type { LessonSyncBundle, LessonSyncResponse } from '@sinf/shared';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
+import type {
+  LessonSyncBundle,
+  LessonSyncResponse,
+  ScreenshotSync,
+  ScreenshotSyncResponse,
+} from '@sinf/shared';
+import { lessonDate } from '@sinf/shared';
 import type { DeviceRow } from '../auth/access.js';
 import { schema, type Db } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
@@ -54,6 +63,7 @@ export function receiveLessonBundle(
       ...bundle.screenResults.map((r) => r.studentId),
       ...bundle.practiceResults.map((r) => r.studentId),
       ...bundle.quizAttempts.map((a) => a.studentId),
+      ...(bundle.grades ?? []).map((g) => g.studentId),
     ]),
   ];
   if (studentIds.length > 0) {
@@ -165,6 +175,41 @@ export function receiveLessonBundle(
         .onConflictDoNothing()
         .run();
     }
+
+    // Grades: the list is the lesson's grades as they stand on the school computer (H10), so what
+    // is not in it any more is taken away. A computer that sends no list knows no grades: leave them.
+    if (bundle.grades) {
+      const graded = bundle.grades.map((g) => g.studentId);
+      tx.delete(schema.grades)
+        .where(
+          graded.length > 0
+            ? and(
+                eq(schema.grades.sessionId, session.id),
+                notInArray(schema.grades.studentId, graded),
+              )
+            : eq(schema.grades.sessionId, session.id),
+        )
+        .run();
+      for (const row of bundle.grades) {
+        tx.insert(schema.grades)
+          .values({
+            id: randomUUID(),
+            studentId: row.studentId,
+            classId: session.classId,
+            sessionId: session.id,
+            date: lessonDate(session.startedAt),
+            stars: row.stars,
+            value: row.value,
+            source: row.source,
+            createdAt: row.at,
+          })
+          .onConflictDoUpdate({
+            target: [schema.grades.sessionId, schema.grades.studentId],
+            set: { value: row.value, source: row.source, stars: row.stars, createdAt: row.at },
+          })
+          .run();
+      }
+    }
   });
 
   return {
@@ -177,4 +222,73 @@ export function receiveLessonBundle(
       quizAttempts: bundle.quizAttempts.length,
     },
   };
+}
+
+/** A JPEG file starts with these three bytes. */
+const JPEG_MAGIC = [0xff, 0xd8, 0xff];
+const MAX_JPEG_BYTES = 420 * 1024;
+
+/**
+ * A screenshot arriving from a school computer (H10). The same two rules as for a lesson: written
+ * by its own id, so a second send stores nothing new; and nothing on trust — the lesson must already
+ * be here and belong to the device's school, the child must be of that lesson's class.
+ */
+export function receiveScreenshot(
+  db: Db,
+  dataDir: string,
+  device: DeviceRow,
+  shot: ScreenshotSync,
+): ScreenshotSyncResponse {
+  const session = db
+    .select({ classId: schema.sessions.classId })
+    .from(schema.sessions)
+    .where(eq(schema.sessions.id, shot.sessionId))
+    .get();
+  if (!session) throw notFound('Session');
+  const cls = db.select().from(schema.classes).where(eq(schema.classes.id, session.classId)).get();
+  if (!cls || cls.schoolId !== device.schoolId) throw notFound('Session');
+  const student = db
+    .select({ classId: schema.students.classId })
+    .from(schema.students)
+    .where(eq(schema.students.id, shot.studentId))
+    .get();
+  if (!student || student.classId !== session.classId) throw notFound('Student');
+
+  const existing = db
+    .select({ sessionId: schema.screenshots.sessionId })
+    .from(schema.screenshots)
+    .where(eq(schema.screenshots.id, shot.id))
+    .get();
+  if (existing) {
+    if (existing.sessionId !== shot.sessionId) {
+      throw new ApiHttpError(409, 'screenshot_conflict', 'This picture belongs to another lesson');
+    }
+    return { ok: true, id: shot.id };
+  }
+
+  const bytes = Buffer.from(shot.jpeg, 'base64');
+  if (bytes.length > MAX_JPEG_BYTES || !JPEG_MAGIC.every((b, i) => bytes[i] === b)) {
+    throw new ApiHttpError(400, 'bad_image', 'A screenshot is a JPEG of at most 400 KB');
+  }
+  // The id is a UUID (checked by the schema), so it is safe as a file name.
+  const fileKey = `screenshots/${shot.sessionId}/${shot.id}.jpg`;
+  const path = join(dataDir, fileKey);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, bytes);
+  db.insert(schema.screenshots)
+    .values({
+      id: shot.id,
+      sessionId: shot.sessionId,
+      studentId: shot.studentId,
+      kind: shot.kind,
+      takenAt: shot.takenAt,
+      fileKey,
+      width: shot.width,
+      height: shot.height,
+      bytes: bytes.length,
+      syncedAt: new Date().toISOString(),
+    })
+    .onConflictDoNothing()
+    .run();
+  return { ok: true, id: shot.id };
 }

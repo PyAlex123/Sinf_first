@@ -338,7 +338,7 @@
   "journal.absent": "yo‘q",
   "journal.left": "chiqib ketgan",
   "journal.legend.stars": "Katakda — darsdagi yulduzchalar; «yo‘q» — darsda bo‘lmagan. Dars yakunlarini ochish uchun sanani bosing.",
-  "journal.legend.grades": "Katakda — dars yulduzchalari bo‘yicha 2–5 baho; «yo‘q» — darsda bo‘lmagan. Dars yakunlarini ochish uchun sanani bosing.",
+  "journal.legend.grades": "Katakda — 2–5 baho; qiya yozuv — yulduzchalar bo‘yicha taklif qilingan, dars yakunlarida hali tasdiqlanmagan. «yo‘q» — darsda bo‘lmagan. Dars yakunlarini ochish uchun sanani bosing.",
   "class.settings.title": "Baholar",
   "class.settings.starsToGrade": "Yulduzchalarni 2–5 bahoga aylantirish",
   "class.settings.hint": "Dars yulduzchalarining {five} % dan — «5», {four} % dan — «4», {three} % dan — «3», kamroq — «2». O‘tgan darslarga ham taalluqli.",
@@ -387,5 +387,9 @@
   "session.order.list": "Ro‘yxat bo‘yicha",
   "session.order.seats": "O‘tirish bo‘yicha",
   "session.zoom": "Ekranni kattalashtirish",
-  "session.shot.one": "Ekran surati"
+  "session.shot.one": "Ekran surati",
+  "sync.shots": "Darslar yuborildi, aloqani kutayotgan ekran suratlari: {count}",
+  "results.grades.pending": "Baholar taklif qilingan, lekin tasdiqlanmagan: {count}",
+  "results.grades.confirmAll": "Taklif qilinganlarning hammasini tasdiqlash",
+  "results.grades.offered": "Dars yulduzlari bo‘yicha taklif qilingan, hali tasdiqlanmagan"
 }

@@ -1,12 +1,15 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
   DeviceSchema,
   JoinResponseSchema,
   PairDeviceResponseSchema,
   SessionResponseSchema,
+  SessionResultsSchema,
   SyncStatusSchema,
 } from '@sinf/shared';
 import { buildApp } from '../src/app.js';
@@ -29,6 +32,7 @@ let cloudCookie: string;
 let school: FastifyInstance;
 let schoolDb: DatabaseHandle;
 let worker: SyncWorker;
+let schoolDataDir: string;
 /** The classroom's internet. Flip it to see what the lesson does without one. */
 let online = true;
 
@@ -76,6 +80,7 @@ beforeEach(async () => {
   schoolDb = openDatabase(':memory:');
   runMigrations(schoolDb.db);
   const config = testConfig({ PLATFORM_URL: 'http://platform.test', DEVICE_TOKEN: token });
+  schoolDataDir = config.dataDir;
   const toCloud = fetchTo(cloud.app);
   worker = new SyncWorker(schoolDb.db, config, console as never, {
     fetchImpl: toCloud,
@@ -341,5 +346,157 @@ describe('results going up', () => {
     });
     expect(worker.status().pending).toBe(0);
     expect(await worker.push()).toBe(0);
+  });
+  /** A photograph of the child's screen, the way the classroom app leaves it on this computer (H5). */
+  function leaveAScreenshot(sessionId: string, id: string, bytes: Buffer): void {
+    const fileKey = `screenshots/${sessionId}/${id}.jpg`;
+    const path = join(schoolDataDir, fileKey);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, bytes);
+    schoolDb.db
+      .insert(schema.screenshots)
+      .values({
+        id,
+        sessionId,
+        studentId: 'student-01',
+        kind: 'stage_end',
+        takenAt: new Date().toISOString(),
+        fileKey,
+        width: 1366,
+        height: 768,
+        bytes: bytes.length,
+      })
+      .run();
+  }
+  const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(500, 9)]);
+  const SHOT_ID = '6f0e8d3a-5b1c-4f7e-9a2d-3c4b5a697881';
+
+  it('sends the screenshots after the lesson, once, and the platform shows them (H10)', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    online = false;
+    const sessionId = await holdALesson(cookie);
+    leaveAScreenshot(sessionId, SHOT_ID, JPEG);
+    // Nothing can go: neither the lesson nor its picture.
+    expect(await worker.push()).toBe(0);
+    expect(worker.status()).toMatchObject({ pending: 1, pendingShots: 1 });
+
+    online = true;
+    expect(await worker.push()).toBe(1);
+    expect(worker.status()).toMatchObject({ pending: 0, pendingShots: 0 });
+
+    const stored = cloud.database.db.select().from(schema.screenshots).all();
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toMatchObject({ id: SHOT_ID, sessionId, studentId: 'student-01' });
+    expect(readFileSync(join(cloud.config.dataDir, stored[0]?.fileKey ?? '')).equals(JPEG)).toBe(
+      true,
+    );
+    // The teacher sees it in the lesson's results on the platform.
+    const results = SessionResultsSchema.parse(
+      (
+        await cloud.app.inject({
+          method: 'GET',
+          url: `/api/sessions/${sessionId}/results`,
+          headers: { cookie: cloudCookie },
+        })
+      ).json(),
+    );
+    expect(results.rows.find((r) => r.studentId === 'student-01')?.screenshotId).toBe(SHOT_ID);
+    const picture = await cloud.app.inject({
+      method: 'GET',
+      url: `/api/screenshots/${SHOT_ID}`,
+      headers: { cookie: cloudCookie },
+    });
+    expect(picture.statusCode).toBe(200);
+
+    // A second tick has nothing to send, and sending the same picture again stores nothing new.
+    expect(await worker.push()).toBe(0);
+    schoolDb.db.update(schema.screenshots).set({ syncedAt: null }).run();
+    await worker.push();
+    expect(cloud.database.db.select().from(schema.screenshots).all()).toHaveLength(1);
+  });
+
+  it('drops a picture whose file is gone or which is no picture, and sends the rest', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    online = false;
+    const sessionId = await holdALesson(cookie);
+    leaveAScreenshot(sessionId, '11111111-1111-4111-8111-111111111111', Buffer.from('not a jpeg'));
+    leaveAScreenshot(sessionId, SHOT_ID, JPEG);
+    schoolDb.db
+      .insert(schema.screenshots)
+      .values({
+        id: '22222222-2222-4222-8222-222222222222',
+        sessionId,
+        studentId: 'student-01',
+        kind: 'manual',
+        takenAt: new Date().toISOString(),
+        fileKey: 'screenshots/none/gone.jpg',
+        width: 10,
+        height: 10,
+        bytes: 1,
+      })
+      .run();
+    online = true;
+    await worker.push();
+    expect(worker.status().pendingShots).toBe(0);
+    expect(
+      cloud.database.db
+        .select()
+        .from(schema.screenshots)
+        .all()
+        .map((s) => s.id),
+    ).toEqual([SHOT_ID]);
+    expect(existsSync(join(cloud.config.dataDir, 'screenshots', 'none'))).toBe(false);
+  });
+
+  it('carries the confirmed grades up, and takes back the ones the teacher removed (H10)', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    schoolDb.db
+      .update(schema.classes)
+      .set({ settings: { starsToGrade: true, codePics: [] } })
+      .where(eq(schema.classes.id, DEMO.classId))
+      .run();
+    online = false;
+    const sessionId = await holdALesson(cookie);
+    online = true;
+    await worker.push();
+    expect(worker.status().pending).toBe(0);
+
+    const put = (value: number | null) =>
+      school.inject({
+        method: 'PUT',
+        url: `/api/sessions/${sessionId}/grades`,
+        headers: { cookie },
+        payload: { grades: [{ studentId: 'student-01', value }] },
+      });
+    online = false;
+    const graded = SessionResultsSchema.parse((await put(5)).json());
+    expect(graded.rows.find((r) => r.studentId === 'student-01')).toMatchObject({
+      grade: 5,
+      gradeConfirmed: true,
+    });
+    // The lesson waits again, now with its grade.
+    expect(worker.status().pending).toBe(1);
+    online = true;
+    const inCloud = () =>
+      cloud.database.db
+        .select()
+        .from(schema.grades)
+        .where(eq(schema.grades.sessionId, sessionId))
+        .all();
+    await vi.waitFor(async () => {
+      await worker.push();
+      expect(inCloud()).toHaveLength(1);
+    });
+    expect(inCloud()[0]).toMatchObject({ studentId: 'student-01', value: 5 });
+
+    // Setting a grade starts the sending by itself; wait for whichever send carries the change.
+    await put(null);
+    await vi.waitFor(async () => {
+      await worker.push();
+      expect(inCloud()).toHaveLength(0);
+    });
   });
 });

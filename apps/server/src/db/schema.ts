@@ -325,6 +325,8 @@ export const screenshots = sqliteTable(
     width: integer('width').notNull(),
     height: integer('height').notNull(),
     bytes: integer('bytes').notNull(),
+    /** When the platform confirmed it has this picture (H10); empty while it waits for a connection. */
+    syncedAt: timestamp('synced_at'),
   },
   (t) => [index('screenshots_session_idx').on(t.sessionId, t.studentId)],
 );
@@ -360,7 +362,12 @@ export const roomComputers = sqliteTable('room_computers', {
   lastSeenAt: timestamp('last_seen_at').notNull(),
 });
 
-/** Journal row: stars for a lesson and, if the class converts them, a 2–5 grade. */
+/**
+ * A grade the teacher confirmed or set for a child in a lesson (H10, ADR-012): `source` is `session`
+ * when it is the suggested grade taken as it was, `manual` when the teacher chose another. Until
+ * there is a row, the journal shows the calculated grade as a suggestion. One row per child and
+ * lesson.
+ */
 export const grades = sqliteTable(
   'grades',
   {
@@ -380,7 +387,10 @@ export const grades = sqliteTable(
     comment: text('comment'),
     createdAt: timestamp('created_at').notNull(),
   },
-  (t) => [index('grades_class_date_idx').on(t.classId, t.date)],
+  (t) => [
+    index('grades_class_date_idx').on(t.classId, t.date),
+    uniqueIndex('grades_session_student_idx').on(t.sessionId, t.studentId),
+  ],
 );
 
 /**

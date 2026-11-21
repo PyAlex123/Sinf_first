@@ -113,6 +113,11 @@ export const api = {
   resetDemo: () => request('POST', '/api/demo/reset', DemoResetResponseSchema),
   sessionResults: (id: string) =>
     request('GET', `/api/sessions/${encodeURIComponent(id)}/results`, SessionResultsSchema),
+  /** Confirm or change grades of a finished lesson; null goes back to the suggestion (H10). */
+  setGrades: (sessionId: string, grades: { studentId: string; value: number | null }[]) =>
+    request('PUT', `/api/sessions/${encodeURIComponent(sessionId)}/grades`, SessionResultsSchema, {
+      grades,
+    }),
   journal: (classId: string) =>
     request('GET', `/api/journal/${encodeURIComponent(classId)}`, JournalSchema),
   /** A plain link, not a request: the browser downloads the file itself. */

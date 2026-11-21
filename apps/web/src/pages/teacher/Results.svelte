@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { PRACTICE_MAX_STARS, registerDate, type SessionResults } from '@sinf/shared';
+  import {
+    PRACTICE_MAX_STARS,
+    registerDate,
+    type ResultRow,
+    type SessionResults,
+  } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { t } from '../../lib/i18n/index.svelte.js';
@@ -37,6 +42,36 @@
   const hasQuiz = $derived((results?.quizQuestions ?? 0) > 0);
   const present = $derived(results?.rows.filter((r) => r.present) ?? []);
 
+  /**
+   * Grades (H10): the calculated grade is only offered until the teacher takes it or picks another.
+   * One click on a number sets it; clicking the confirmed number again takes it back.
+   */
+  const GRADES = [5, 4, 3, 2];
+  const canGrade = $derived(!!results?.class.starsToGrade && results.status === 'ended');
+  const toConfirm = $derived(
+    canGrade ? present.filter((r) => !r.gradeConfirmed && r.suggestedGrade !== null) : [],
+  );
+  let grading = $state(false);
+
+  async function saveGrades(grades: { studentId: string; value: number | null }[]): Promise<void> {
+    if (grading || grades.length === 0) return;
+    grading = true;
+    error = null;
+    try {
+      results = await api.setGrades(sessionId, grades);
+    } catch {
+      error = t('common.error');
+    } finally {
+      grading = false;
+    }
+  }
+  const pick = (row: ResultRow, value: number): Promise<void> =>
+    saveGrades([
+      { studentId: row.studentId, value: row.gradeConfirmed && row.grade === value ? null : value },
+    ]);
+  const confirmAll = (): Promise<void> =>
+    saveGrades(toConfirm.map((r) => ({ studentId: r.studentId, value: r.suggestedGrade })));
+
   const subtitle = $derived.by(() => {
     if (!results) return '';
     const parts = [t('teacher.class', { name: results.class.name }), registerDate(results.date)];
@@ -67,7 +102,7 @@
 <Header back="/teacher" title={results?.lessonTitle ?? ''} />
 
 <main class="page stack">
-  {#if error}
+  {#if error && !results}
     <Notice kind="error">{error}</Notice>
   {:else if !results}
     <p aria-busy="true" class="muted">{t('common.loading')}</p>
@@ -87,6 +122,15 @@
 
     {#if results.status === 'active'}
       <Notice>{t('results.live')}</Notice>
+    {/if}
+    {#if error}<Notice kind="error">{error}</Notice>{/if}
+    {#if canGrade && toConfirm.length > 0}
+      <div class="confirm">
+        <span>{t('results.grades.pending', { count: toConfirm.length })}</span>
+        <Button size="sm" disabled={grading} onclick={confirmAll}>
+          {t('results.grades.confirmAll')}
+        </Button>
+      </div>
     {/if}
 
     <Card>
@@ -148,8 +192,30 @@
                 <td class="n total">★ {row.totalStars}</td>
                 {#if results.class.starsToGrade}
                   <td class="n">
-                    {#if row.grade !== null}
-                      <b class="grade g{row.grade}">{row.grade}</b>
+                    {#if canGrade}
+                      <span class="pickgrade" role="group" aria-label={t('results.col.grade')}>
+                        {#each GRADES as g (g)}
+                          <button
+                            type="button"
+                            class="pg g{g}"
+                            class:on={row.grade === g && row.gradeConfirmed}
+                            class:offered={row.grade === g && !row.gradeConfirmed}
+                            aria-pressed={row.grade === g && row.gradeConfirmed}
+                            title={row.grade === g && !row.gradeConfirmed
+                              ? t('results.grades.offered')
+                              : ''}
+                            disabled={grading}
+                            onclick={() => pick(row, g)}>{g}</button
+                          >
+                        {/each}
+                      </span>
+                      {#if row.percent !== null}
+                        <span class="muted small">{row.percent} %</span>
+                      {/if}
+                    {:else if row.grade !== null}
+                      <b class="grade g{row.grade}" class:offered={!row.gradeConfirmed}
+                        >{row.grade}</b
+                      >
                       <span class="muted small">{row.percent} %</span>
                     {:else}
                       <span class="muted">—</span>
@@ -235,6 +301,44 @@
 </main>
 
 <style>
+  .confirm {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .pickgrade {
+    display: inline-flex;
+    gap: 2px;
+    margin-right: var(--space-2);
+  }
+  .pg {
+    min-width: 2em;
+    padding: 2px 0;
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius);
+    background: var(--c-surface);
+    color: var(--c-muted);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .pg.offered {
+    border-style: dashed;
+    border-color: var(--c-dark);
+    color: var(--c-dark);
+  }
+  .pg.on {
+    background: var(--c-dark);
+    border-color: var(--c-dark);
+    color: #fff;
+  }
+  .pg:disabled {
+    cursor: progress;
+  }
+  .grade.offered {
+    opacity: 0.6;
+  }
   .shot img {
     width: 100%;
     height: 100%;
