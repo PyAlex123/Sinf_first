@@ -34,3 +34,4 @@ apps/**/TestResults/
 
 # Снимки и временные базы сквозных сценариев (tools/e2e/README.md)
 tools/e2e/out/
+tools/load/out/
