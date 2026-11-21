@@ -722,5 +722,16 @@
   "editor.quiz.add": "Viktorina savoli",
   "editor.quiz.problem.text": "Matn yo‘q — savol berilmaydi.",
   "editor.quiz.problem.options": "Kamida ikkita javob kerak.",
-  "editor.quiz.problem.correct": "Belgilangan to‘g‘ri javob bo‘sh."
+  "editor.quiz.problem.correct": "Belgilangan to‘g‘ri javob bo‘sh.",
+  "student.message.open": "Havolani ochish",
+  "student.message.noSites": "Sinf ilovasida saytlar ochilmaydi — o‘qituvchi ko‘rsatadi.",
+  "session.openForAll": "Bu ekranni hammada ochish",
+  "session.message": "Sinfga xabar",
+  "session.message.text": "Xabar matni",
+  "session.message.url": "Havola (ixtiyoriy): https://…",
+  "session.message.badUrl": "Havola https:// yoki http:// bilan boshlanishi kerak",
+  "session.message.all": "Hammaga",
+  "session.message.selected": "Tanlanganlarga",
+  "session.message.sent": "Yuborildi.",
+  "session.message.soft": "Brauzerda havola bolada tugma bilan ochiladi; sinf ilovasida saytlar ochilmaydi."
 }

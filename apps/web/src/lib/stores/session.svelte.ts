@@ -53,6 +53,10 @@ export class SessionStore {
     [],
   );
   private moveCount = 0;
+  /** Student: the teacher's latest message to this child (W6), until they close it. */
+  message = $state<{ id: number; text: string; url: string | null } | null>(null);
+  /** Student: "open this screen" from the teacher in free mode (W6); `n` makes each one new. */
+  goto = $state<{ n: number; index: number } | null>(null);
   /**
    * Who draws the frames of a screen broadcast (H14): the screen view, while it is open. Not state:
    * nothing on the page depends on who listens.
@@ -171,6 +175,16 @@ export class SessionStore {
   /** Program tiles for everybody or chosen children; null — the lesson's own (H15). */
   setApps(targets: 'all' | string[], apps: LessonApp[] | null): void {
     this.socket?.send({ type: 'teacher.apps.set', targets, apps });
+  }
+
+  /** Teacher: a message, with a link if given, to everybody or chosen children (W6). */
+  sendMessage(targets: LockTargets, text: string, url?: string): void {
+    this.socket?.send({ type: 'teacher.message', targets, text, ...(url ? { url } : {}) });
+  }
+
+  /** Teacher, free mode: everybody's lesson jumps to this screen (W6). */
+  screenEveryone(index: number): void {
+    this.socket?.send({ type: 'teacher.screen.everyone', index });
   }
 
   // ---------- screens of classroom computers (H5)
@@ -321,6 +335,16 @@ export class SessionStore {
         return;
       case 'thumbs.wanted':
         this.thumbsWanted = m.on;
+        return;
+      case 'message': {
+        const me = this.you?.participantId;
+        if (me && (m.targets === 'all' || m.targets.includes(me))) {
+          this.message = { id: m.id, text: m.text, url: m.url };
+        }
+        return;
+      }
+      case 'screen.goto':
+        this.goto = { n: (this.goto?.n ?? 0) + 1, index: m.index };
         return;
       case 'screenshot.request': {
         const me = this.you?.participantId;

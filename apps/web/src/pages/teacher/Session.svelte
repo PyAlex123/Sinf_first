@@ -3,6 +3,7 @@
     comparePcNames,
     DEMO_CLASS_ID,
     LESSON_APPS,
+    LinkSchema,
     type LessonApp,
     type Participant,
     type SessionSummary,
@@ -129,6 +130,20 @@
       ? bundle.lesson.screens.flatMap((screen, i) => (screen.kind === 'question' ? [i] : []))
       : [],
   );
+  // ---------- a message to the class (W6)
+  let messageText = $state('');
+  let messageUrl = $state('');
+  let messageSent = $state(false);
+  const linkOk = $derived(!messageUrl.trim() || LinkSchema.safeParse(messageUrl.trim()).success);
+  function sendMessage(targets: 'all' | string[]): void {
+    if (!messageText.trim() || !linkOk) return;
+    store?.sendMessage(targets, messageText.trim(), messageUrl.trim() || undefined);
+    messageText = '';
+    messageUrl = '';
+    messageSent = true;
+    setTimeout(() => (messageSent = false), 3000);
+  }
+
   const answeredOf = (p: { doneScreens: number[] }): number =>
     questionScreens.filter((i) => p.doneScreens.includes(i)).length;
   const showStars = $derived(
@@ -336,6 +351,15 @@
             >
               <Icon name="forward" size={16} />
             </Button>
+            {#if session.mode === 'free'}
+              <!-- Free mode: each child has their own screen; this sends them all to the teacher's (W6). -->
+              <Button
+                variant="ghost"
+                size="sm"
+                onclick={() => session && store?.screenEveryone(session.screenIndex)}
+                >{t('session.openForAll')}</Button
+              >
+            {/if}
           </div>
 
           {#snippet trail()}
@@ -487,6 +511,42 @@
           {#if inBrowser > 0 || inClassroom === 0}
             <p class="soft">{t('session.lock.soft')}</p>
           {/if}
+        </div>
+
+        <!-- A message to the class, with a link if needed (PLAN.md 4.5; W6). -->
+        <div class="lockbox msgbox">
+          <h2 class="boxtitle">{t('session.message')}</h2>
+          <textarea
+            bind:value={messageText}
+            maxlength="300"
+            rows="2"
+            placeholder={t('session.message.text')}
+            data-field="message"
+          ></textarea>
+          <input
+            bind:value={messageUrl}
+            maxlength="500"
+            placeholder={t('session.message.url')}
+            data-field="message-url"
+          />
+          {#if messageUrl.trim() && !linkOk}<p class="soft warn">
+              {t('session.message.badUrl')}
+            </p>{/if}
+          <div class="lockbtns">
+            <Button
+              size="sm"
+              disabled={!messageText.trim() || !linkOk}
+              onclick={() => sendMessage('all')}>{t('session.message.all')}</Button
+            >
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!messageText.trim() || !linkOk || selected.length === 0}
+              onclick={() => sendMessage([...selected])}>{t('session.message.selected')}</Button
+            >
+          </div>
+          {#if messageSent}<p class="soft">{t('session.message.sent')}</p>{/if}
+          <p class="soft">{t('session.message.soft')}</p>
         </div>
 
         <!-- Program tiles on the classroom computers (H15, CLAUDE.md §4.2). -->
@@ -1310,6 +1370,18 @@
     .panel {
       grid-template-columns: minmax(0, 1fr) 300px;
     }
+  }
+  .msgbox textarea,
+  .msgbox input {
+    width: 100%;
+    font: inherit;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius-sm, 6px);
+    margin-bottom: var(--space-1);
+  }
+  .warn {
+    color: var(--c-danger);
   }
   .check {
     font-weight: 700;

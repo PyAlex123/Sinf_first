@@ -749,5 +749,16 @@
   "editor.quiz.add": "Вопрос викторины",
   "editor.quiz.problem.text": "Нет текста — вопрос не будет задан.",
   "editor.quiz.problem.options": "Нужно хотя бы два ответа.",
-  "editor.quiz.problem.correct": "Отмеченный верный ответ пуст."
+  "editor.quiz.problem.correct": "Отмеченный верный ответ пуст.",
+  "student.message.open": "Открыть ссылку",
+  "student.message.noSites": "В приложении класса сайты не открываются — учитель покажет.",
+  "session.openForAll": "Открыть этот экран у всех",
+  "session.message": "Сообщение классу",
+  "session.message.text": "Текст сообщения",
+  "session.message.url": "Ссылка (необязательно): https://…",
+  "session.message.badUrl": "Ссылка должна начинаться с https:// или http://",
+  "session.message.all": "Всем",
+  "session.message.selected": "Выбранным",
+  "session.message.sent": "Отправлено.",
+  "session.message.soft": "В браузере ссылка открывается кнопкой у ребёнка; в приложении класса сайты не открываются."
 }
