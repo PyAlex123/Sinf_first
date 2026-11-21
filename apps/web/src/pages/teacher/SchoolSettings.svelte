@@ -3,8 +3,11 @@
     LESSON_APPS,
     MAX_FILE_MB,
     MAX_QUOTA_MB,
+    registerDate,
     type LessonApp,
+    type RetentionPreview,
     type SchoolSettings,
+    type SchoolSettingsResponse,
   } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
@@ -22,6 +25,8 @@
   let { schoolId }: { schoolId: string } = $props();
 
   let saved = $state<SchoolSettings | null>(null);
+  /** When the next cleaning of old works is, and what it would take today (A4). */
+  let retention = $state<RetentionPreview | null>(null);
   let ktpPercent = $state(30);
   let quota = $state(MAX_QUOTA_MB);
   let maxFile = $state(MAX_FILE_MB);
@@ -45,7 +50,9 @@
   );
   const daysInMonth = $derived(new Date(Date.UTC(2001, keepMonth, 0)).getUTCDate());
 
-  function show(s: SchoolSettings): void {
+  function show(res: SchoolSettingsResponse): void {
+    const s = res.settings;
+    retention = res.retention ?? null;
     saved = s;
     ktpPercent = s.ktpChangePercent;
     quota = s.fileQuotaMb;
@@ -77,7 +84,7 @@
         keepWorksUntil: `${pad(keepMonth)}-${pad(Math.min(keepDay, daysInMonth))}`,
         apps,
       });
-      show(res.settings);
+      show(res);
       done = true;
     } catch (e) {
       error =
@@ -91,7 +98,7 @@
 
   onMount(async () => {
     try {
-      show((await api.schoolSettings(schoolId)).settings);
+      show(await api.schoolSettings(schoolId));
     } catch {
       error = t('common.error');
     }
@@ -147,6 +154,16 @@
             {/each}
           </select>
         </div>
+        {#if retention}
+          <p class="small" data-retention>
+            {t('schoolSettings.next', { date: registerDate(retention.on) })}
+            {t('schoolSettings.nextTakes', {
+              screenshots: retention.screenshots,
+              files: retention.files,
+              practice: retention.practiceFiles,
+            })}
+          </p>
+        {/if}
       </fieldset>
 
       <fieldset>

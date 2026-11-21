@@ -72,5 +72,19 @@ export const UpdateSchoolSettingsSchema = z
   .refine((v) => Object.keys(v).length > 0, 'Nothing to change');
 export type UpdateSchoolSettings = z.infer<typeof UpdateSchoolSettingsSchema>;
 
-export const SchoolSettingsResponseSchema = z.strictObject({ settings: SchoolSettingsSchema });
+/** When the school's next cleaning of old works is, and what it would take if it ran today (A4). */
+export const RetentionPreviewSchema = z.strictObject({
+  /** The day of the cleaning, `yyyy-mm-dd`, in Tashkent. */
+  on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  screenshots: z.number().int().nonnegative(),
+  files: z.number().int().nonnegative(),
+  practiceFiles: z.number().int().nonnegative(),
+});
+export type RetentionPreview = z.infer<typeof RetentionPreviewSchema>;
+
+export const SchoolSettingsResponseSchema = z.strictObject({
+  settings: SchoolSettingsSchema,
+  /** Absent on a school computer: it cleans by the same rules, the website shows them. */
+  retention: RetentionPreviewSchema.optional(),
+});
 export type SchoolSettingsResponse = z.infer<typeof SchoolSettingsResponseSchema>;

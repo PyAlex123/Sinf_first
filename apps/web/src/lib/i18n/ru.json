@@ -970,5 +970,7 @@
   "schoolSettings.onPlatform": "Правила школы меняются на сайте платформы.",
   "files.bad.tooLarge": "файл слишком большой",
   "session.apps.school": "Школа разрешила только: {list}",
-  "session.apps.practiceBlocked": "Практика этого урока — в {app}, а школа эту программу не разрешила: ученики не смогут её открыть."
+  "session.apps.practiceBlocked": "Практика этого урока — в {app}, а школа эту программу не разрешила: ученики не смогут её открыть.",
+  "schoolSettings.next": "Следующая очистка — {date}.",
+  "schoolSettings.nextTakes": "Если бы она была сегодня, удалились бы: скриншотов — {screenshots}, файлов в папках учеников — {files}, сданных на практике — {practice}."
 }

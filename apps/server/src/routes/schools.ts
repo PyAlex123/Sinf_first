@@ -15,6 +15,7 @@ import {
   type SchoolDetailsResponse,
   type SchoolListResponse,
   type SchoolMember,
+  type SchoolSettings,
   type SchoolSettingsResponse,
   type Teacher,
 } from '@sinf/shared';
@@ -26,6 +27,7 @@ import {
 } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
+import { retentionPreview } from '../services/retention.js';
 import { settingsOfSchool, updateSchoolSettings } from '../services/school-settings.js';
 import { ApiHttpError, notFound } from '../errors.js';
 
@@ -203,13 +205,19 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
   /** The rules are changed on the platform: a school computer only mirrors them (ADR-011). */
   const onSchoolPc = (): boolean => app.sync?.link() != null;
 
+  /** The rules, and when the next cleaning of old works is and what it would take (A4). */
+  const withRetention = (schoolId: string, settings: SchoolSettings): SchoolSettingsResponse =>
+    onSchoolPc()
+      ? { settings }
+      : { settings, retention: retentionPreview(db, app.ctx.config.dataDir, schoolId) };
+
   app.get(
     '/schools/:id/settings',
     { preHandler: requireTeacher },
     (request): SchoolSettingsResponse => {
       const { id } = Params.parse(request.params);
       requireSchoolAdmin(db, request.teacher as Teacher, id);
-      return { settings: settingsOfSchool(db, id) };
+      return withRetention(id, settingsOfSchool(db, id));
     },
   );
 
@@ -224,7 +232,7 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
       }
       const settings = updateSchoolSettings(db, id, UpdateSchoolSettingsSchema.parse(request.body));
       request.log.info({ schoolId: id, settings }, 'school settings changed');
-      return { settings };
+      return withRetention(id, settings);
     },
   );
 

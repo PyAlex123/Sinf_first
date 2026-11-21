@@ -18,6 +18,7 @@ import { authoredLessonRoutes } from './routes/authored-lessons.js';
 import { programRoutes } from './routes/programs.js';
 import { libraryRoutes } from './routes/library.js';
 import { ktpRoutes } from './routes/ktp.js';
+import { RetentionWorker } from './services/retention.js';
 import { demoRoutes } from './routes/demo.js';
 import { buildContentManifest } from './content/manifest.js';
 import { contentSyncRoutes } from './routes/content-sync.js';
@@ -56,6 +57,8 @@ declare module 'fastify' {
     practice: PracticeService;
     /** Set only on a school computer (S2.6); null when this server is the platform. */
     sync: SyncWorker | null;
+    /** The cleaning of old works by the school's rules (stage 5, A4). */
+    retention: RetentionWorker;
   }
 }
 
@@ -140,6 +143,16 @@ export async function buildApp(
       worker.stop();
     });
   }
+
+  // Old works and screenshots go on the school's day (stage 5, A4), here and on a school computer.
+  const retention = new RetentionWorker(ctx.db, ctx.config.dataDir, app.log);
+  app.decorate('retention', retention);
+  app.addHook('onReady', () => {
+    retention.start();
+  });
+  app.addHook('onClose', () => {
+    retention.stop();
+  });
 
   // Imported lesson content. Media files are named by content hash (ADR-005), so they are cached for a year;
   // JSON, CSS and scenarios are revalidated.

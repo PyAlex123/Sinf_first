@@ -916,5 +916,7 @@
   "schoolSettings.onPlatform": "Maktab qoidalari platforma saytida o‘zgartiriladi.",
   "files.bad.tooLarge": "fayl juda katta",
   "session.apps.school": "Maktab faqat bularga ruxsat bergan: {list}",
-  "session.apps.practiceBlocked": "Bu dars amaliyoti {app} da, maktab esa bu dasturga ruxsat bermagan: o‘quvchilar uni ocha olmaydi."
+  "session.apps.practiceBlocked": "Bu dars amaliyoti {app} da, maktab esa bu dasturga ruxsat bermagan: o‘quvchilar uni ocha olmaydi.",
+  "schoolSettings.next": "Keyingi tozalash — {date}.",
+  "schoolSettings.nextTakes": "Agar u bugun bo‘lganida, o‘chgan bo‘lardi: skrinshotlar — {screenshots}, o‘quvchilar papkalaridagi fayllar — {files}, amaliyotda topshirilganlar — {practice}."
 }
