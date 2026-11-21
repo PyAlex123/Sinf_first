@@ -413,7 +413,7 @@
   "files.bad.reserved": "Windows bunday nomga ruxsat bermaydi",
   "files.bad.empty": "faylning nomi yo‘q",
   "files.bad.long": "nom juda uzun",
-  "files.bad.size": "fayl 50 MB dan katta",
+  "files.bad.size": "fayl {max} MB dan katta — maktab shuncha ruxsat bergan",
   "files.bad.quota": "papka to‘lgan: keraksizini o‘chir",
   "my.title": "Mening ishlarim",
   "my.classCode": "Sinf kodi",
@@ -913,5 +913,6 @@
   "schoolSettings.appsHint": "O‘qituvchi maktab kompyuterlarida o‘quvchilarga faqat shu dasturlarni ocha oladi.",
   "schoolSettings.ktp": "KTR",
   "schoolSettings.saved": "Saqlandi",
-  "schoolSettings.onPlatform": "Maktab qoidalari platforma saytida o‘zgartiriladi."
+  "schoolSettings.onPlatform": "Maktab qoidalari platforma saytida o‘zgartiriladi.",
+  "files.bad.tooLarge": "fayl juda katta"
 }

@@ -62,9 +62,9 @@
     error = null;
     try {
       for (const file of files) {
-        const problem = uploadProblem(file);
+        const problem = uploadProblem(file, folder?.maxFileBytes);
         if (problem) {
-          error = `${file.name}: ${t(problem)}`;
+          error = `${file.name}: ${t(problem.key, problem.params)}`;
           continue;
         }
         // Saving a file with a name that is already there replaces it: that is what a child means.

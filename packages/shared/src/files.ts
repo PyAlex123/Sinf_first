@@ -7,7 +7,10 @@ import { z } from 'zod';
  * refuses it again.
  */
 
-/** A school may lower these later (CLAUDE.md §3.1: quota 200 MB, a file at most 50 MB). */
+/**
+ * The platform's ceilings (CLAUDE.md §3.1: quota 200 MB, a file at most 50 MB); a school may lower
+ * both in its rules (stage 5, A2).
+ */
 export const FILE_QUOTA_BYTES = 200 * 1024 * 1024;
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 export const MAX_FILE_NAME_LENGTH = 120;
@@ -124,6 +127,8 @@ export const StudentFilesResponseSchema = z.strictObject({
   files: z.array(StudentFileSchema),
   usedBytes: z.number().int().nonnegative(),
   quotaBytes: z.number().int().positive(),
+  /** The largest file this child may keep, by the rules of the school (A2). */
+  maxFileBytes: z.number().int().positive().default(MAX_FILE_BYTES),
 });
 export type StudentFilesResponse = z.infer<typeof StudentFilesResponseSchema>;
 

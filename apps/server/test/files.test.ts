@@ -74,6 +74,29 @@ const list = async (headers: Record<string, string>) =>
     (await t.app.inject({ method: 'GET', url: '/api/my/files', headers })).json(),
   );
 
+describe('the school’s limits (stage 5, A2)', () => {
+  it('a lower quota and a smaller file, from the school’s rules', async () => {
+    // The administrator lowers both: 2 MB a child, 1 MB a file.
+    const patched = await t.app.inject({
+      method: 'PATCH',
+      url: '/api/schools/school-demo/settings',
+      headers: { cookie },
+      payload: { fileQuotaMb: 2, maxFileMb: 1 },
+    });
+    expect(patched.statusCode).toBe(200);
+    const child = await childInLesson('student-01');
+    const folder = await list(child);
+    expect(folder).toMatchObject({ quotaBytes: 2 * 1024 * 1024, maxFileBytes: 1024 * 1024 });
+
+    const big = await put(child, 'big.png', Buffer.alloc(1024 * 1024 + 1));
+    expect([big.statusCode, big.json<{ error?: string }>().error]).toEqual([413, 'too_large']);
+    expect((await put(child, 'a.png', Buffer.alloc(1024 * 1024))).statusCode).toBe(200);
+    expect((await put(child, 'b.png', Buffer.alloc(900 * 1024))).statusCode).toBe(200);
+    const full = await put(child, 'c.png', Buffer.alloc(200 * 1024));
+    expect(full.json<{ error?: string }>().error).toBe('quota');
+  });
+});
+
 describe('a child’s folder in a lesson', () => {
   it('keeps, lists, gives back and deletes a file', async () => {
     const child = await childInLesson('student-01');

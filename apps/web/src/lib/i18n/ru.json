@@ -440,7 +440,7 @@
   "files.bad.reserved": "такое имя Windows не разрешает",
   "files.bad.empty": "у файла нет имени",
   "files.bad.long": "слишком длинное имя",
-  "files.bad.size": "файл больше 50 МБ",
+  "files.bad.size": "файл больше {max} МБ — столько разрешила школа",
   "files.bad.quota": "папка заполнена: удали ненужное",
   "my.title": "Мои работы",
   "my.classCode": "Код класса",
@@ -967,5 +967,6 @@
   "schoolSettings.appsHint": "Только эти программы учитель сможет открыть ученикам на компьютерах школы.",
   "schoolSettings.ktp": "КТП",
   "schoolSettings.saved": "Сохранено",
-  "schoolSettings.onPlatform": "Правила школы меняются на сайте платформы."
+  "schoolSettings.onPlatform": "Правила школы меняются на сайте платформы.",
+  "files.bad.tooLarge": "файл слишком большой"
 }

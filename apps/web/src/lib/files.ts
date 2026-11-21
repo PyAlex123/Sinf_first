@@ -56,11 +56,19 @@ export async function listFiles(access: FilesAccess): Promise<StudentFilesRespon
   return call(res, StudentFilesResponseSchema);
 }
 
-/** Why a file cannot even be sent: the page says it at once, the server says it again. */
-export function uploadProblem(file: File): string | null {
+/**
+ * Why a file cannot even be sent: the page says it at once, the server says it again. `maxBytes`
+ * is the school's limit from the folder's answer (A2); the platform's ceiling without one.
+ */
+export function uploadProblem(
+  file: File,
+  maxBytes: number = MAX_FILE_BYTES,
+): { key: string; params?: Record<string, number> } | null {
   const named = normalizeFileName(file.name);
-  if (!named.ok) return `files.bad.${named.problem}`;
-  if (file.size > MAX_FILE_BYTES) return 'files.bad.size';
+  if (!named.ok) return { key: `files.bad.${named.problem}` };
+  if (file.size > maxBytes) {
+    return { key: 'files.bad.size', params: { max: Math.floor(maxBytes / 1024 / 1024) } };
+  }
   return null;
 }
 
@@ -69,7 +77,7 @@ export function uploadFailureKey(e: unknown): string {
   if (!(e instanceof ApiError)) return 'common.error';
   if (e.code === 'quota') return 'files.bad.quota';
   if (e.code.startsWith('bad_name_')) return `files.bad.${e.code.slice('bad_name_'.length)}`;
-  if (e.code === 'too_large') return 'files.bad.size';
+  if (e.code === 'too_large') return 'files.bad.tooLarge';
   return 'common.error';
 }
 
