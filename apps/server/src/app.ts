@@ -13,6 +13,11 @@ import { realtimePlugin } from './realtime/ws.js';
 import { authRoutes } from './routes/auth.js';
 import { classRoutes } from './routes/classes.js';
 import { contentRoutes } from './routes/content.js';
+import { withAuthoredLessons } from './content/authored.js';
+import { authoredLessonRoutes } from './routes/authored-lessons.js';
+import { programRoutes } from './routes/programs.js';
+import { libraryRoutes } from './routes/library.js';
+import { ktpRoutes } from './routes/ktp.js';
 import { demoRoutes } from './routes/demo.js';
 import { buildContentManifest } from './content/manifest.js';
 import { contentSyncRoutes } from './routes/content-sync.js';
@@ -57,7 +62,7 @@ declare module 'fastify' {
 const YEAR_SECONDS = 365 * 24 * 60 * 60;
 
 export async function buildApp(
-  ctx: AppContext,
+  given: AppContext,
   options: {
     logger?: FastifyServerOptions['logger'];
     /** Tests pass their own, so they can drive the ticks themselves. */
@@ -66,6 +71,11 @@ export async function buildApp(
     platformFetch?: typeof fetch;
   } = {},
 ): Promise<FastifyInstance> {
+  // The author's courses and the teachers' own lessons behind one store (stage 4, ADR-019).
+  const ctx: AppContext = {
+    ...given,
+    content: withAuthoredLessons(given.content, given.db, given.config.dataDir),
+  };
   const app = Fastify({ logger: options.logger ?? false });
   app.decorate('ctx', ctx);
   app.decorateRequest('teacher', null);
@@ -156,6 +166,10 @@ export async function buildApp(
     ...(options.platformFetch ? { platformFetch: options.platformFetch } : {}),
   });
   await app.register(contentRoutes, { prefix: '/api' });
+  await app.register(authoredLessonRoutes);
+  await app.register(programRoutes, { prefix: '/api' });
+  await app.register(libraryRoutes, { prefix: '/api' });
+  await app.register(ktpRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api', store, virtual });
   await app.register(classRoutes, { prefix: '/api' });
   await app.register(schoolRoutes, { prefix: '/api' });

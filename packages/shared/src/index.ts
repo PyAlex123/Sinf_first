@@ -18,3 +18,8 @@ export * from './seats.js';
 export * from './files.js';
 export * from './practice.js';
 export * from './screen.js';
+export * from './authored.js';
+export * from './programs.js';
+export * from './library.js';
+export * from './ktp.js';
+export * from './grades-import.js';

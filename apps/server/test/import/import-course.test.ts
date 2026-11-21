@@ -42,7 +42,7 @@ describe('importCourse', () => {
   it('converts the author format into validated lessons, scenarios and media', async () => {
     const report = await importCourse({ kidsFile, teacherFile, outDir });
     expect(report.lessons).toBe(2);
-    expect(report.screens).toEqual({ slide: 6, step: 2, type: 1, game: 2, total: 11 });
+    expect(report.screens).toEqual({ slide: 6, step: 2, type: 1, question: 0, game: 2, total: 11 });
     expect(report.stagesFound).toBe(2);
     expect(report.media.files).toBe(2); // red and blue; the unused green picture is not written
 

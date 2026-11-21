@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    isAuthoredLessonId,
     PRACTICE_MAX_STARS,
     registerDate,
     type ResultRow,
@@ -17,6 +18,7 @@
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
   import Table from '../../lib/ui/Table.svelte';
+  import KtpSessionBox from './KtpSessionBox.svelte';
   import PracticeWorks from './PracticeWorks.svelte';
 
   /**
@@ -130,6 +132,9 @@
 
     {#if results.status === 'active'}
       <Notice>{t('results.live')}</Notice>
+    {:else}
+      <!-- The KTP topic of this lesson, marked done with one click (PLAN.md 5.3, W11). -->
+      <KtpSessionBox sessionId={results.sessionId} lessonId={results.lessonId} />
     {/if}
     {#if error}<Notice kind="error">{error}</Notice>{/if}
     {#if canGrade && toConfirm.length > 0}
@@ -148,7 +153,11 @@
             <th class="num">№</th>
             <th>{t('results.col.student')}</th>
             <th>{t('results.col.presence')}</th>
-            {#if hasTrainer}<th class="n">{t('results.col.trainer')}</th>{/if}
+            {#if hasTrainer}<th class="n"
+                >{isAuthoredLessonId(results.lessonId)
+                  ? t('results.col.test')
+                  : t('results.col.trainer')}</th
+              >{/if}
             {#if hasPractice}<th class="n">{t('results.col.drawing')}</th>{/if}
             {#if hasQuiz}<th>{t('results.col.quiz')}</th>{/if}
             {#if results.practice}<th class="n">{t('results.col.practice')}</th>{/if}

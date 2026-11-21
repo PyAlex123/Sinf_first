@@ -27,8 +27,11 @@ export const QuizOptionSchema = z
   .strictObject({
     /** PICS key, as everywhere else in the lesson content (ADR-005). */
     pic: z.string().min(1).optional(),
-    /** A number or a very short word, when a picture would say less than the word does. */
-    text: z.string().min(1).max(16).optional(),
+    /**
+     * A number or a word, when a picture would say less than the word does. The author's are short;
+     * a teacher's quiz (W5) answers in words, up to 60 letters.
+     */
+    text: z.string().min(1).max(60).optional(),
   })
   .refine((o) => Boolean(o.pic) !== Boolean(o.text), {
     message: 'An option is either a picture or a text, not both and not neither',

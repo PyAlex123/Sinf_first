@@ -25,6 +25,20 @@ export type SessionMode = z.infer<typeof SessionModeSchema>;
 export const LockTargetsSchema = z.union([z.literal('all'), z.array(id).min(1)]);
 export type LockTargets = z.infer<typeof LockTargetsSchema>;
 
+/** A link the teacher sends to the class (W6): a web address and nothing else. */
+export const LinkSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' || url.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  }, 'only http and https links');
+
 /** Why a screenshot is taken (CLAUDE.md §4.8, §6 Screenshot.kind). */
 export const ScreenshotReasonSchema = z.enum(['manual', 'before_end', 'stage_end']);
 export type ScreenshotReason = z.infer<typeof ScreenshotReasonSchema>;
@@ -289,6 +303,19 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     type: z.literal('student.thumb'),
     jpeg: z.string().min(1).max(MAX_THUMB_BASE64),
   }),
+  /**
+   * A message from the teacher to everybody or chosen children (PLAN.md 4.5; W6), with a link if
+   * the teacher gives one. Only web addresses: http and https.
+   */
+  z.strictObject({
+    v,
+    type: z.literal('teacher.message'),
+    targets: LockTargetsSchema,
+    text: z.string().trim().min(1).max(300),
+    url: LinkSchema.optional(),
+  }),
+  /** "Open this screen for everybody" in free mode: each child's lesson jumps there (W6). */
+  z.strictObject({ v, type: z.literal('teacher.screen.everyone'), index: screenIndex }),
   /** "Take a screenshot" of chosen children or everybody (H5, CLAUDE.md §4.8). */
   z.strictObject({ v, type: z.literal('teacher.screenshot'), targets: LockTargetsSchema }),
   z.strictObject({
@@ -347,6 +374,17 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({ v, type: z.literal('thumb'), participantId: id, jpeg: z.string().min(1) }),
   /** To students: send thumbnails or stop — only while a teacher's panel is open (CLAUDE.md §3.1). */
   z.strictObject({ v, type: z.literal('thumbs.wanted'), on: z.boolean() }),
+  /** A teacher's message (W6); each child shows it if it is for them. */
+  z.strictObject({
+    v,
+    type: z.literal('message'),
+    id: z.number().int().nonnegative(),
+    targets: LockTargetsSchema,
+    text: z.string().min(1).max(300),
+    url: LinkSchema.nullable(),
+  }),
+  /** To students in free mode: go to this screen (W6). */
+  z.strictObject({ v, type: z.literal('screen.goto'), index: screenIndex }),
   /** To students: take a screenshot and upload it (H5). */
   z.strictObject({
     v,

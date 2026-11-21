@@ -29,10 +29,12 @@
   <Header
     back="/teacher"
     title={bundle
-      ? `${t('teacher.lesson.number', { num: bundle.lesson.num })}. ${bundle.lesson.title}`
+      ? bundle.lesson.group === 'own'
+        ? bundle.lesson.title
+        : `${t('teacher.lesson.number', { num: bundle.lesson.num })}. ${bundle.lesson.title}`
       : ''}
   >
-    {#if bundle}
+    {#if bundle?.lesson.teacherScenario}
       <a class="scenario" href={bundle.lesson.teacherScenario} target="_blank" rel="noopener">
         {t('teacher.lesson.scenario')} ↗
       </a>

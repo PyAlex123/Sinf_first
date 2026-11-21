@@ -15,6 +15,21 @@ import {
   LessonSchema,
   MeResponseSchema,
   PicsSchema,
+  AuthoredLessonSchema,
+  AuthoredLessonListResponseSchema,
+  AssetUploadResponseSchema,
+  CourseSchema,
+  ClassProgramSchema,
+  EmaktabRemindersResponseSchema,
+  KtpLessonsResponseSchema,
+  KtpListResponseSchema,
+  KtpPlanSchema,
+  SessionKtpResponseSchema,
+  ParsedTablesSchema,
+  ProgramSchema,
+  ProgramListResponseSchema,
+  LibraryResponseSchema,
+  LibraryReportsResponseSchema,
   PracticeResponseSchema,
   SessionResponseSchema,
   SessionStateSchema,
@@ -45,7 +60,20 @@ import {
   DemoStatusSchema,
   DemoResetResponseSchema,
   type AddVirtual,
+  type AssetExtension,
+  type AssetUploadResponse,
+  type CreateAuthoredLesson,
   type Locale,
+  type UpdateAuthoredLesson,
+  type UpdateProgram,
+  type AddKtpRow,
+  type ImportGrades,
+  type SetEmaktab,
+  type CreateKtp,
+  type LinkKtpRows,
+  type UpdateKtpRow,
+  type LibraryKind,
+  type SetJournalCell,
 } from '@sinf/shared';
 import { z } from 'zod';
 
@@ -86,6 +114,24 @@ async function request<T>(
   return schema.parse(json);
 }
 
+/** A file's bytes as they are, for the server to read (lesson files, KTP). */
+async function sendBytes<T>(url: string, bytes: Blob, schema: ZodType<T>): Promise<T> {
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: bytes,
+  });
+  const json: unknown = await res.json().catch(() => undefined);
+  if (!res.ok) {
+    const parsed = ApiErrorSchema.safeParse(json);
+    throw parsed.success
+      ? new ApiError(res.status, parsed.data.error, parsed.data.message, parsed.data.details)
+      : new ApiError(res.status, 'http', `HTTP ${res.status}`);
+  }
+  return schema.parse(json);
+}
+
 const LoginResponseSchema = z.strictObject({ teacher: TeacherSchema });
 const OkSchema = z.strictObject({ ok: z.literal(true) });
 const SessionWithStateSchema = SessionResponseSchema.extend({
@@ -106,6 +152,94 @@ export const api = {
   practice: (id: string) =>
     request('GET', `/api/lessons/${encodeURIComponent(id)}/practice`, PracticeResponseSchema),
   pics: (url: string) => request('GET', url, PicsSchema),
+  /** The course a lesson plays in; a teacher's own lesson has one made for it (ADR-019). */
+  lessonCourse: (id: string) =>
+    request('GET', `/api/lessons/${encodeURIComponent(id)}/course`, CourseSchema),
+  /** Teachers' own lessons (stage 4, W1): mine, or my school's. */
+  authoredLessons: (scope: 'mine' | 'school' = 'mine') =>
+    request('GET', `/api/authored-lessons?scope=${scope}`, AuthoredLessonListResponseSchema),
+  authoredLesson: (id: string) =>
+    request('GET', `/api/authored-lessons/${encodeURIComponent(id)}`, AuthoredLessonSchema),
+  createAuthoredLesson: (body: CreateAuthoredLesson) =>
+    request('POST', '/api/authored-lessons', AuthoredLessonSchema, body),
+  saveAuthoredLesson: (id: string, body: UpdateAuthoredLesson) =>
+    request('PUT', `/api/authored-lessons/${encodeURIComponent(id)}`, AuthoredLessonSchema, body),
+  deleteAuthoredLesson: (id: string) =>
+    request('DELETE', `/api/authored-lessons/${encodeURIComponent(id)}`, OkSchema),
+  copyAuthoredLesson: (id: string) =>
+    request('POST', `/api/authored-lessons/${encodeURIComponent(id)}/copy`, AuthoredLessonSchema),
+  /** Programmes: lessons by quarters (W7). */
+  programs: (scope: 'mine' | 'school' = 'mine') =>
+    request('GET', `/api/programs?scope=${scope}`, ProgramListResponseSchema),
+  program: (id: string) => request('GET', `/api/programs/${encodeURIComponent(id)}`, ProgramSchema),
+  createProgram: (title: string, grade: number) =>
+    request('POST', '/api/programs', ProgramSchema, { title, grade }),
+  saveProgram: (id: string, body: UpdateProgram) =>
+    request('PUT', `/api/programs/${encodeURIComponent(id)}`, ProgramSchema, body),
+  deleteProgram: (id: string) =>
+    request('DELETE', `/api/programs/${encodeURIComponent(id)}`, OkSchema),
+  copyProgram: (id: string) =>
+    request('POST', `/api/programs/${encodeURIComponent(id)}/copy`, ProgramSchema),
+  classProgram: (classId: string) =>
+    request('GET', `/api/classes/${encodeURIComponent(classId)}/program`, ClassProgramSchema),
+  setClassProgram: (classId: string, programId: string | null) =>
+    request('PUT', `/api/classes/${encodeURIComponent(classId)}/program`, ClassProgramSchema, {
+      programId,
+    }),
+  /** The library (W8): public lessons and programmes. */
+  library: (kind: LibraryKind, grade: number | null, q: string) => {
+    const params = new URLSearchParams({
+      kind,
+      ...(grade ? { grade: String(grade) } : {}),
+      ...(q ? { q } : {}),
+    });
+    return request('GET', `/api/library?${params.toString()}`, LibraryResponseSchema);
+  },
+  reportItem: (kind: LibraryKind, id: string, reason: string) =>
+    request('POST', '/api/library/report', OkSchema, { kind, id, reason }),
+  libraryReports: () => request('GET', '/api/admin/library/reports', LibraryReportsResponseSchema),
+  moderate: (kind: LibraryKind, id: string, hidden: boolean) =>
+    request('POST', `/api/admin/library/${kind}/${encodeURIComponent(id)}/moderate`, OkSchema, {
+      hidden,
+    }),
+  /** A picture or a template of a lesson, as raw bytes (W1). */
+  uploadAsset: (bytes: Blob, ext: AssetExtension): Promise<AssetUploadResponse> =>
+    sendBytes(`/api/assets?ext=${ext}`, bytes, AssetUploadResponseSchema),
+  /** The KTP (W10): the file's tables, then the rows the teacher mapped. */
+  parseKtp: (bytes: Blob, name: string) =>
+    sendBytes(`/api/ktp/parse?name=${encodeURIComponent(name)}`, bytes, ParsedTablesSchema),
+  /** Tables of a file for the grades wizard (W13); works on a school computer too. */
+  parseTables: (bytes: Blob, name: string) =>
+    sendBytes(`/api/tables/parse?name=${encodeURIComponent(name)}`, bytes, ParsedTablesSchema),
+  importGrades: (classId: string, body: ImportGrades) =>
+    request('POST', `/api/journal/${encodeURIComponent(classId)}/import`, JournalSchema, body),
+  ktpList: () => request('GET', '/api/ktp', KtpListResponseSchema),
+  ktp: (id: string) => request('GET', `/api/ktp/${encodeURIComponent(id)}`, KtpPlanSchema),
+  createKtp: (body: CreateKtp) => request('POST', '/api/ktp', KtpPlanSchema, body),
+  deleteKtp: (id: string) =>
+    request('DELETE', `/api/ktp/${encodeURIComponent(id)}`, KtpListResponseSchema),
+  /** The KTP by hand and with lessons (W11). */
+  updateKtpRow: (id: string, rowId: string, body: UpdateKtpRow) =>
+    request(
+      'PATCH',
+      `/api/ktp/${encodeURIComponent(id)}/rows/${encodeURIComponent(rowId)}`,
+      KtpPlanSchema,
+      body,
+    ),
+  addKtpRow: (id: string, body: AddKtpRow) =>
+    request('POST', `/api/ktp/${encodeURIComponent(id)}/rows`, KtpPlanSchema, body),
+  deleteKtpRow: (id: string, rowId: string) =>
+    request(
+      'DELETE',
+      `/api/ktp/${encodeURIComponent(id)}/rows/${encodeURIComponent(rowId)}`,
+      KtpPlanSchema,
+    ),
+  linkKtp: (id: string, body: LinkKtpRows) =>
+    request('POST', `/api/ktp/${encodeURIComponent(id)}/links`, KtpPlanSchema, body),
+  ktpLessons: (id: string) =>
+    request('GET', `/api/ktp/${encodeURIComponent(id)}/lessons`, KtpLessonsResponseSchema),
+  sessionKtp: (sessionId: string) =>
+    request('GET', `/api/sessions/${encodeURIComponent(sessionId)}/ktp`, SessionKtpResponseSchema),
   createSession: (body: CreateSession) =>
     request('POST', '/api/sessions', SessionResponseSchema, body),
   session: (id: string) =>
@@ -133,8 +267,26 @@ export const api = {
   /** A plain link: the browser downloads the practice file handed in. */
   practiceFileUrl: (sessionId: string, studentId: string) =>
     `/api/sessions/${encodeURIComponent(sessionId)}/practice/${encodeURIComponent(studentId)}/file`,
+  /** The journal by hand (W9): a column without a lesson, one cell. */
+  addJournalColumn: (classId: string, date: string, title: string) =>
+    request('POST', `/api/journal/${encodeURIComponent(classId)}/columns`, JournalSchema, {
+      date,
+      title,
+    }),
+  deleteJournalColumn: (classId: string, columnId: string) =>
+    request(
+      'DELETE',
+      `/api/journal/${encodeURIComponent(classId)}/columns/${encodeURIComponent(columnId)}`,
+      JournalSchema,
+    ),
+  setJournalCell: (classId: string, body: SetJournalCell) =>
+    request('PUT', `/api/journal/${encodeURIComponent(classId)}/cell`, JournalSchema, body),
   journal: (classId: string) =>
     request('GET', `/api/journal/${encodeURIComponent(classId)}`, JournalSchema),
+  /** "Moved to eMaktab" for a column, and what still waits (W12). */
+  setEmaktab: (classId: string, body: SetEmaktab) =>
+    request('PUT', `/api/journal/${encodeURIComponent(classId)}/emaktab`, JournalSchema, body),
+  emaktabReminders: () => request('GET', '/api/emaktab/reminders', EmaktabRemindersResponseSchema),
   /** A plain link, not a request: the browser downloads the file itself. */
   journalExportUrl: (classId: string, lang: Locale) =>
     `/api/journal/${encodeURIComponent(classId)}/export.xlsx?lang=${lang}`,

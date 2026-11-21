@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AdminReports from './AdminReports.svelte';
   import type { AdminSchool } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../lib/api.js';
@@ -142,6 +143,8 @@
         </Table>
       {/if}
     </Card>
+    <!-- Reports about the library (W8). -->
+    <AdminReports />
   {/if}
 </main>
 

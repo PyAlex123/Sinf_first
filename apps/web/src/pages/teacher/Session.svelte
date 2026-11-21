@@ -3,6 +3,7 @@
     comparePcNames,
     DEMO_CLASS_ID,
     LESSON_APPS,
+    LinkSchema,
     type LessonApp,
     type Participant,
     type SessionSummary,
@@ -113,7 +114,7 @@
   const stageNumber = $derived((session?.stage.index ?? 0) + 1);
   /** The teacher scenario opens at the heading of the current stage (anchors added by the import, S1.9). */
   const scenarioUrl = $derived(
-    bundle ? `${bundle.lesson.teacherScenario}#stage-${stageNumber}` : '',
+    bundle?.lesson.teacherScenario ? `${bundle.lesson.teacherScenario}#stage-${stageNumber}` : '',
   );
   /**
    * The Paint practice of a club lesson (S1.11): which screens are its steps, where each child is,
@@ -123,6 +124,28 @@
     bundle ? bundle.lesson.screens.flatMap((screen, i) => (screen.kind === 'step' ? [i] : [])) : [],
   );
   const practiceStage = $derived(stages.findIndex((stage) => stage.key === 'practice'));
+  /** Questions of a teacher's test (W4): how far each child is (PLAN.md 4.4). */
+  const questionScreens = $derived(
+    bundle
+      ? bundle.lesson.screens.flatMap((screen, i) => (screen.kind === 'question' ? [i] : []))
+      : [],
+  );
+  // ---------- a message to the class (W6)
+  let messageText = $state('');
+  let messageUrl = $state('');
+  let messageSent = $state(false);
+  const linkOk = $derived(!messageUrl.trim() || LinkSchema.safeParse(messageUrl.trim()).success);
+  function sendMessage(targets: 'all' | string[]): void {
+    if (!messageText.trim() || !linkOk) return;
+    store?.sendMessage(targets, messageText.trim(), messageUrl.trim() || undefined);
+    messageText = '';
+    messageUrl = '';
+    messageSent = true;
+    setTimeout(() => (messageSent = false), 3000);
+  }
+
+  const answeredOf = (p: { doneScreens: number[] }): number =>
+    questionScreens.filter((i) => p.doneScreens.includes(i)).length;
   const showStars = $derived(
     stepScreens.length > 0 && practiceStage >= 0 && (session?.stage.index ?? 0) >= practiceStage,
   );
@@ -328,6 +351,15 @@
             >
               <Icon name="forward" size={16} />
             </Button>
+            {#if session.mode === 'free'}
+              <!-- Free mode: each child has their own screen; this sends them all to the teacher's (W6). -->
+              <Button
+                variant="ghost"
+                size="sm"
+                onclick={() => session && store?.screenEveryone(session.screenIndex)}
+                >{t('session.openForAll')}</Button
+              >
+            {/if}
           </div>
 
           {#snippet trail()}
@@ -349,15 +381,18 @@
                 {t('session.mode.free')}
               </button>
             </div>
-            <button
-              type="button"
-              class="pill"
-              class:on={scenarioOpen}
-              aria-pressed={scenarioOpen}
-              onclick={() => (scenarioOpen = !scenarioOpen)}
-            >
-              {scenarioOpen ? t('session.scenario.hide') : t('session.scenario.show')}
-            </button>
+            {#if scenarioUrl}
+              <!-- A teacher's own lesson has no scenario (ADR-019). -->
+              <button
+                type="button"
+                class="pill"
+                class:on={scenarioOpen}
+                aria-pressed={scenarioOpen}
+                onclick={() => (scenarioOpen = !scenarioOpen)}
+              >
+                {scenarioOpen ? t('session.scenario.hide') : t('session.scenario.show')}
+              </button>
+            {/if}
             <button
               type="button"
               class="pill"
@@ -404,7 +439,7 @@
             </button>
           {/if}
         </div>
-        {#if scenarioOpen}
+        {#if scenarioOpen && scenarioUrl}
           <div class="scenario">
             <div class="scenariobar">
               <strong>{t('session.scenario')}</strong>
@@ -476,6 +511,42 @@
           {#if inBrowser > 0 || inClassroom === 0}
             <p class="soft">{t('session.lock.soft')}</p>
           {/if}
+        </div>
+
+        <!-- A message to the class, with a link if needed (PLAN.md 4.5; W6). -->
+        <div class="lockbox msgbox">
+          <h2 class="boxtitle">{t('session.message')}</h2>
+          <textarea
+            bind:value={messageText}
+            maxlength="300"
+            rows="2"
+            placeholder={t('session.message.text')}
+            data-field="message"
+          ></textarea>
+          <input
+            bind:value={messageUrl}
+            maxlength="500"
+            placeholder={t('session.message.url')}
+            data-field="message-url"
+          />
+          {#if messageUrl.trim() && !linkOk}<p class="soft warn">
+              {t('session.message.badUrl')}
+            </p>{/if}
+          <div class="lockbtns">
+            <Button
+              size="sm"
+              disabled={!messageText.trim() || !linkOk}
+              onclick={() => sendMessage('all')}>{t('session.message.all')}</Button
+            >
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!messageText.trim() || !linkOk || selected.length === 0}
+              onclick={() => sendMessage([...selected])}>{t('session.message.selected')}</Button
+            >
+          </div>
+          {#if messageSent}<p class="soft">{t('session.message.sent')}</p>{/if}
+          <p class="soft">{t('session.message.soft')}</p>
         </div>
 
         <!-- Program tiles on the classroom computers (H15, CLAUDE.md §4.2). -->
@@ -669,6 +740,16 @@
                     </span>
                     <span class="stars">{t('session.stars', { count: p.stars })}</span>
                   </div>
+                  {#if questionScreens.length > 0}
+                    <div class="tmeta">
+                      <span data-test={`${answeredOf(p)}/${questionScreens.length}`}>
+                        {t('session.test', {
+                          answered: answeredOf(p),
+                          total: questionScreens.length,
+                        })}
+                      </span>
+                    </div>
+                  {/if}
                   {#if quiz}
                     <div class="tmeta">
                       <span class="stars">
@@ -1289,6 +1370,18 @@
     .panel {
       grid-template-columns: minmax(0, 1fr) 300px;
     }
+  }
+  .msgbox textarea,
+  .msgbox input {
+    width: 100%;
+    font: inherit;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius-sm, 6px);
+    margin-bottom: var(--space-1);
+  }
+  .warn {
+    color: var(--c-danger);
   }
   .check {
     font-weight: 700;

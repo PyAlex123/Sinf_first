@@ -221,11 +221,63 @@ export const GameScreenSchema = z.strictObject({
   level: GameLevelSchema,
 });
 
+/**
+ * A question of a teacher's test (PLAN.md 3.5; stage 4, W4): one answer, several, or typed. The
+ * child answers once; a right answer is worth one star, as a typed word is.
+ */
+export const QuestionScreenSchema = z
+  .strictObject({
+    kind: z.literal('question'),
+    stage: StageKeySchema,
+    /** Number of this question among the lesson's: `n` of `of`. */
+    n: z.number().int().positive(),
+    of: z.number().int().positive(),
+    text: z.string().min(1).max(300),
+    mode: z.enum(['single', 'multi', 'input']),
+    /** The choices, for `single` and `multi`. */
+    options: z.array(z.string().min(1).max(120)).max(6),
+    /** Indexes of the right choices; for `input`, empty. */
+    correct: z.array(z.number().int().nonnegative()).max(6),
+    /** Accepted typed answers, for `input`. */
+    answers: z.array(z.string().min(1).max(60)).max(10),
+  })
+  .refine(
+    (q) =>
+      q.mode === 'input'
+        ? q.answers.length > 0
+        : q.options.length >= 2 &&
+          q.correct.length >= 1 &&
+          q.correct.every((i) => i < q.options.length) &&
+          (q.mode === 'multi' || q.correct.length === 1),
+    { message: 'a question needs its answers' },
+  );
+export type QuestionScreen = z.infer<typeof QuestionScreenSchema>;
+
+/** A typed answer as it is compared: no case, no extra spaces, ё as е. */
+export function normalizeAnswer(value: string): string {
+  return value.trim().toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ');
+}
+
+/** Is this the right answer? Choices must match exactly; a typed one, any accepted form. */
+export function isRightAnswer(
+  q: Pick<QuestionScreen, 'mode' | 'correct' | 'answers'>,
+  answer: { chosen?: readonly number[]; typed?: string },
+): boolean {
+  if (q.mode === 'input') {
+    const typed = normalizeAnswer(answer.typed ?? '');
+    return typed.length > 0 && q.answers.some((a) => normalizeAnswer(a) === typed);
+  }
+  const chosen = [...new Set(answer.chosen ?? [])].sort((a, b) => a - b);
+  const right = [...q.correct].sort((a, b) => a - b);
+  return chosen.length === right.length && chosen.every((v, i) => v === right[i]);
+}
+
 export const ScreenSchema = z.discriminatedUnion('kind', [
   SlideScreenSchema,
   StepScreenSchema,
   TypeScreenSchema,
   GameScreenSchema,
+  QuestionScreenSchema,
 ]);
 export type Screen = z.infer<typeof ScreenSchema>;
 export type ScreenKind = Screen['kind'];
@@ -234,11 +286,20 @@ export const SCREEN_KINDS = [
   'step',
   'type',
   'game',
+  'question',
 ] as const satisfies readonly ScreenKind[];
+
+/** The most stars one screen can give: a trainer level its own, a typed word or a question one. */
+export function screenMaxStars(screen: Screen): number {
+  if (screen.kind === 'game') return screen.level.stars;
+  if (screen.kind === 'type' || screen.kind === 'question') return 1;
+  return 0;
+}
 
 // ---------- lesson and course
 
-export const LessonGroupSchema = z.enum(['gos', 'krujok']);
+/** The government programme, the club, or a teacher's own lesson (stage 4, ADR-019). */
+export const LessonGroupSchema = z.enum(['gos', 'krujok', 'own']);
 export type LessonGroup = z.infer<typeof LessonGroupSchema>;
 
 const contentUrl = z.string().startsWith('/content/');
@@ -254,8 +315,8 @@ export const LessonSchema = z
     icon: svg,
     stages: z.array(StageSchema).min(1),
     screens: z.array(ScreenSchema).min(1),
-    /** URL of the sanitized teacher scenario (standalone HTML document). */
-    teacherScenario: contentUrl,
+    /** URL of the sanitized teacher scenario (standalone HTML document); a teacher's own lesson has none. */
+    teacherScenario: contentUrl.nullable(),
     /** Every media URL the lesson's screens reference (and nothing else), for preloading and caching. */
     media: z.array(contentUrl),
   })

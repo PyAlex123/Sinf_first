@@ -5,6 +5,12 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
+  JournalSchema,
+  ClassProgramSchema,
+  AssetUploadResponseSchema,
+  AuthoredLessonListResponseSchema,
+  AuthoredLessonSchema,
+  LessonSchema,
   DeviceSchema,
   JoinResponseSchema,
   PairDeviceResponseSchema,
@@ -505,6 +511,190 @@ describe('results going up', () => {
       await worker.push();
       expect(inCloud()).toHaveLength(0);
     });
+  });
+});
+
+describe('teachers’ own lessons coming down (W1, ADR-019)', () => {
+  it('brings the school’s lessons and their pictures, read-only, and drops deleted ones', async () => {
+    const png = Buffer.from(
+      '89504e470d0a1a0a0000000d4948445200000001000000010806000000' +
+        '1f15c4890000000d49444154789c636060606000000005000157a0c0b30000000049454e44ae426082',
+      'hex',
+    );
+    const up = await cloud.app.inject({
+      method: 'POST',
+      url: '/api/assets?ext=png',
+      headers: { cookie: cloudCookie, 'content-type': 'application/octet-stream' },
+      payload: png,
+    });
+    const asset = AssetUploadResponseSchema.parse(up.json());
+    const made = AuthoredLessonSchema.parse(
+      (
+        await cloud.app.inject({
+          method: 'POST',
+          url: '/api/authored-lessons',
+          headers: { cookie: cloudCookie },
+          payload: { title: 'Урок учителя', grade: 5 },
+        })
+      ).json(),
+    );
+    const doc = structuredClone(made.doc);
+    const first = doc.stages[0]?.blocks[0];
+    if (first?.kind !== 'slide') throw new Error('no slide');
+    first.image = { sha: asset.sha, ext: 'png', width: 1, height: 1 };
+    await cloud.app.inject({
+      method: 'PUT',
+      url: `/api/authored-lessons/${made.id}`,
+      headers: { cookie: cloudCookie },
+      payload: { title: made.title, grade: 5, topic: '', visibility: 'private', doc, version: 1 },
+    });
+
+    await worker.pull();
+    const played = LessonSchema.parse(
+      (await school.inject({ method: 'GET', url: `/api/lessons/${made.id}` })).json(),
+    );
+    expect(played.title).toBe('Урок учителя');
+    const picture = await school.inject({ method: 'GET', url: asset.url });
+    expect(picture.rawPayload.equals(png)).toBe(true);
+
+    // On the school computer the teacher sees it and cannot change it there.
+    const cookie = await teacherCookie();
+    const here = AuthoredLessonSchema.parse(
+      (
+        await school.inject({
+          method: 'GET',
+          url: `/api/authored-lessons/${made.id}`,
+          headers: { cookie },
+        })
+      ).json(),
+    );
+    expect(here.editable).toBe(false);
+    const edit = await school.inject({
+      method: 'PUT',
+      url: `/api/authored-lessons/${made.id}`,
+      headers: { cookie },
+      payload: { title: 'Здесь', grade: 5, topic: '', visibility: 'private', doc, version: 2 },
+    });
+    expect(edit.statusCode).toBe(409);
+    expect(edit.json()).toMatchObject({ error: 'edit_on_platform' });
+
+    await cloud.app.inject({
+      method: 'DELETE',
+      url: `/api/authored-lessons/${made.id}`,
+      headers: { cookie: cloudCookie },
+    });
+    await worker.pull();
+    const list = AuthoredLessonListResponseSchema.parse(
+      (
+        await school.inject({ method: 'GET', url: '/api/authored-lessons', headers: { cookie } })
+      ).json(),
+    );
+    expect(list.lessons).toEqual([]);
+  });
+});
+
+describe('a class’s programme coming down (W7)', () => {
+  it('shows the next lesson on the school computer', async () => {
+    const made = (
+      await cloud.app.inject({
+        method: 'POST',
+        url: '/api/programs',
+        headers: { cookie: cloudCookie },
+        payload: { title: 'Год 1А', grade: 1 },
+      })
+    ).json<{ id: string }>();
+    await cloud.app.inject({
+      method: 'PUT',
+      url: `/api/programs/${made.id}`,
+      headers: { cookie: cloudCookie },
+      payload: {
+        title: 'Год 1А',
+        grade: 1,
+        visibility: 'private',
+        items: [
+          { lessonId: 'g10', quarter: 2 },
+          { lessonId: 'g11', quarter: 2 },
+        ],
+        version: 1,
+      },
+    });
+    await cloud.app.inject({
+      method: 'PUT',
+      url: `/api/classes/${DEMO.classId}/program`,
+      headers: { cookie: cloudCookie },
+      payload: { programId: made.id },
+    });
+    await worker.pull();
+    const cookie = await teacherCookie();
+    const here = ClassProgramSchema.parse(
+      (
+        await school.inject({
+          method: 'GET',
+          url: `/api/classes/${DEMO.classId}/program`,
+          headers: { cookie },
+        })
+      ).json(),
+    );
+    expect(here.program?.title).toBe('Год 1А');
+    expect(here.next?.lessonId).toBe('g10');
+  });
+});
+
+describe('the journal’s own columns, both ways (W9)', () => {
+  it('a grade typed at school reaches the website, and one typed at home comes back', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    const made = JournalSchema.parse(
+      (
+        await school.inject({
+          method: 'POST',
+          url: `/api/journal/${DEMO.classId}/columns`,
+          headers: { cookie },
+          payload: { date: '2026-11-20', title: 'Устно' },
+        })
+      ).json(),
+    );
+    const columnId = made.lessons[0]?.columnId ?? '';
+    await school.inject({
+      method: 'PUT',
+      url: `/api/journal/${DEMO.classId}/cell`,
+      headers: { cookie },
+      payload: { column: { kind: 'manual', columnId }, studentId: 'student-01', value: 4 },
+    });
+    await worker.push();
+    const cloudJournal = async () =>
+      JournalSchema.parse(
+        (
+          await cloud.app.inject({
+            method: 'GET',
+            url: `/api/journal/${DEMO.classId}`,
+            headers: { cookie: cloudCookie },
+          })
+        ).json(),
+      );
+    const there = await cloudJournal();
+    expect(there.lessons.map((l) => l.lessonTitle)).toEqual(['Устно']);
+    expect(there.students.find((s) => s.id === 'student-01')?.cells[0]?.grade).toBe(4);
+
+    // At home the teacher changes it on the website.
+    await new Promise((r) => setTimeout(r, 5));
+    await cloud.app.inject({
+      method: 'PUT',
+      url: `/api/journal/${DEMO.classId}/cell`,
+      headers: { cookie: cloudCookie },
+      payload: { column: { kind: 'manual', columnId }, studentId: 'student-01', value: 5 },
+    });
+    await worker.pull();
+    const here = JournalSchema.parse(
+      (
+        await school.inject({
+          method: 'GET',
+          url: `/api/journal/${DEMO.classId}`,
+          headers: { cookie },
+        })
+      ).json(),
+    );
+    expect(here.students.find((s) => s.id === 'student-01')?.cells[0]?.grade).toBe(5);
   });
 });
 

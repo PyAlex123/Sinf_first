@@ -118,6 +118,7 @@ export function buildLessonBundle(db: Db, sessionId: string): LessonSyncBundle |
               source: g.source,
               stars: g.stars,
               at: g.createdAt,
+              comment: g.comment,
             },
           ]
         : [],

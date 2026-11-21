@@ -41,6 +41,11 @@ export interface LessonPlan {
   stepScreens: readonly number[];
   /** The live quiz of this lesson, if it has one (S1.12). It runs in the reflection stage. */
   quiz: Quiz | null;
+  /**
+   * The most stars each screen can give (W4): a child's page cannot claim three stars for a slide.
+   * Absent in older callers: then any 0–3 is taken, as before.
+   */
+  screenMaxStars?: readonly number[];
 }
 
 export const EMPTY_PLAN: LessonPlan = {
@@ -103,6 +108,7 @@ export interface ActivityRecord {
     | 'screen'
     | 'stage_change'
     | 'demo_start'
+    | 'message'
     | 'session_end';
   participantId: string | null;
   data?: Record<string, unknown>;
@@ -499,6 +505,32 @@ function command(
       // Classroom computers answer by uploading; a browser cannot photograph its screen (H5).
       r.broadcast.push({ v, type: 'screenshot.request', targets: m.targets, reason: 'manual' });
       return r;
+    case 'teacher.message':
+      // Not kept in the state: a message is for the moment it is sent (W6).
+      r.broadcast.push({
+        v,
+        type: 'message',
+        id: e.now,
+        targets: m.targets,
+        text: m.text,
+        url: m.url ?? null,
+      });
+      r.activity.push({
+        type: 'message',
+        participantId: null,
+        data: { text: m.text, url: m.url ?? null },
+      });
+      return r;
+    case 'teacher.screen.everyone': {
+      // In free mode each child has their own screen; this one moves them all, inside the stage.
+      const index = clampToStage(r.state, plan, m.index);
+      const participants = Object.fromEntries(
+        Object.entries(r.state.participants).map(([key, p]) => [key, { ...p, screenIndex: index }]),
+      );
+      r.state = { ...r.state, participants };
+      r.broadcast.push({ v, type: 'screen.goto', index });
+      return r;
+    }
     case 'teacher.unlock':
       return setLock(r, m.targets, null);
     case 'teacher.hand.clear': {
@@ -638,15 +670,16 @@ function studentCommand(
     case 'student.screen.done': {
       const index = clampScreen(r.state, m.index);
       if (p.doneScreens.includes(index)) return r;
+      const stars = Math.min(m.stars, plan.screenMaxStars?.[index] ?? 3);
       return updateParticipant(
         r,
         {
           ...p,
-          stars: p.stars + m.stars,
+          stars: p.stars + stars,
           doneScreens: [...p.doneScreens, index],
           lastSeenAt: e.now,
         },
-        { type: 'screen_done', participantId: p.id, data: { index, stars: m.stars } },
+        { type: 'screen_done', participantId: p.id, data: { index, stars } },
       );
     }
     case 'student.step.done': {

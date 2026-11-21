@@ -25,8 +25,11 @@
   import Header from '../../lib/ui/Header.svelte';
   import Icon from '../../lib/ui/Icon.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
+  import EmaktabReminder from './EmaktabReminder.svelte';
   import StudentList from '../../lib/ui/StudentList.svelte';
   import SyncBox from '../../lib/ui/SyncBox.svelte';
+  import OwnLessons from './OwnLessons.svelte';
+  import ClassProgramBox from './ClassProgramBox.svelte';
 
   let { params: _params }: PageProps = $props();
   let teacher = $state<Teacher | null>(null);
@@ -85,6 +88,7 @@
     const byNum = new Map<number, { gos?: LessonSummary; krujok?: LessonSummary }>();
     for (const course of courses) {
       for (const lesson of course.lessons) {
+        if (lesson.group === 'own') continue;
         const row = byNum.get(lesson.num) ?? {};
         row[lesson.group] = lesson;
         byNum.set(lesson.num, row);
@@ -149,6 +153,8 @@
   {:else if !teacher}
     <p aria-busy="true" class="muted">{t('common.loading')}</p>
   {:else}
+    <!-- Grades waiting for eMaktab while it still takes them (PLAN.md 5.4, W12). -->
+    <EmaktabReminder />
     <!-- Left: the class being taught. Right: the lessons to teach it. -->
     <div class="cols">
       <aside class="side stack">
@@ -209,6 +215,14 @@
           />
         {/if}
 
+        {#if cls}
+          <ClassProgramBox
+            classId={cls.id}
+            busyId={busy}
+            onStart={(id: string) => void start(id)}
+          />
+        {/if}
+
         {#if active}
           <Card accent>
             <h2>{t('teacher.session.active', { title: active.lessonTitle })}</h2>
@@ -264,6 +278,10 @@
         {/if}
         <!-- Practice tasks in real programs and their reference files (PLAN.md 3.7, H13). -->
         <Button variant="ghost" block href="/teacher/practice">{t('teacher.practice')}</Button>
+        <!-- Lessons and programmes other teachers made public (PLAN.md 3.9, W8). -->
+        <Button variant="ghost" block href="/teacher/library">{t('library.title')}</Button>
+        <!-- The year's plan of each class, imported from Excel or Word (PLAN.md 5.2, W10). -->
+        <Button variant="ghost" block href="/teacher/ktp">{t('ktp.title')}</Button>
 
         <!-- Where this teacher belongs: their school, or the way to ask for one. -->
         <Card muted>
@@ -302,6 +320,12 @@
       </aside>
 
       <section class="lessons">
+        <OwnLessons
+          canStart={!!cls}
+          busyId={busy}
+          onStart={(id: string) => void start(id)}
+          defaultGrade={cls?.grade ?? 5}
+        />
         <h2>{t('teacher.lessons')}</h2>
         <div class="ktp">
           <div class="khead">

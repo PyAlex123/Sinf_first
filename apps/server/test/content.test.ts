@@ -84,6 +84,8 @@ describe(`imported course ${COURSE}`, () => {
 
   it('has sanitized teacher scenarios with existing pictures', () => {
     for (const lesson of lessons) {
+      // The import always writes one; only a teacher's own lesson has none (ADR-019).
+      if (!lesson.teacherScenario) throw new Error(`${lesson.id} has no scenario`);
       const html = readFileSync(fileOfUrl(lesson.teacherScenario), 'utf8');
       expect(html).not.toMatch(/<script|\son[a-z]+=|data:image|javascript:/i);
       for (const url of urlsIn(html)) expect(existsSync(fileOfUrl(url)), url).toBe(true);

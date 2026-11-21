@@ -285,13 +285,13 @@ describe('class journal', () => {
     ]);
     const aliev = journal.students.find((s) => s.id === 'student-01');
     expect(aliev?.cells).toEqual([
-      { present: true, stars: 5, grade: null, confirmed: false },
-      { present: true, stars: 2, grade: null, confirmed: false },
+      { present: true, stars: 5, grade: null, confirmed: false, comment: null },
+      { present: true, stars: 2, grade: null, confirmed: false, comment: null },
     ]);
     const karimova = journal.students.find((s) => s.id === 'student-02');
     expect(karimova?.cells).toEqual([
-      { present: true, stars: 0, grade: null, confirmed: false },
-      { present: false, stars: 0, grade: null, confirmed: false },
+      { present: true, stars: 0, grade: null, confirmed: false, comment: null },
+      { present: false, stars: 0, grade: null, confirmed: false, comment: null },
     ]);
     expect(journal.students.find((s) => s.name === 'Аминов Карим')?.cells).toEqual([null, null]);
   });

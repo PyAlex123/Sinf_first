@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Lesson } from './lesson.js';
+import { screenMaxStars, type Lesson } from './lesson.js';
 
 /**
  * Lesson results and the class journal (STAGE1 S1.13, ADR-012).
@@ -44,10 +44,7 @@ export const PRACTICE_MAX_STARS = 3;
  */
 export function trainerMaxStars(lesson: Pick<Lesson, 'screens'>): number {
   let max = 0;
-  for (const screen of lesson.screens) {
-    if (screen.kind === 'game') max += screen.level.stars;
-    if (screen.kind === 'type') max += 1;
-  }
+  for (const screen of lesson.screens) max += screenMaxStars(screen);
   return max;
 }
 
@@ -230,20 +227,34 @@ export const JournalCellSchema = z.strictObject({
   grade: GradeValueSchema.nullable(),
   /** False while `grade` is only the calculated suggestion (H10). */
   confirmed: z.boolean(),
+  /** The teacher's note on this grade (W9). */
+  comment: z.string().nullable(),
 });
 export type JournalCell = z.infer<typeof JournalCellSchema>;
 
 export const JournalSchema = z.strictObject({
   class: ResultClassSchema,
-  /** Ended lessons, oldest first: the columns. */
+  /**
+   * The columns, oldest first: ended lessons, and the teacher's own columns without a lesson (W9) —
+   * a test on paper, oral answers.
+   */
   lessons: z.array(
     z.strictObject({
-      sessionId: id,
-      lessonId: id,
+      kind: z.enum(['lesson', 'manual']),
+      /** The lesson's session; null for a column without a lesson. */
+      sessionId: id.nullable(),
+      /** The teacher's column; null for a lesson. */
+      columnId: id.nullable(),
+      lessonId: id.nullable(),
+      /** The lesson's title, or the column's ("Контрольная"). */
       lessonTitle: z.string().min(1),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      /** When the teacher marked this column's grades as moved to eMaktab (W12). */
+      emaktabAt: z.string().nullable().default(null),
     }),
   ),
+  /** The eMaktab marks are kept on the platform only; a school computer shows none (W12). */
+  emaktab: z.boolean().default(true),
   /** Alphabetical; `cells[i]` belongs to `lessons[i]`, null when the child was not on the list then. */
   students: z.array(
     z.strictObject({
@@ -271,3 +282,96 @@ export type SetGrades = z.infer<typeof SetGradesSchema>;
 
 export const UpdateClassSettingsSchema = z.strictObject({ starsToGrade: z.boolean() });
 export type UpdateClassSettings = z.infer<typeof UpdateClassSettingsSchema>;
+
+// ---------- the journal by hand (W9)
+
+const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/** A column without a lesson: a test on paper, oral answers, homework. */
+export const CreateJournalColumnSchema = z.strictObject({
+  date: dateString,
+  title: z.string().trim().min(1).max(60),
+});
+export type CreateJournalColumn = z.infer<typeof CreateJournalColumnSchema>;
+
+/**
+ * One cell set by hand: a grade 2–5 or none, "н" (absent) in a column without a lesson, a note.
+ * A field left out is left as it is.
+ */
+export const SetJournalCellSchema = z.strictObject({
+  column: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('lesson'), sessionId: id }),
+    z.strictObject({ kind: z.literal('manual'), columnId: id }),
+  ]),
+  studentId: id,
+  value: GradeValueSchema.nullable().optional(),
+  absent: z.boolean().optional(),
+  comment: z.string().trim().max(200).nullable().optional(),
+});
+export type SetJournalCell = z.infer<typeof SetJournalCellSchema>;
+
+// ---------- moving grades to eMaktab (PLAN.md 5.4; W12)
+
+export const SetEmaktabSchema = z.strictObject({
+  column: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('lesson'), sessionId: id }),
+    z.strictObject({ kind: z.literal('manual'), columnId: id }),
+  ]),
+  done: z.boolean(),
+});
+export type SetEmaktab = z.infer<typeof SetEmaktabSchema>;
+
+/** eMaktab takes a grade for 72 hours from the lesson's date (CLAUDE.md §4.10). */
+export const EMAKTAB_HOURS = 72;
+/** Uzbekistan's time, all year: UTC+5. */
+const TASHKENT_OFFSET_MS = 5 * 3_600_000;
+
+/**
+ * The last moment eMaktab still takes this day's grades: 72 hours from the start of the day in
+ * Tashkent — the cautious reading of "72 hours from the lesson's date".
+ */
+export function emaktabUntil(date: string): Date {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(
+    Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1) - TASHKENT_OFFSET_MS + EMAKTAB_HOURS * 3_600_000,
+  );
+}
+
+export interface EmaktabDue {
+  /** The column in `journal.lessons`. */
+  index: number;
+  /** Grades in it to move. */
+  grades: number;
+  /** Whole hours left, at least 1 while there is time. */
+  hoursLeft: number;
+}
+
+/** Columns with grades not yet marked as moved, while eMaktab still takes them, soonest first. */
+export function emaktabDue(journal: Journal, now: Date): EmaktabDue[] {
+  if (!journal.emaktab) return [];
+  return journal.lessons
+    .flatMap((lesson, index): EmaktabDue[] => {
+      if (lesson.emaktabAt) return [];
+      const left = emaktabUntil(lesson.date).getTime() - now.getTime();
+      if (left <= 0) return [];
+      const grades = journal.students.filter((s) => s.cells[index]?.grade != null).length;
+      if (grades === 0) return [];
+      return [{ index, grades, hoursLeft: Math.max(1, Math.floor(left / 3_600_000)) }];
+    })
+    .sort((a, b) => a.hoursLeft - b.hoursLeft);
+}
+
+/** For the teacher's home page: what is waiting to be moved, class by class (W12). */
+export const EmaktabReminderSchema = z.strictObject({
+  classId: id,
+  className: z.string().min(1),
+  lessonTitle: z.string().min(1),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  grades: z.number().int().positive(),
+  hoursLeft: z.number().int().positive(),
+});
+export type EmaktabReminder = z.infer<typeof EmaktabReminderSchema>;
+export const EmaktabRemindersResponseSchema = z.strictObject({
+  reminders: z.array(EmaktabReminderSchema),
+});
+export type EmaktabRemindersResponse = z.infer<typeof EmaktabRemindersResponseSchema>;

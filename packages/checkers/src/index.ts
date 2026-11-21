@@ -28,6 +28,8 @@ import { FileProblem } from './zip.js';
 export { decodeText } from './text.js';
 export { parseCss } from './css.js';
 export { formatKind } from './xlsx.js';
+export { readTables, type ReadTable } from './tables.js';
+export { FileProblem } from './zip.js';
 
 type Family = 'docx' | 'xlsx' | 'pptx' | 'html' | 'css' | 'txt';
 

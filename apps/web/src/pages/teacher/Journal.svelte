@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { registerDate, type Journal, type JournalCell } from '@sinf/shared';
+  import { emaktabDue, registerDate, type Journal, type JournalCell } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { i18n, t } from '../../lib/i18n/index.svelte.js';
@@ -13,9 +13,15 @@
   import PageHeader from '../../lib/ui/PageHeader.svelte';
 
   /**
-   * The class journal (S1.13): children down in register order, lessons across. A cell holds the
-   * lesson's stars — or its 2–5 grade, when the class has grades — or the absence mark. A date
-   * opens that lesson's results. The same table goes to Excel, made on the server.
+   * The class journal (S1.13, W9): children down in register order, lessons across, and the
+   * teacher's own columns without a lesson. A cell holds the lesson's stars — or its 2–5 grade —
+   * or the absence mark. A date opens that lesson's results. The same table goes to Excel.
+   *
+   * By hand, from the keyboard (PLAN.md 5.1): click a cell, type 2–5; "н" marks absent in a column
+   * without a lesson; Backspace clears; arrows and Enter move; "к" (or "c") writes a note.
+   *
+   * Towards eMaktab (PLAN.md 5.4, W12): a view with only what eMaktab takes — confirmed grades and
+   * "н" — a "moved" mark per column, and the hours left of its 72 for columns not moved yet.
    */
 
   let { params }: PageProps = $props();
@@ -23,12 +29,144 @@
 
   let journal = $state<Journal | null>(null);
   let error = $state<string | null>(null);
+  let adding = $state(false);
+  let newDate = $state(new Date().toISOString().slice(0, 10));
+  let newTitle = $state('');
+  let saving = $state(false);
+  /** "As in eMaktab": grades and "н" only, no stars or suggestions. */
+  let eView = $state(false);
+  let now = $state(new Date());
+
+  const due = $derived(journal ? emaktabDue(journal, now) : []);
+  const hoursLeft = $derived(new Map(due.map((d) => [d.index, d.hoursLeft])));
+  const hasGrades = (c: number): boolean =>
+    !!journal?.students.some((s) => s.cells[c]?.grade != null);
+
+  async function markEmaktab(l: Lesson, done: boolean): Promise<void> {
+    if (saving) return;
+    saving = true;
+    error = null;
+    try {
+      journal = await api.setEmaktab(classId, { column: columnRef(l), done });
+      now = new Date();
+    } catch (e) {
+      error =
+        e instanceof ApiError && e.code === 'edit_on_platform'
+          ? t('emaktab.onPlatform')
+          : t('common.error');
+    } finally {
+      saving = false;
+    }
+  }
+
+  type Lesson = Journal['lessons'][number];
+  const columnKey = (l: Lesson): string => l.sessionId ?? l.columnId ?? '';
+  const columnRef = (l: Lesson) =>
+    l.kind === 'lesson'
+      ? { kind: 'lesson' as const, sessionId: l.sessionId ?? '' }
+      : { kind: 'manual' as const, columnId: l.columnId ?? '' };
+
+  async function addColumn(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (!newTitle.trim()) return;
+    try {
+      journal = await api.addJournalColumn(classId, newDate, newTitle.trim());
+      newTitle = '';
+      adding = false;
+    } catch {
+      error = t('common.error');
+    }
+  }
+
+  async function removeColumn(l: Lesson): Promise<void> {
+    if (!l.columnId || !confirm(t('journal.column.deleteConfirm', { title: l.lessonTitle })))
+      return;
+    try {
+      journal = await api.deleteJournalColumn(classId, l.columnId);
+    } catch {
+      error = t('common.error');
+    }
+  }
+
+  async function setCell(
+    studentId: string,
+    l: Lesson,
+    change: { value?: number | null; absent?: boolean; comment?: string | null },
+  ): Promise<void> {
+    if (saving) return;
+    saving = true;
+    error = null;
+    try {
+      journal = await api.setJournalCell(classId, { column: columnRef(l), studentId, ...change });
+    } catch (e) {
+      error =
+        e instanceof ApiError && e.code === 'lesson_running'
+          ? t('journal.running')
+          : e instanceof ApiError && e.code === 'not_at_lesson'
+            ? t('journal.notThere')
+            : t('common.error');
+    } finally {
+      saving = false;
+    }
+  }
+
+  /** The keyboard of a cell: 2–5, "н", Backspace, a note, and the arrows. */
+  function onCellKey(event: KeyboardEvent, row: number, col: number): void {
+    if (!journal) return;
+    const student = journal.students[row];
+    const l = journal.lessons[col];
+    if (!student || !l) return;
+    const key = event.key.toLowerCase();
+    if (/^[2-5]$/.test(key)) {
+      event.preventDefault();
+      void setCell(student.id, l, { value: Number(key) });
+      focusCell(row + 1, col);
+    } else if ((key === 'н' || key === 'n' || key === 'y') && l.kind === 'manual') {
+      event.preventDefault();
+      void setCell(student.id, l, { absent: true });
+      focusCell(row + 1, col);
+    } else if (key === 'backspace' || key === 'delete') {
+      event.preventDefault();
+      void setCell(
+        student.id,
+        l,
+        l.kind === 'manual' ? { value: null, absent: false } : { value: null },
+      );
+    } else if (key === 'к' || key === 'c') {
+      event.preventDefault();
+      note(student.id, l, student.cells[col]?.comment ?? '');
+    } else if (key === 'arrowdown' || key === 'enter') {
+      event.preventDefault();
+      focusCell(row + 1, col);
+    } else if (key === 'arrowup') {
+      event.preventDefault();
+      focusCell(row - 1, col);
+    } else if (key === 'arrowright') {
+      event.preventDefault();
+      focusCell(row, col + 1);
+    } else if (key === 'arrowleft') {
+      event.preventDefault();
+      focusCell(row, col - 1);
+    }
+  }
+
+  function note(studentId: string, l: Lesson, current: string): void {
+    const text = prompt(t('journal.note'), current);
+    if (text === null) return;
+    void setCell(studentId, l, { comment: text.trim() || null });
+  }
+
+  function focusCell(row: number, col: number): void {
+    const el = document.querySelector<HTMLElement>(`[data-cell="${row}:${col}"]`);
+    el?.focus();
+  }
 
   /** `05.11`: the year is the same across one journal, so the column stays narrow. */
   const shortDate = (date: string): string => registerDate(date).slice(0, 5);
 
   function cellText(cell: JournalCell): string {
     if (!cell.present) return t('journal.absent');
+    if (eView) return cell.grade !== null && cell.confirmed ? String(cell.grade) : '';
     return cell.grade !== null ? String(cell.grade) : `★ ${cell.stars}`;
   }
 
@@ -60,6 +198,18 @@
       subtitle={t('journal.count', { count: journal.lessons.length })}
     >
       {#snippet actions()}
+        {#if journal?.emaktab}
+          <Button variant="secondary" onclick={() => (eView = !eView)} data-view="emaktab">
+            {eView ? t('emaktab.viewOff') : t('emaktab.view')}
+          </Button>
+        {/if}
+        <Button variant="secondary" onclick={() => (adding = !adding)}
+          >{t('journal.column.add')}</Button
+        >
+        <!-- Grades kept in Excel before (PLAN.md 5.5, W13). -->
+        <Button variant="secondary" href={`/teacher/journal/${classId}/import`}>
+          {t('gradesImport.open')}
+        </Button>
         <Button variant="secondary" href={`/teacher/class/${journal?.class.id}`}>
           {t('class.manage')}
         </Button>
@@ -73,6 +223,45 @@
       {/snippet}
     </PageHeader>
 
+    {#if adding}
+      <Card>
+        <form class="addcol" onsubmit={addColumn}>
+          <label>
+            <span>{t('journal.column.date')}</span>
+            <input type="date" bind:value={newDate} required data-field="column-date" />
+          </label>
+          <label class="wide">
+            <span>{t('journal.column.title')}</span>
+            <input
+              bind:value={newTitle}
+              maxlength="60"
+              required
+              placeholder={t('journal.column.example')}
+              data-field="column-title"
+            />
+          </label>
+          <Button type="submit">{t('journal.column.create')}</Button>
+        </form>
+      </Card>
+    {/if}
+    {#if due.length > 0}
+      <!-- eMaktab takes a grade for 72 hours from the lesson's day (CLAUDE.md §4.10). -->
+      <Notice kind="warn">
+        <span data-emaktab-due>
+          {t('emaktab.due')}
+          {#each due as d, k (d.index)}
+            {@const l = journal.lessons[d.index]}
+            {#if l}{k > 0 ? '; ' : ' '}<b>{shortDate(l.date)} {l.lessonTitle}</b> — {t(
+                'emaktab.hoursLeft',
+                { count: d.hoursLeft },
+              )}{/if}
+          {/each}
+        </span>
+      </Notice>
+    {/if}
+    {#if journal.lessons.length > 0}<p class="muted small">
+        {eView ? t('emaktab.legend') : t('journal.keys')}
+      </p>{/if}
     {#if journal.lessons.length === 0}
       <EmptyState icon="star" title={t('journal.empty.title')} text={t('journal.empty')} />
     {:else}
@@ -83,15 +272,56 @@
               <tr>
                 <th class="num sticky">№</th>
                 <th class="who sticky">{t('results.col.student')}</th>
-                {#each journal.lessons as lesson (lesson.sessionId)}
-                  <th class="day">
-                    <a
-                      href={`/teacher/session/${lesson.sessionId}/results`}
-                      title={`${registerDate(lesson.date)} · ${lesson.lessonTitle}`}
-                    >
-                      {shortDate(lesson.date)}
-                    </a>
+                {#each journal.lessons as lesson, c (columnKey(lesson))}
+                  <th class="day" class:manual={lesson.kind === 'manual'}>
+                    {#if lesson.kind === 'lesson'}
+                      <a
+                        href={`/teacher/session/${lesson.sessionId}/results`}
+                        title={`${registerDate(lesson.date)} · ${lesson.lessonTitle}`}
+                      >
+                        {shortDate(lesson.date)}
+                      </a>
+                    {:else}
+                      <span class="date" title={registerDate(lesson.date)}
+                        >{shortDate(lesson.date)}</span
+                      >
+                    {/if}
                     <span class="topic">{lesson.lessonTitle}</span>
+                    {#if journal.emaktab && lesson.emaktabAt}
+                      <button
+                        type="button"
+                        class="em moved"
+                        title={t('emaktab.movedAt', {
+                          date: registerDate(lesson.emaktabAt.slice(0, 10)),
+                        })}
+                        disabled={saving}
+                        onclick={() => markEmaktab(lesson, false)}
+                        data-emaktab={c}>✓ eMaktab</button
+                      >
+                    {:else if journal.emaktab && hasGrades(c)}
+                      <button
+                        type="button"
+                        class="em"
+                        class:late={!hoursLeft.has(c)}
+                        title={t('emaktab.mark')}
+                        disabled={saving}
+                        onclick={() => markEmaktab(lesson, true)}
+                        data-emaktab={c}
+                      >
+                        {hoursLeft.has(c)
+                          ? t('emaktab.markShort', { hours: hoursLeft.get(c) ?? 0 })
+                          : t('emaktab.late')}
+                      </button>
+                    {/if}
+                    {#if lesson.kind === 'manual'}
+                      <button
+                        type="button"
+                        class="x"
+                        aria-label={t('journal.column.delete')}
+                        title={t('journal.column.delete')}
+                        onclick={() => removeColumn(lesson)}>×</button
+                      >
+                    {/if}
                   </th>
                 {/each}
               </tr>
@@ -106,17 +336,37 @@
                     {#if !student.isActive}<span class="muted small">({t('journal.left')})</span
                       >{/if}
                   </td>
-                  {#each student.cells as cell, c (journal.lessons[c]?.sessionId)}
+                  {#each student.cells as cell, c (c)}
+                    {@const l = journal.lessons[c]}
                     <td
                       class="cell"
                       class:absent={cell && !cell.present}
                       class:grade={cell?.present && cell.grade !== null}
-                      class:offered={cell?.present && cell.grade !== null && !cell.confirmed}
-                      title={cell?.present && cell.grade !== null && !cell.confirmed
-                        ? t('results.grades.offered')
-                        : undefined}
+                      class:offered={!eView &&
+                        cell?.present &&
+                        cell.grade !== null &&
+                        !cell.confirmed}
+                      class:noted={!!cell?.comment}
+                      title={cell?.comment ??
+                        (cell?.present && cell.grade !== null && !cell.confirmed
+                          ? t('results.grades.offered')
+                          : undefined)}
                     >
-                      {cell ? cellText(cell) : ''}
+                      {#if cell && l}
+                        <button
+                          type="button"
+                          class="cellbtn"
+                          data-cell={`${i}:${c}`}
+                          data-student={student.id}
+                          data-column={columnKey(l)}
+                          onkeydown={(e) => onCellKey(e, i, c)}
+                          ondblclick={() => note(student.id, l, cell.comment ?? '')}
+                        >
+                          {!eView && cell.grade === null && cell.present && l.kind === 'manual'
+                            ? '·'
+                            : cellText(cell)}
+                        </button>
+                      {/if}
                     </td>
                   {/each}
                 </tr>
@@ -208,6 +458,84 @@
   }
   .cell.grade {
     font-weight: 700;
+  }
+  .cell.noted .cellbtn {
+    text-decoration: underline dotted;
+  }
+  .cellbtn {
+    min-width: 2.5em;
+    min-height: 2em;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm, 6px);
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .cellbtn:focus {
+    outline: none;
+    border-color: var(--c-accent);
+    background: var(--c-accent-soft);
+  }
+  .day.manual {
+    background: #f6f2ff;
+  }
+  .date {
+    display: block;
+    font-size: var(--text-md);
+    color: var(--c-dark);
+  }
+  .x {
+    border: 0;
+    background: none;
+    color: var(--c-muted);
+    cursor: pointer;
+  }
+  /* The column's way to eMaktab (W12): to move, with its hours left; moved; too late. */
+  .em {
+    display: block;
+    margin: var(--space-1) auto 0;
+    padding: 0 var(--space-1);
+    border: 1px solid var(--c-accent);
+    border-radius: var(--radius-pill);
+    background: var(--c-surface);
+    color: var(--c-accent-strong);
+    font-size: var(--text-xs, 0.75rem);
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .em.moved {
+    border-color: var(--c-ok);
+    color: var(--c-ok);
+  }
+  .em.late {
+    border-color: var(--c-line-strong);
+    color: var(--c-muted);
+    font-weight: 400;
+  }
+  .addcol {
+    display: flex;
+    gap: var(--space-3);
+    align-items: end;
+    flex-wrap: wrap;
+  }
+  .addcol label {
+    display: grid;
+    gap: var(--space-1);
+  }
+  .addcol label span {
+    font-size: var(--text-sm);
+    color: var(--c-muted);
+  }
+  .addcol input {
+    font: inherit;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius-sm, 6px);
+  }
+  .addcol .wide input {
+    min-width: 20em;
   }
   .left .who {
     font-weight: 400;

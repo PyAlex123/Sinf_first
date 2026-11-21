@@ -2,11 +2,18 @@ import {
   index,
   integer,
   primaryKey,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
-import type { CheckReport, ClassSettings, PracticeMarks } from '@sinf/shared';
+import type {
+  AuthoredLessonDoc,
+  CheckReport,
+  ClassSettings,
+  PracticeMarks,
+  ProgramItem,
+} from '@sinf/shared';
 
 /**
  * Stage 1 schema (STAGE1.md S1.3, docs/stage1-architecture.md §3). Portable to PostgreSQL:
@@ -144,6 +151,8 @@ export const classes = sqliteTable(
      * the platform, carried to school computers with the roster.
      */
     homeCode: text('home_code'),
+    /** The programme the class follows (stage 4, W7); it says which lesson comes next. */
+    programId: text('program_id'),
   },
   (t) => [
     index('classes_school_idx').on(t.schoolId),
@@ -395,11 +404,42 @@ export const grades = sqliteTable(
     source: text('source', { enum: ['session', 'manual'] }).notNull(),
     comment: text('comment'),
     createdAt: timestamp('created_at').notNull(),
+    /** A grade in a column without a lesson (W9); null for a lesson's grade. */
+    columnId: text('column_id'),
+    /** "н" in a column without a lesson: the child was not there (W9). */
+    absent: integer('absent', { mode: 'boolean' }).notNull().default(false),
+    /** For a grade in a teacher's column: when it last changed, and when the platform took it. */
+    updatedAt: timestamp('updated_at'),
+    syncedAt: timestamp('synced_at'),
   },
   (t) => [
     index('grades_class_date_idx').on(t.classId, t.date),
     uniqueIndex('grades_session_student_idx').on(t.sessionId, t.studentId),
+    uniqueIndex('grades_column_student_idx').on(t.columnId, t.studentId),
   ],
+);
+
+/**
+ * A journal column without a lesson (PLAN.md 5.1; stage 4, W9): a test on paper, oral answers. Kept
+ * on the computer where it was made and exchanged with the platform both ways, the newer winning.
+ */
+export const journalColumns = sqliteTable(
+  'journal_columns',
+  {
+    id: id(),
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id),
+    /** `YYYY-MM-DD`. */
+    date: text('date').notNull(),
+    title: text('title').notNull(),
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+    deletedAt: timestamp('deleted_at'),
+    syncedAt: timestamp('synced_at'),
+  },
+  (t) => [index('journal_columns_class_idx').on(t.classId, t.date)],
 );
 
 /**
@@ -480,8 +520,165 @@ export const practiceChecks = sqliteTable(
   ],
 );
 
+/**
+ * A teacher's own lesson (CLAUDE.md §4.3, §6 Lesson; stage 4, W1; ADR-019): its description and the
+ * document the constructor edits. The engine plays it in the author's format (`authoredToLesson`).
+ * Made and changed on the platform; a school computer holds a read-only copy of its school's.
+ * A deleted lesson stays as a row: the results of the lessons held with it still need its screens.
+ */
+export const authoredLessons = sqliteTable(
+  'authored_lessons',
+  {
+    id: id(),
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => users.id),
+    title: text('title').notNull(),
+    grade: integer('grade').notNull(),
+    topic: text('topic').notNull().default(''),
+    visibility: text('visibility', { enum: ['private', 'school', 'public'] })
+      .notNull()
+      .default('private'),
+    doc: text('doc', { mode: 'json' }).$type<AuthoredLessonDoc>().notNull(),
+    /** Grows with every save; a save made from an older one is refused (two tabs). */
+    version: integer('version').notNull().default(1),
+    /** The lesson this one was copied from (the library, W8). */
+    sourceId: text('source_id'),
+    createdAt: timestamp('created_at').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+    deletedAt: timestamp('deleted_at'),
+    /** Hidden from the library by the superadmin (W8); the author still has it. */
+    hiddenAt: timestamp('hidden_at'),
+  },
+  (t) => [index('authored_lessons_owner_idx').on(t.ownerId)],
+);
+
+/**
+ * A programme: lessons for a class by quarters (PLAN.md 3.8; stage 4, W7). Made on the platform;
+ * the school computer keeps the programmes of its classes with the roster.
+ */
+export const programs = sqliteTable(
+  'programs',
+  {
+    id: id(),
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => users.id),
+    title: text('title').notNull(),
+    grade: integer('grade').notNull(),
+    visibility: text('visibility', { enum: ['private', 'school', 'public'] })
+      .notNull()
+      .default('private'),
+    items: text('items', { mode: 'json' }).$type<ProgramItem[]>().notNull(),
+    version: integer('version').notNull().default(1),
+    sourceId: text('source_id'),
+    createdAt: timestamp('created_at').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+    deletedAt: timestamp('deleted_at'),
+    hiddenAt: timestamp('hidden_at'),
+  },
+  (t) => [index('programs_owner_idx').on(t.ownerId)],
+);
+
+/** A teacher's complaint about a library item (PLAN.md 3.9; W8), until the superadmin acts. */
+export const libraryReports = sqliteTable(
+  'library_reports',
+  {
+    id: id(),
+    kind: text('kind', { enum: ['lesson', 'program'] }).notNull(),
+    itemId: text('item_id').notNull(),
+    reporterId: text('reporter_id')
+      .notNull()
+      .references(() => users.id),
+    reason: text('reason').notNull(),
+    createdAt: timestamp('created_at').notNull(),
+    resolvedAt: timestamp('resolved_at'),
+  },
+  (t) => [index('library_reports_item_idx').on(t.kind, t.itemId)],
+);
+
+/**
+ * The teacher's calendar-thematic plan for a class (PLAN.md 5.2–5.3; W10–W11; ADR-020). It lives on
+ * the platform only: it is the teacher's paperwork, not part of a lesson in the classroom.
+ */
+export const ktpPlans = sqliteTable(
+  'ktp_plans',
+  {
+    id: id(),
+    teacherId: text('teacher_id')
+      .notNull()
+      .references(() => users.id),
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id),
+    title: text('title').notNull(),
+    sourceFile: text('source_file').notNull().default(''),
+    createdAt: timestamp('created_at').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+  },
+  (t) => [
+    index('ktp_plans_teacher_idx').on(t.teacherId),
+    index('ktp_plans_class_idx').on(t.classId),
+  ],
+);
+
+/**
+ * One topic of a KTP. `originalTopic` / `originalWeekOrDate` keep what the file said, to count the
+ * share of changes the school allows (W11); a row added by hand has none; a removed one stays with
+ * `deletedAt` for the same count.
+ */
+export const ktpRows = sqliteTable(
+  'ktp_rows',
+  {
+    id: id(),
+    planId: text('plan_id')
+      .notNull()
+      .references(() => ktpPlans.id),
+    position: integer('position').notNull(),
+    number: text('number').notNull().default(''),
+    topic: text('topic').notNull(),
+    hours: real('hours'),
+    weekOrDate: text('week_or_date').notNull().default(''),
+    note: text('note').notNull().default(''),
+    originalTopic: text('original_topic'),
+    originalWeekOrDate: text('original_week_or_date'),
+    lessonId: text('lesson_id'),
+    isDone: integer('is_done', { mode: 'boolean' }).notNull().default(false),
+    doneAt: timestamp('done_at'),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [index('ktp_rows_plan_idx').on(t.planId, t.position)],
+);
+
+/**
+ * "Moved to eMaktab" for a journal column (PLAN.md 5.4; W12; ADR-012): a lesson's session or the
+ * teacher's own column. Kept on the platform only: eMaktab itself is online.
+ */
+export const emaktabMarks = sqliteTable(
+  'emaktab_marks',
+  {
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id),
+    /** The session's or the teacher's column's id. */
+    columnId: text('column_id').notNull(),
+    markedBy: text('marked_by')
+      .notNull()
+      .references(() => users.id),
+    markedAt: timestamp('marked_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.classId, t.columnId] })],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  emaktabMarks,
+  ktpRows,
+  ktpPlans,
+  journalColumns,
+  libraryReports,
+  programs,
+  authoredLessons,
   practiceChecks,
   studentFiles,
   screenshots,

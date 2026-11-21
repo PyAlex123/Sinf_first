@@ -116,6 +116,23 @@ export function schoolsOf(db: Db, userId: string): string[] {
     .map((row) => row.schoolId);
 }
 
+/** Teachers who share a school with this one, themselves included (stage 4: shared lessons). */
+export function colleaguesOf(db: Db, userId: string): string[] {
+  const schools = schoolsOf(db, userId);
+  if (schools.length === 0) return [userId];
+  return [
+    ...new Set([
+      userId,
+      ...db
+        .select({ userId: schema.schoolMembers.userId })
+        .from(schema.schoolMembers)
+        .where(inArray(schema.schoolMembers.schoolId, schools))
+        .all()
+        .map((r) => r.userId),
+    ]),
+  ];
+}
+
 /** Condition "this teacher may see this class", for use inside a larger query. */
 export function visibleClassWhere(db: Db, userId: string): SQL {
   const schools = schoolsOf(db, userId);

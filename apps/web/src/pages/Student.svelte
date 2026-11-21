@@ -265,6 +265,15 @@
     );
   });
 
+  /** "Open this screen for everybody" (W6): in free mode the child is taken there, once per press. */
+  let lastGoto = 0;
+  $effect(() => {
+    const g = store?.goto;
+    if (!g || g.n === lastGoto) return;
+    lastGoto = g.n;
+    if (session?.mode === 'free') index = g.index;
+  });
+
   // In presentation mode the teacher drives the screen; in free mode the student keeps their own place.
   $effect(() => {
     if (session && session.mode === 'presentation') index = session.screenIndex;
@@ -527,6 +536,25 @@
           <FilesPanel access={{ kind: 'lesson', sessionId, token: filesToken }} />
         </div>
       {/if}
+      {#if store?.message && !lock}
+        <!-- The teacher's message (W6). A link opens in a browser; the classroom app opens no sites. -->
+        <div class="message" role="alert" data-message>
+          <p>{store.message.text}</p>
+          {#if store.message.url}
+            {#if inClassroomApp}
+              <p class="link">{store.message.url}</p>
+              <p class="muted small">{t('student.message.noSites')}</p>
+            {:else}
+              <a href={store.message.url} target="_blank" rel="noopener noreferrer">
+                {t('student.message.open')} ↗
+              </a>
+            {/if}
+          {/if}
+          <Button size="sm" variant="secondary" onclick={() => store && (store.message = null)}>
+            {t('common.close')}
+          </Button>
+        </div>
+      {/if}
       {#if lock}
         <div class="lock" role="alert">
           <Icon name="lock" size={64} />
@@ -565,6 +593,40 @@
       height: auto;
       border-radius: 0;
     }
+  }
+  .message {
+    position: fixed;
+    z-index: 60;
+    top: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(640px, calc(100vw - 2 * var(--space-4)));
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--c-dark);
+    color: #fff;
+    box-shadow: var(--shadow-lg);
+    font-size: var(--text-lg);
+  }
+  .message p {
+    margin: 0;
+    white-space: pre-wrap;
+  }
+  .message a {
+    color: #fff;
+    font-weight: 700;
+  }
+  .message .link {
+    font-family: monospace;
+    word-break: break-all;
+  }
+  .message :global(.btn) {
+    justify-self: end;
+  }
+  .small {
+    font-size: var(--text-sm);
   }
   .saved {
     align-self: center;

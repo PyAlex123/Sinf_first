@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import {
+  JournalSyncSchema,
   LessonSyncResponseSchema,
   SchoolSnapshotSchema,
   type SchoolSnapshot,
@@ -21,6 +22,8 @@ import {
   pendingSessionIds,
 } from './outbox.js';
 import { countDirtyFiles, pullFiles, pushFiles } from './files.js';
+import { pullLessons } from './lessons.js';
+import { applyJournal, markJournalSynced, pendingJournal } from '../services/journal.js';
 
 /**
  * The school computer's side of S2.6 (ADR-011): it pulls the school's roster down and pushes what
@@ -116,6 +119,8 @@ export class SyncWorker {
       if (this.stopped) return null;
       this.lastPullAt = Date.now();
       if (this.read(ROSTER_KEY) === snapshot.version) {
+        await this.pullLessons(link);
+        await this.syncJournal();
         this.note(LAST_SYNC_KEY, new Date().toISOString());
         this.note(LAST_ERROR_KEY, null);
         return snapshot;
@@ -126,12 +131,62 @@ export class SyncWorker {
       this.note(LAST_SYNC_KEY, new Date().toISOString());
       this.note(LAST_ERROR_KEY, null);
       this.log.info({ ...result, version: snapshot.version }, 'school roster updated');
+      // After the roster: a lesson's owner must be a known teacher here.
+      await this.pullLessons(link);
+      await this.syncJournal();
       return snapshot;
     } catch (error) {
       // No internet in the classroom is the normal case, not a fault worth shouting about.
       this.note(LAST_ERROR_KEY, OFFLINE);
       this.log.debug({ err: error }, 'roster not fetched');
       return null;
+    }
+  }
+
+  /** The journal's own columns, both ways (W9): what changed here goes, what is newer there comes. */
+  async syncJournal(): Promise<void> {
+    const link = this.link();
+    if (!link || this.stopped) return;
+    try {
+      const pending = pendingJournal(this.db);
+      if (pending.columns.length + pending.grades.length > 0) {
+        const sent = await this.fetchImpl(`${link.url}/api/sync/journal`, {
+          method: 'POST',
+          headers: {
+            authorization: `Device ${link.deviceToken}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(pending),
+        });
+        if (sent.ok) markJournalSynced(this.db, pending);
+      }
+      const response = await this.fetchImpl(`${link.url}/api/sync/journal`, {
+        headers: { authorization: `Device ${link.deviceToken}` },
+      });
+      if (!response.ok) return;
+      const theirs = JournalSyncSchema.parse(await response.json());
+      const mine = new Set(
+        this.db
+          .select({ id: schema.classes.id })
+          .from(schema.classes)
+          .all()
+          .map((c) => c.id),
+      );
+      applyJournal(this.db, theirs, mine, true);
+    } catch (error) {
+      this.log.debug({ err: error }, 'journal not exchanged');
+    }
+  }
+
+  /** The school's own lessons (ADR-019); a failure here leaves the roster as it is. */
+  private async pullLessons(link: PlatformLink): Promise<void> {
+    try {
+      const result = await pullLessons(this.db, this.config.dataDir, link, this.fetchImpl);
+      if (result.updated + result.removed + result.files > 0) {
+        this.log.info(result, 'school lessons updated');
+      }
+    } catch (error) {
+      this.log.debug({ err: error }, 'school lessons not fetched');
     }
   }
 
@@ -142,6 +197,9 @@ export class SyncWorker {
   async push(): Promise<number> {
     const link = this.link();
     if (!link || this.running || this.stopped) return 0;
+    // The journal's own columns (W9) go on their own: a grade typed at the school is wanted at home.
+    const journal = pendingJournal(this.db);
+    if (journal.columns.length + journal.grades.length > 0) await this.syncJournal();
     const waiting = pendingSessionIds(this.db);
     if (
       waiting.length === 0 &&

@@ -6,6 +6,7 @@
   import Game from './screens/Game.svelte';
   import Slide from './screens/Slide.svelte';
   import TypeWord from './screens/TypeWord.svelte';
+  import Question from './screens/Question.svelte';
   import type { WinInfo } from './lib/types.js';
   import WinDialog from './WinDialog.svelte';
 
@@ -73,6 +74,14 @@
     win = info;
   }
 
+  /** A test's answer (W4): counted like a trainer's, without the "well done" window. */
+  function handleAnswer(stars: number): void {
+    if (allDone.has(index)) return;
+    localDone = [...localDone, index];
+    localStars += stars;
+    onScreenDone?.(index, stars);
+  }
+
   function closeWin(): void {
     win = null;
     if (navigation === 'free') go(index + 1);
@@ -121,6 +130,8 @@
             done={allDone.has(index) && !win}
             onWin={(s: number) => handleWin({ stars: s })}
           />
+        {:else if screen.kind === 'question'}
+          <Question {screen} {frozen} done={allDone.has(index)} onAnswer={handleAnswer} />
         {:else}
           <Game
             {screen}

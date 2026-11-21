@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { SchoolSnapshot } from '@sinf/shared';
 import { schema, type Db } from '../db/index.js';
 
@@ -59,6 +59,18 @@ export function buildSchoolSnapshot(db: Db, schoolId: string): SchoolSnapshot | 
           .all()
       : [];
 
+  // The programmes the school's classes follow (W7): the school computer says "next lesson" too.
+  const programIds = [...new Set(classRows.flatMap((c) => (c.programId ? [c.programId] : [])))];
+  const programRows =
+    programIds.length > 0
+      ? db
+          .select()
+          .from(schema.programs)
+          .where(and(inArray(schema.programs.id, programIds), isNull(schema.programs.deletedAt)))
+          .orderBy(schema.programs.id)
+          .all()
+      : [];
+
   const snapshot: Omit<SchoolSnapshot, 'version'> = {
     school: { id: school.id, name: school.name, city: school.city },
     teachers: members,
@@ -71,6 +83,7 @@ export function buildSchoolSnapshot(db: Db, schoolId: string): SchoolSnapshot | 
       settings: c.settings,
       teacherIds: teacherLinks.filter((l) => l.classId === c.id).map((l) => l.userId),
       homeCode: c.homeCode,
+      programId: c.programId,
     })),
     students: studentRows.map((s) => ({
       id: s.id,
@@ -82,6 +95,15 @@ export function buildSchoolSnapshot(db: Db, schoolId: string): SchoolSnapshot | 
       codePublic: s.codePublic,
       isActive: s.isActive,
       sortOrder: s.sortOrder,
+    })),
+    programs: programRows.map((p) => ({
+      id: p.id,
+      ownerId: p.ownerId,
+      title: p.title,
+      grade: p.grade,
+      items: p.items,
+      version: p.version,
+      updatedAt: p.updatedAt,
     })),
   };
 

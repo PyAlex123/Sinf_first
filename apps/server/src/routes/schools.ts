@@ -24,6 +24,7 @@ import {
 } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
+import { ktpChangePercent } from '../services/ktp.js';
 import { ApiHttpError, notFound } from '../errors.js';
 
 const Params = z.object({ id: z.string().min(1) });
@@ -109,6 +110,7 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
     members: membersOf(school.id, role === 'admin'),
     classes: classesOfSchool(school.id),
     requests: role === 'admin' ? pendingOf(school.id) : [],
+    ktpChangePercent: ktpChangePercent(school),
   });
 
   // ---------- teacher side
@@ -188,6 +190,10 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
       .set({
         name: body.name ?? school.name,
         city: body.city === undefined ? school.city : body.city?.trim() || null,
+        settings:
+          body.ktpChangePercent === undefined
+            ? school.settings
+            : { ...school.settings, ktpChangePercent: body.ktpChangePercent },
       })
       .where(eq(schema.schools.id, id))
       .run();
