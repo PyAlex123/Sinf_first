@@ -8,12 +8,14 @@ import {
   SchoolDecisionSchema,
   SetSchoolRoleSchema,
   UpdateSchoolSchema,
+  UpdateSchoolSettingsSchema,
   type AdminSchoolListResponse,
   type SchoolBrief,
   type SchoolClass,
   type SchoolDetailsResponse,
   type SchoolListResponse,
   type SchoolMember,
+  type SchoolSettingsResponse,
   type Teacher,
 } from '@sinf/shared';
 import {
@@ -24,7 +26,7 @@ import {
 } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
-import { ktpChangePercent } from '../services/ktp.js';
+import { settingsOfSchool, updateSchoolSettings } from '../services/school-settings.js';
 import { ApiHttpError, notFound } from '../errors.js';
 
 const Params = z.object({ id: z.string().min(1) });
@@ -110,7 +112,6 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
     members: membersOf(school.id, role === 'admin'),
     classes: classesOfSchool(school.id),
     requests: role === 'admin' ? pendingOf(school.id) : [],
-    ktpChangePercent: ktpChangePercent(school),
   });
 
   // ---------- teacher side
@@ -190,16 +191,42 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
       .set({
         name: body.name ?? school.name,
         city: body.city === undefined ? school.city : body.city?.trim() || null,
-        settings:
-          body.ktpChangePercent === undefined
-            ? school.settings
-            : { ...school.settings, ktpChangePercent: body.ktpChangePercent },
       })
       .where(eq(schema.schools.id, id))
       .run();
     const updated = db.select().from(schema.schools).where(eq(schema.schools.id, id)).get();
     return details(updated as SchoolRow, 'admin');
   });
+
+  // ---------- the school's rules (stage 5, A1; ADR-021)
+
+  /** The rules are changed on the platform: a school computer only mirrors them (ADR-011). */
+  const onSchoolPc = (): boolean => app.sync?.link() != null;
+
+  app.get(
+    '/schools/:id/settings',
+    { preHandler: requireTeacher },
+    (request): SchoolSettingsResponse => {
+      const { id } = Params.parse(request.params);
+      requireSchoolAdmin(db, request.teacher as Teacher, id);
+      return { settings: settingsOfSchool(db, id) };
+    },
+  );
+
+  app.patch(
+    '/schools/:id/settings',
+    { preHandler: requireTeacher },
+    (request): SchoolSettingsResponse => {
+      const { id } = Params.parse(request.params);
+      requireSchoolAdmin(db, request.teacher as Teacher, id);
+      if (onSchoolPc()) {
+        throw new ApiHttpError(409, 'edit_on_platform', 'School rules are set on the website');
+      }
+      const settings = updateSchoolSettings(db, id, UpdateSchoolSettingsSchema.parse(request.body));
+      request.log.info({ schoolId: id, settings }, 'school settings changed');
+      return { settings };
+    },
+  );
 
   app.post(
     '/schools/:id/requests/:userId',

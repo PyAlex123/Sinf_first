@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or } from 'drizzle-orm';
 import {
-  DEFAULT_KTP_CHANGE_PERCENT,
   ktpPlanned,
   suggestLesson,
   type AddKtpRow,
@@ -16,6 +15,7 @@ import {
   type UpdateKtpRow,
 } from '@sinf/shared';
 import { colleaguesOf } from '../auth/access.js';
+import { settingsForClass } from './school-settings.js';
 import type { ContentStore } from '../content/index.js';
 import { schema, type Db } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
@@ -115,22 +115,9 @@ export function listKtp(db: Db, teacherId: string): KtpPlanSummary[] {
     .map((plan) => summaryOf(db, plan, topicsOf(db, plan.id)));
 }
 
-/** The share of KTP changes a school allows (CLAUDE.md §4.10), from its settings. */
-export function ktpChangePercent(school: { settings: Record<string, unknown> }): number {
-  const value = school.settings['ktpChangePercent'];
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 100
-    ? value
-    : DEFAULT_KTP_CHANGE_PERCENT;
-}
-
+/** The share of KTP changes a school allows (CLAUDE.md §4.10), from its settings (A1). */
 function allowedPercent(db: Db, classId: string): number {
-  const school = db
-    .select({ settings: schema.schools.settings })
-    .from(schema.classes)
-    .innerJoin(schema.schools, eq(schema.schools.id, schema.classes.schoolId))
-    .where(eq(schema.classes.id, classId))
-    .get();
-  return school ? ktpChangePercent(school) : DEFAULT_KTP_CHANGE_PERCENT;
+  return settingsForClass(db, classId).ktpChangePercent;
 }
 
 /** Changed against the imported file: topic or date edited, removed, or added by hand. */

@@ -897,5 +897,21 @@
   "gradesImport.skip": "— ko‘chirilmasin —",
   "gradesImport.wholeClass": "Butun sinf",
   "gradesImport.twice": "Bu o‘quvchi yuqorida tanlangan — qator ko‘chirilmaydi",
-  "gradesImport.save": "Jurnalga {count} ta ustun qo‘shish"
+  "gradesImport.save": "Jurnalga {count} ta ustun qo‘shish",
+  "schoolSettings.title": "Maktab qoidalari",
+  "schoolSettings.hint": "Maktabning barcha sinflari uchun bir xil. O‘qituvchilarning shaxsiy sinflari standart qoidalar bo‘yicha ishlaydi.",
+  "schoolSettings.files": "O‘quvchining «Mening ishlarim» papkasi",
+  "schoolSettings.quota": "Bir o‘quvchiga joy, MB",
+  "schoolSettings.quotaHint": "1 dan {max} gacha",
+  "schoolSettings.maxFile": "Eng katta fayl, MB",
+  "schoolSettings.maxFileHint": "1 dan {max} gacha, o‘quvchi joyidan oshmasin",
+  "schoolSettings.keep": "Ishlar va skrinshotlarni saqlash muddati",
+  "schoolSettings.keepHint": "Har yili shu kuni o‘tgan o‘quv yilining ishlari, skrinshotlari va topshirilgan fayllari o‘zi o‘chadi. Baholar va jurnal qoladi.",
+  "schoolSettings.day": "Kun",
+  "schoolSettings.month": "Oy",
+  "schoolSettings.apps": "Darslardagi dasturlar",
+  "schoolSettings.appsHint": "O‘qituvchi maktab kompyuterlarida o‘quvchilarga faqat shu dasturlarni ocha oladi.",
+  "schoolSettings.ktp": "KTR",
+  "schoolSettings.saved": "Saqlandi",
+  "schoolSettings.onPlatform": "Maktab qoidalari platforma saytida o‘zgartiriladi."
 }

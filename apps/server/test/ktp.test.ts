@@ -7,7 +7,7 @@ import {
   KtpLessonsResponseSchema,
   KtpListResponseSchema,
   KtpPlanSchema,
-  SchoolDetailsResponseSchema,
+  SchoolSettingsResponseSchema,
   SessionKtpResponseSchema,
   SessionResponseSchema,
   mapKtpRows,
@@ -272,9 +272,11 @@ describe('the KTP and the lessons (W11)', () => {
     expect(plan.changes).toMatchObject({ base: 4, changed: 3 });
 
     // The school allows more: its administrator says so.
-    const school = await call('PATCH', '/api/schools/school-demo', { ktpChangePercent: 80 });
+    const school = await call('PATCH', '/api/schools/school-demo/settings', {
+      ktpChangePercent: 80,
+    });
     expect(school.statusCode).toBe(200);
-    expect(SchoolDetailsResponseSchema.parse(school.json()).ktpChangePercent).toBe(80);
+    expect(SchoolSettingsResponseSchema.parse(school.json()).settings.ktpChangePercent).toBe(80);
     plan = KtpPlanSchema.parse((await call('GET', `/api/ktp/${plan.id}`)).json());
     expect(plan.changes.allowedPercent).toBe(80);
   });

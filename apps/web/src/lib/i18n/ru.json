@@ -951,5 +951,21 @@
   "gradesImport.save": "Добавить {count} столбцов в журнал",
   "gradesImport.save#one": "Добавить {count} столбец в журнал",
   "gradesImport.save#few": "Добавить {count} столбца в журнал",
-  "gradesImport.save#many": "Добавить {count} столбцов в журнал"
+  "gradesImport.save#many": "Добавить {count} столбцов в журнал",
+  "schoolSettings.title": "Правила школы",
+  "schoolSettings.hint": "Одни для всех классов школы. Личные классы учителей живут по правилам по умолчанию.",
+  "schoolSettings.files": "Папка ученика «Мои работы»",
+  "schoolSettings.quota": "Место на ученика, МБ",
+  "schoolSettings.quotaHint": "от 1 до {max}",
+  "schoolSettings.maxFile": "Самый большой файл, МБ",
+  "schoolSettings.maxFileHint": "от 1 до {max}, не больше места на ученика",
+  "schoolSettings.keep": "Хранить работы и скриншоты до",
+  "schoolSettings.keepHint": "Каждый год в этот день работы, скриншоты и сданные файлы прошедшего учебного года удаляются сами. Оценки и журнал остаются.",
+  "schoolSettings.day": "День",
+  "schoolSettings.month": "Месяц",
+  "schoolSettings.apps": "Программы на уроках",
+  "schoolSettings.appsHint": "Только эти программы учитель сможет открыть ученикам на компьютерах школы.",
+  "schoolSettings.ktp": "КТП",
+  "schoolSettings.saved": "Сохранено",
+  "schoolSettings.onPlatform": "Правила школы меняются на сайте платформы."
 }

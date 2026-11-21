@@ -154,8 +154,6 @@ export const SchoolDetailsResponseSchema = z.strictObject({
   classes: z.array(SchoolClassSchema),
   /** Empty for a plain teacher: requests are the administrator's business. */
   requests: z.array(SchoolJoinRequestSchema),
-  /** How much of a KTP its teacher may change, in percent (CLAUDE.md §4.10; W11). */
-  ktpChangePercent: z.number().int().min(0).max(100),
 });
 export type SchoolDetailsResponse = z.infer<typeof SchoolDetailsResponseSchema>;
 
@@ -169,12 +167,8 @@ export const UpdateSchoolSchema = z
   .strictObject({
     name: z.string().trim().min(2).max(120).optional(),
     city: z.string().trim().max(60).nullable().optional(),
-    ktpChangePercent: z.number().int().min(0).max(100).optional(),
   })
-  .refine(
-    (v) => v.name !== undefined || v.city !== undefined || v.ktpChangePercent !== undefined,
-    'Nothing to change',
-  );
+  .refine((v) => v.name !== undefined || v.city !== undefined, 'Nothing to change');
 export type UpdateSchool = z.infer<typeof UpdateSchoolSchema>;
 
 export const SchoolDecisionSchema = z.strictObject({

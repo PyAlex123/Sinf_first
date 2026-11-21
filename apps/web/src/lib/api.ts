@@ -21,6 +21,7 @@ import {
   CourseSchema,
   ClassProgramSchema,
   EmaktabRemindersResponseSchema,
+  SchoolSettingsResponseSchema,
   KtpLessonsResponseSchema,
   KtpListResponseSchema,
   KtpPlanSchema,
@@ -67,6 +68,7 @@ import {
   type UpdateAuthoredLesson,
   type UpdateProgram,
   type AddKtpRow,
+  type UpdateSchoolSettings,
   type ImportGrades,
   type SetEmaktab,
   type CreateKtp,
@@ -355,6 +357,16 @@ export const api = {
       'DELETE',
       `/api/schools/${encodeURIComponent(schoolId)}/members/${encodeURIComponent(userId)}`,
       SchoolDetailsResponseSchema,
+    ),
+  /** The school's rules (stage 5, A1): its administrator only. */
+  schoolSettings: (id: string) =>
+    request('GET', `/api/schools/${encodeURIComponent(id)}/settings`, SchoolSettingsResponseSchema),
+  updateSchoolSettings: (id: string, body: UpdateSchoolSettings) =>
+    request(
+      'PATCH',
+      `/api/schools/${encodeURIComponent(id)}/settings`,
+      SchoolSettingsResponseSchema,
+      body,
     ),
   updateSchool: (id: string, body: UpdateSchool) =>
     request('PATCH', `/api/schools/${encodeURIComponent(id)}`, SchoolDetailsResponseSchema, body),

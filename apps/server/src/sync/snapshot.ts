@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { SchoolSnapshot } from '@sinf/shared';
 import { schema, type Db } from '../db/index.js';
+import { schoolSettings } from '../services/school-settings.js';
 
 /**
  * The roster of one school as the platform hands it to a school computer (S2.6, ADR-011).
@@ -73,6 +74,7 @@ export function buildSchoolSnapshot(db: Db, schoolId: string): SchoolSnapshot | 
 
   const snapshot: Omit<SchoolSnapshot, 'version'> = {
     school: { id: school.id, name: school.name, city: school.city },
+    settings: schoolSettings(school),
     teachers: members,
     classes: classRows.map((c) => ({
       id: c.id,
