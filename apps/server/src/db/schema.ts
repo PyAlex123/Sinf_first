@@ -403,11 +403,42 @@ export const grades = sqliteTable(
     source: text('source', { enum: ['session', 'manual'] }).notNull(),
     comment: text('comment'),
     createdAt: timestamp('created_at').notNull(),
+    /** A grade in a column without a lesson (W9); null for a lesson's grade. */
+    columnId: text('column_id'),
+    /** "н" in a column without a lesson: the child was not there (W9). */
+    absent: integer('absent', { mode: 'boolean' }).notNull().default(false),
+    /** For a grade in a teacher's column: when it last changed, and when the platform took it. */
+    updatedAt: timestamp('updated_at'),
+    syncedAt: timestamp('synced_at'),
   },
   (t) => [
     index('grades_class_date_idx').on(t.classId, t.date),
     uniqueIndex('grades_session_student_idx').on(t.sessionId, t.studentId),
+    uniqueIndex('grades_column_student_idx').on(t.columnId, t.studentId),
   ],
+);
+
+/**
+ * A journal column without a lesson (PLAN.md 5.1; stage 4, W9): a test on paper, oral answers. Kept
+ * on the computer where it was made and exchanged with the platform both ways, the newer winning.
+ */
+export const journalColumns = sqliteTable(
+  'journal_columns',
+  {
+    id: id(),
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id),
+    /** `YYYY-MM-DD`. */
+    date: text('date').notNull(),
+    title: text('title').notNull(),
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+    deletedAt: timestamp('deleted_at'),
+    syncedAt: timestamp('synced_at'),
+  },
+  (t) => [index('journal_columns_class_idx').on(t.classId, t.date)],
 );
 
 /**
@@ -567,6 +598,7 @@ export const libraryReports = sqliteTable(
 
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  journalColumns,
   libraryReports,
   programs,
   authoredLessons,

@@ -781,5 +781,16 @@
   "library.kind.lesson": "dars",
   "library.kind.program": "dastur",
   "library.hide": "Kutubxonadan yashirish",
-  "library.keep": "Qoldirish"
+  "library.keep": "Qoldirish",
+  "journal.column.add": "Darssiz ustun",
+  "journal.column.date": "Sana",
+  "journal.column.title": "Nimani baholaymiz",
+  "journal.column.example": "Nazorat ishi, og‘zaki javob…",
+  "journal.column.create": "Ustun qo‘shish",
+  "journal.column.delete": "Ustunni o‘chirish",
+  "journal.column.deleteConfirm": "«{title}» ustunini baholari bilan o‘chirasizmi?",
+  "journal.keys": "Katakni bosing va yozing: 2–5 — baho, «н» — kelmagan (darssiz ustunda), Backspace — o‘chirish, «к» yoki ikki marta bosish — izoh, strelkalar va Enter — kataklar bo‘ylab.",
+  "journal.note": "Bahoga izoh (bo‘sh — olib tashlash):",
+  "journal.running": "Dars hali davom etmoqda: baholar — undan keyin.",
+  "journal.notThere": "O‘quvchi bu darsda bo‘lmagan."
 }

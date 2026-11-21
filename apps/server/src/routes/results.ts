@@ -6,11 +6,22 @@ import {
   LocaleSchema,
   SetGradesSchema,
   SetPracticeMarksSchema,
+  CreateJournalColumnSchema,
+  JournalSyncSchema,
+  SetJournalCellSchema,
+  type JournalSync,
   type Journal,
   type SessionResults,
   type Teacher,
 } from '@sinf/shared';
-import { requireClass, requireSessionClass } from '../auth/access.js';
+import { requireClass, requireDevice, requireSessionClass } from '../auth/access.js';
+import {
+  applyJournal,
+  createColumn,
+  deleteColumn,
+  journalOfClasses,
+  setCell,
+} from '../services/journal.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
 import { notFound } from '../errors.js';
@@ -171,6 +182,77 @@ export const resultRoutes: FastifyPluginCallback = (app, _opts, done) => {
     if (!journal) throw notFound('Class not found');
     return journal;
   });
+
+  // ---------- the journal by hand (W9)
+
+  const journalOf = (classId: string): Journal => {
+    const journal = classJournal(db, content, classId);
+    if (!journal) throw notFound('Class not found');
+    return journal;
+  };
+
+  /** A column without a lesson: a test on paper, oral answers. */
+  app.post('/journal/:classId/columns', { preHandler: requireTeacher }, (request): Journal => {
+    const { classId } = ClassParams.parse(request.params);
+    const teacher = request.teacher as Teacher;
+    requireClass(db, teacher, classId);
+    createColumn(db, classId, teacher.id, CreateJournalColumnSchema.parse(request.body));
+    void app.sync?.push();
+    return journalOf(classId);
+  });
+
+  app.delete(
+    '/journal/:classId/columns/:columnId',
+    { preHandler: requireTeacher },
+    (request): Journal => {
+      const { classId, columnId } = z
+        .object({ classId: z.string().min(1), columnId: z.string().min(1) })
+        .parse(request.params);
+      requireClass(db, request.teacher as Teacher, classId);
+      deleteColumn(db, classId, columnId);
+      void app.sync?.push();
+      return journalOf(classId);
+    },
+  );
+
+  /** One cell: a grade, "н" in a column without a lesson, a note. */
+  app.put('/journal/:classId/cell', { preHandler: requireTeacher }, (request): Journal => {
+    const { classId } = ClassParams.parse(request.params);
+    requireClass(db, request.teacher as Teacher, classId);
+    setCell(db, content, classId, SetJournalCellSchema.parse(request.body));
+    void app.sync?.push();
+    return journalOf(classId);
+  });
+
+  // ---------- a school computer and the platform: the teacher's columns (ADR-011, W9)
+
+  const schoolClasses = (schoolId: string): string[] =>
+    db
+      .select({ id: schema.classes.id })
+      .from(schema.classes)
+      .where(eq(schema.classes.schoolId, schoolId))
+      .all()
+      .map((c) => c.id);
+
+  app.get('/sync/journal', async (request): Promise<JournalSync> => {
+    const device = await requireDevice(db, request.headers.authorization);
+    return journalOfClasses(db, schoolClasses(device.schoolId));
+  });
+
+  app.post(
+    '/sync/journal',
+    { bodyLimit: 8 * 1024 * 1024 },
+    async (request): Promise<{ applied: number }> => {
+      const device = await requireDevice(db, request.headers.authorization);
+      const body = JournalSyncSchema.parse(request.body);
+      const applied = applyJournal(db, body, new Set(schoolClasses(device.schoolId)), false);
+      request.log.info(
+        { columns: body.columns.length, grades: body.grades.length, applied },
+        'journal received',
+      );
+      return { applied };
+    },
+  );
 
   app.get('/journal/:classId/export.xlsx', { preHandler: requireTeacher }, (request, reply) => {
     const { classId } = ClassParams.parse(request.params);

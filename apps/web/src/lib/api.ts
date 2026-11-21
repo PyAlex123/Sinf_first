@@ -61,6 +61,7 @@ import {
   type UpdateAuthoredLesson,
   type UpdateProgram,
   type LibraryKind,
+  type SetJournalCell,
 } from '@sinf/shared';
 import { z } from 'zod';
 
@@ -215,6 +216,20 @@ export const api = {
   /** A plain link: the browser downloads the practice file handed in. */
   practiceFileUrl: (sessionId: string, studentId: string) =>
     `/api/sessions/${encodeURIComponent(sessionId)}/practice/${encodeURIComponent(studentId)}/file`,
+  /** The journal by hand (W9): a column without a lesson, one cell. */
+  addJournalColumn: (classId: string, date: string, title: string) =>
+    request('POST', `/api/journal/${encodeURIComponent(classId)}/columns`, JournalSchema, {
+      date,
+      title,
+    }),
+  deleteJournalColumn: (classId: string, columnId: string) =>
+    request(
+      'DELETE',
+      `/api/journal/${encodeURIComponent(classId)}/columns/${encodeURIComponent(columnId)}`,
+      JournalSchema,
+    ),
+  setJournalCell: (classId: string, body: SetJournalCell) =>
+    request('PUT', `/api/journal/${encodeURIComponent(classId)}/cell`, JournalSchema, body),
   journal: (classId: string) =>
     request('GET', `/api/journal/${encodeURIComponent(classId)}`, JournalSchema),
   /** A plain link, not a request: the browser downloads the file itself. */

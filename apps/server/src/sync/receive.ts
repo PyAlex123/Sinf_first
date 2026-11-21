@@ -203,10 +203,17 @@ export function receiveLessonBundle(
             value: row.value,
             source: row.source,
             createdAt: row.at,
+            comment: row.comment ?? null,
           })
           .onConflictDoUpdate({
             target: [schema.grades.sessionId, schema.grades.studentId],
-            set: { value: row.value, source: row.source, stars: row.stars, createdAt: row.at },
+            set: {
+              value: row.value,
+              source: row.source,
+              stars: row.stars,
+              createdAt: row.at,
+              ...(row.comment !== undefined ? { comment: row.comment } : {}),
+            },
           })
           .run();
       }

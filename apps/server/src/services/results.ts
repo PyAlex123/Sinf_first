@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import {
   DEFAULT_GRADE_THRESHOLDS,
   gradeFor,
@@ -336,6 +336,41 @@ export function classJournal(db: Db, content: ContentStore, classId: string): Jo
     .filter((s) => (s.isActive && !s.isVirtual) || seen.has(s.id))
     .sort(byStudentName);
 
+  // The teacher's own columns (W9) and their grades.
+  const manual = db
+    .select()
+    .from(schema.journalColumns)
+    .where(and(eq(schema.journalColumns.classId, classId), isNull(schema.journalColumns.deletedAt)))
+    .all();
+  const manualGrades = manual.length
+    ? db
+        .select()
+        .from(schema.grades)
+        .where(
+          inArray(
+            schema.grades.columnId,
+            manual.map((c) => c.id),
+          ),
+        )
+        .all()
+    : [];
+  const comments = new Map(
+    rows.grades.filter((g) => g.comment).map((g) => [`${g.sessionId}:${g.studentId}`, g.comment]),
+  );
+
+  type Column =
+    | { kind: 'lesson'; date: string; at: string; result: SessionResults }
+    | { kind: 'manual'; date: string; at: string; column: (typeof manual)[number] };
+  const columns: Column[] = [
+    ...perSession.map((r): Column => ({
+      kind: 'lesson',
+      date: r.date,
+      at: r.startedAt,
+      result: r,
+    })),
+    ...manual.map((c): Column => ({ kind: 'manual', date: c.date, at: c.createdAt, column: c })),
+  ].sort((a, b) => a.date.localeCompare(b.date) || a.at.localeCompare(b.at));
+
   return {
     class: {
       id: cls.id,
@@ -343,25 +378,53 @@ export function classJournal(db: Db, content: ContentStore, classId: string): Jo
       starsToGrade: cls.settings.starsToGrade,
       thresholds: cls.settings.gradeThresholds ?? DEFAULT_GRADE_THRESHOLDS,
     },
-    lessons: perSession.map((r) => ({
-      sessionId: r.sessionId,
-      lessonId: r.lessonId,
-      lessonTitle: r.lessonTitle,
-      date: r.date,
-    })),
+    lessons: columns.map((c) =>
+      c.kind === 'lesson'
+        ? {
+            kind: 'lesson' as const,
+            sessionId: c.result.sessionId,
+            columnId: null,
+            lessonId: c.result.lessonId,
+            lessonTitle: c.result.lessonTitle,
+            date: c.date,
+          }
+        : {
+            kind: 'manual' as const,
+            sessionId: null,
+            columnId: c.column.id,
+            lessonId: null,
+            lessonTitle: c.column.title,
+            date: c.date,
+          },
+    ),
     students: listed.map((student) => ({
       id: student.id,
       name: fullName(student),
       isActive: student.isActive,
       isVirtual: student.isVirtual,
-      cells: perSession.map((r): JournalCell | null => {
-        const row = r.rows.find((x) => x.studentId === student.id);
+      cells: columns.map((c): JournalCell | null => {
+        if (c.kind === 'manual') {
+          // A column without a lesson is for everyone on the list: an empty cell waits for a grade.
+          const g = manualGrades.find(
+            (x) => x.columnId === c.column.id && x.studentId === student.id,
+          );
+          const value = g?.value != null ? GradeValueSchema.safeParse(g.value) : null;
+          return {
+            present: !g?.absent,
+            stars: 0,
+            grade: value?.success ? value.data : null,
+            confirmed: true,
+            comment: g?.comment ?? null,
+          };
+        }
+        const row = c.result.rows.find((x) => x.studentId === student.id);
         return row
           ? {
               present: row.present,
               stars: row.totalStars,
               grade: row.grade,
               confirmed: row.gradeConfirmed,
+              comment: comments.get(`${c.result.sessionId}:${student.id}`) ?? null,
             }
           : null;
       }),
@@ -403,7 +466,14 @@ export function setSessionGrades(
         eq(schema.grades.studentId, g.studentId),
       );
       if (g.value === null) {
-        tx.delete(schema.grades).where(where).run();
+        // A note stays without its grade (W9); a row with neither goes.
+        const kept = tx
+          .select({ comment: schema.grades.comment })
+          .from(schema.grades)
+          .where(where)
+          .get();
+        if (kept?.comment) tx.update(schema.grades).set({ value: null }).where(where).run();
+        else tx.delete(schema.grades).where(where).run();
         continue;
       }
       const source = g.value === row.suggestedGrade ? 'session' : 'manual';

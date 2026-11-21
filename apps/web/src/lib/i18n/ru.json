@@ -808,5 +808,16 @@
   "library.kind.lesson": "урок",
   "library.kind.program": "программа",
   "library.hide": "Скрыть из библиотеки",
-  "library.keep": "Оставить"
+  "library.keep": "Оставить",
+  "journal.column.add": "Столбец без урока",
+  "journal.column.date": "Дата",
+  "journal.column.title": "Что оцениваем",
+  "journal.column.example": "Контрольная, устный ответ…",
+  "journal.column.create": "Добавить столбец",
+  "journal.column.delete": "Удалить столбец",
+  "journal.column.deleteConfirm": "Удалить столбец «{title}» вместе с его оценками?",
+  "journal.keys": "Щёлкните клетку и печатайте: 2–5 — оценка, «н» — не был (в столбце без урока), Backspace — стереть, «к» или двойной щелчок — комментарий, стрелки и Enter — по клеткам.",
+  "journal.note": "Комментарий к оценке (пусто — убрать):",
+  "journal.running": "Урок ещё идёт: оценки — после него.",
+  "journal.notThere": "Ученика не было на этом уроке."
 }

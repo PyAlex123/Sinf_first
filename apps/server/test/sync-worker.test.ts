@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
+  JournalSchema,
   ClassProgramSchema,
   AssetUploadResponseSchema,
   AuthoredLessonListResponseSchema,
@@ -636,6 +637,64 @@ describe('a class’s programme coming down (W7)', () => {
     );
     expect(here.program?.title).toBe('Год 1А');
     expect(here.next?.lessonId).toBe('g10');
+  });
+});
+
+describe('the journal’s own columns, both ways (W9)', () => {
+  it('a grade typed at school reaches the website, and one typed at home comes back', async () => {
+    await worker.pull();
+    const cookie = await teacherCookie();
+    const made = JournalSchema.parse(
+      (
+        await school.inject({
+          method: 'POST',
+          url: `/api/journal/${DEMO.classId}/columns`,
+          headers: { cookie },
+          payload: { date: '2026-11-20', title: 'Устно' },
+        })
+      ).json(),
+    );
+    const columnId = made.lessons[0]?.columnId ?? '';
+    await school.inject({
+      method: 'PUT',
+      url: `/api/journal/${DEMO.classId}/cell`,
+      headers: { cookie },
+      payload: { column: { kind: 'manual', columnId }, studentId: 'student-01', value: 4 },
+    });
+    await worker.push();
+    const cloudJournal = async () =>
+      JournalSchema.parse(
+        (
+          await cloud.app.inject({
+            method: 'GET',
+            url: `/api/journal/${DEMO.classId}`,
+            headers: { cookie: cloudCookie },
+          })
+        ).json(),
+      );
+    const there = await cloudJournal();
+    expect(there.lessons.map((l) => l.lessonTitle)).toEqual(['Устно']);
+    expect(there.students.find((s) => s.id === 'student-01')?.cells[0]?.grade).toBe(4);
+
+    // At home the teacher changes it on the website.
+    await new Promise((r) => setTimeout(r, 5));
+    await cloud.app.inject({
+      method: 'PUT',
+      url: `/api/journal/${DEMO.classId}/cell`,
+      headers: { cookie: cloudCookie },
+      payload: { column: { kind: 'manual', columnId }, studentId: 'student-01', value: 5 },
+    });
+    await worker.pull();
+    const here = JournalSchema.parse(
+      (
+        await school.inject({
+          method: 'GET',
+          url: `/api/journal/${DEMO.classId}`,
+          headers: { cookie },
+        })
+      ).json(),
+    );
+    expect(here.students.find((s) => s.id === 'student-01')?.cells[0]?.grade).toBe(5);
   });
 });
 

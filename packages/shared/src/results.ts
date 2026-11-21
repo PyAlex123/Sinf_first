@@ -227,16 +227,26 @@ export const JournalCellSchema = z.strictObject({
   grade: GradeValueSchema.nullable(),
   /** False while `grade` is only the calculated suggestion (H10). */
   confirmed: z.boolean(),
+  /** The teacher's note on this grade (W9). */
+  comment: z.string().nullable(),
 });
 export type JournalCell = z.infer<typeof JournalCellSchema>;
 
 export const JournalSchema = z.strictObject({
   class: ResultClassSchema,
-  /** Ended lessons, oldest first: the columns. */
+  /**
+   * The columns, oldest first: ended lessons, and the teacher's own columns without a lesson (W9) —
+   * a test on paper, oral answers.
+   */
   lessons: z.array(
     z.strictObject({
-      sessionId: id,
-      lessonId: id,
+      kind: z.enum(['lesson', 'manual']),
+      /** The lesson's session; null for a column without a lesson. */
+      sessionId: id.nullable(),
+      /** The teacher's column; null for a lesson. */
+      columnId: id.nullable(),
+      lessonId: id.nullable(),
+      /** The lesson's title, or the column's ("Контрольная"). */
       lessonTitle: z.string().min(1),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     }),
@@ -268,3 +278,30 @@ export type SetGrades = z.infer<typeof SetGradesSchema>;
 
 export const UpdateClassSettingsSchema = z.strictObject({ starsToGrade: z.boolean() });
 export type UpdateClassSettings = z.infer<typeof UpdateClassSettingsSchema>;
+
+// ---------- the journal by hand (W9)
+
+const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/** A column without a lesson: a test on paper, oral answers, homework. */
+export const CreateJournalColumnSchema = z.strictObject({
+  date: dateString,
+  title: z.string().trim().min(1).max(60),
+});
+export type CreateJournalColumn = z.infer<typeof CreateJournalColumnSchema>;
+
+/**
+ * One cell set by hand: a grade 2–5 or none, "н" (absent) in a column without a lesson, a note.
+ * A field left out is left as it is.
+ */
+export const SetJournalCellSchema = z.strictObject({
+  column: z.discriminatedUnion('kind', [
+    z.strictObject({ kind: z.literal('lesson'), sessionId: id }),
+    z.strictObject({ kind: z.literal('manual'), columnId: id }),
+  ]),
+  studentId: id,
+  value: GradeValueSchema.nullable().optional(),
+  absent: z.boolean().optional(),
+  comment: z.string().trim().max(200).nullable().optional(),
+});
+export type SetJournalCell = z.infer<typeof SetJournalCellSchema>;
