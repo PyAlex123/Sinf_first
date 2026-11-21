@@ -231,6 +231,11 @@
     padding: var(--space-6);
     box-shadow: var(--shadow-lg);
   }
+  /* A centred slide (no picture) keeps its points together: the list is centred, its lines are not. */
+  .lesson-root :global(.slide.text.wide .s-list) {
+    display: inline-block;
+    text-align: left;
+  }
   .lesson-root :global(.win .go) {
     min-height: var(--tap);
     border-radius: var(--radius-lg);

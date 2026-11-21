@@ -319,6 +319,27 @@ h1 { color: navy; }
 GOOD_TXT = "Моя школа\nНаша школа стоит в центре города.\nВ ней учатся шестьсот учеников.\nКонец.\n"
 
 
+def lesson_pptx(path):
+    """A teacher's presentation for the lesson builder's import (stage 6, B4)."""
+    prs = Presentation()
+    s1 = prs.slides.add_slide(prs.slide_layouts[0])
+    s1.shapes.title.text = "Компьютер и его части"
+    s1.placeholders[1].text = "Урок 1"
+    s2 = prs.slides.add_slide(prs.slide_layouts[1])
+    s2.shapes.title.text = "Устройства ввода"
+    body = s2.placeholders[1].text_frame
+    body.text = "Клавиатура"
+    for point in ("Мышь", "Микрофон", "Сканер"):
+        body.add_paragraph().text = point
+    s3 = prs.slides.add_slide(prs.slide_layouts[5])
+    s3.shapes.title.text = "Монитор"
+    s3.shapes.add_picture(io.BytesIO(png(64, 40, (40, 90, 200))), Inches(1), Inches(2), Inches(4), Inches(2.5))
+    s3.shapes.add_textbox(Inches(5.5), Inches(2), Inches(3), Inches(1)).text_frame.text = "Показывает изображение"
+    s4 = prs.slides.add_slide(prs.slide_layouts[6])
+    s4.shapes.add_picture(io.BytesIO(png(48, 48, (30, 160, 80))), Inches(2), Inches(1), Inches(4), Inches(4))
+    prs.save(path)
+
+
 def main():
     for sub in ("docx", "xlsx", "pptx", "html", "txt"):
         (OUT / sub).mkdir(parents=True, exist_ok=True)
@@ -334,6 +355,7 @@ def main():
     good_pptx(OUT / "pptx" / "good.pptx")
     bad_pptx(OUT / "pptx" / "bad.pptx")
     reordered_pptx(OUT / "pptx" / "reordered.pptx")
+    lesson_pptx(OUT / "pptx" / "lesson.pptx")
     (OUT / "html" / "good.html").write_text(GOOD_HTML, encoding="utf-8")
     (OUT / "html" / "bad.html").write_text(BAD_HTML, encoding="utf-8")
     (OUT / "html" / "style.css").write_text(STYLE_CSS, encoding="utf-8")

@@ -150,3 +150,4 @@ export function checkFile(
   );
   return { file: 'ok', results, autoScore, autoMax, ms: now() - started };
 }
+export { readSlides, type ReadSlide } from './slides.js';

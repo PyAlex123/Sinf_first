@@ -35,7 +35,10 @@ const check = (name, pass, extra = '') => {
 
   await page.reload();
   await page.waitForSelector('text=I’m a teacher');
-  check('после перезагрузки язык остался', (await page.locator('html').getAttribute('lang')) === 'en');
+  check(
+    'после перезагрузки язык остался',
+    (await page.locator('html').getAttribute('lang')) === 'en',
+  );
 
   await page.goto(`${BASE}/teacher/login`);
   await page.waitForSelector('h1:has-text("Teacher sign-in")');
@@ -57,11 +60,7 @@ const check = (name, pass, extra = '') => {
     const res = await fetch(href);
     return `${res.status} ${href} ${res.headers.get('content-disposition') ?? ''}`;
   });
-  check(
-    'выгрузка журнала по-английски',
-    /^200 .*lang=en .*gradebook/.test(exportName),
-    exportName,
-  );
+  check('выгрузка журнала по-английски', /^200 .*lang=en .*gradebook/.test(exportName), exportName);
 
   // Back to Russian with one click; the dictionary is already there.
   await page.goto(`${BASE}/`);
