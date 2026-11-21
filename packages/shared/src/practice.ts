@@ -213,12 +213,91 @@ export const TxtCheckSchema = z.discriminatedUnion('type', [
   }),
 ]);
 
+/** A name in a program: `blink`, `Serial.begin`, `total_sum`. */
+const identifier = z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/);
+
+/**
+ * A Scratch 3 project (`.sb3`; stage 6, B5): a ZIP with `project.json`, whose sprites hold their
+ * scripts as blocks named by opcode ("event_whenflagclicked", "control_repeat").
+ */
+export const Sb3CheckSchema = z.discriminatedUnion('type', [
+  /** Sprites besides the stage. */
+  z.strictObject({ type: z.literal('sb3.sprites'), min: count.default(1) }),
+  /** A script starts when the green flag is clicked. */
+  z.strictObject({ type: z.literal('sb3.flag') }),
+  /** "repeat", "forever" or "repeat until". */
+  z.strictObject({ type: z.literal('sb3.loop') }),
+  /** "if", "if … else" or "wait until". */
+  z.strictObject({ type: z.literal('sb3.condition') }),
+  /** Variables or lists the child made. */
+  z.strictObject({ type: z.literal('sb3.variable'), min: count.default(1) }),
+  /** A sound is played. */
+  z.strictObject({ type: z.literal('sb3.sound') }),
+  /** Blocks in scripts, the menus inside blocks not counted. */
+  z.strictObject({ type: z.literal('sb3.blocks'), min: count }),
+  /** Any block by its opcode, for what the ready-made checks do not name. */
+  z.strictObject({
+    type: z.literal('sb3.block'),
+    opcode: z.string().regex(/^[a-z0-9]+_[a-z0-9_]+$/),
+    min: count.default(1),
+  }),
+]);
+
+/** An Arduino sketch (`.ino`; B5): read as code, never compiled here. */
+export const InoCheckSchema = z.discriminatedUnion('type', [
+  /** `void setup()` and `void loop()` are both there. */
+  z.strictObject({ type: z.literal('ino.structure') }),
+  /** A function is called: `pinMode`, `digitalWrite`, `delay`, `Serial.begin`. */
+  z.strictObject({ type: z.literal('ino.call'), name: identifier, min: count.default(1) }),
+  /** A pin is used by pinMode, digitalWrite, digitalRead, analogRead or analogWrite. */
+  z.strictObject({
+    type: z.literal('ino.pin'),
+    pin: z.string().regex(/^(?:[0-9]{1,2}|A[0-9]{1,2}|LED_BUILTIN)$/),
+  }),
+  /** Brackets and quotes are closed. */
+  z.strictObject({ type: z.literal('ino.balanced') }),
+]);
+
+export const PY_CONSTRUCTS = [
+  'for',
+  'while',
+  'if',
+  'def',
+  'return',
+  'import',
+  'input',
+  'print',
+  'list',
+  'try',
+] as const;
+
+/** A Python program (`.py`; B5): read, not run (ADR-016, addendum B5). */
+export const PyCheckSchema = z.discriminatedUnion('type', [
+  /** A function is declared: this one, or any. */
+  z.strictObject({ type: z.literal('py.function'), name: identifier.optional() }),
+  /** A variable gets a value. */
+  z.strictObject({ type: z.literal('py.variable'), name: identifier }),
+  /** The program uses a loop, a condition, input… */
+  z.strictObject({ type: z.literal('py.uses'), construct: z.enum(PY_CONSTRUCTS) }),
+  /** It prints this text (in a string given to print). */
+  z.strictObject({
+    type: z.literal('py.prints'),
+    text,
+    caseSensitive: z.boolean().default(false),
+  }),
+  /** Brackets and quotes closed, a block after every colon, indentation that lines up. */
+  z.strictObject({ type: z.literal('py.syntax') }),
+]);
+
 export const PracticeCheckSchema = z.union([
   DocxCheckSchema,
   XlsxCheckSchema,
   PptxCheckSchema,
   HtmlCheckSchema,
   TxtCheckSchema,
+  Sb3CheckSchema,
+  InoCheckSchema,
+  PyCheckSchema,
 ]);
 export type PracticeCheck = z.infer<typeof PracticeCheckSchema>;
 
@@ -251,6 +330,9 @@ export const PRACTICE_APPS = [
   'notepad',
   'paint',
   'browser',
+  'scratch',
+  'arduino',
+  'python',
 ] as const;
 export const PracticeAppSchema = z.enum(PRACTICE_APPS);
 export type PracticeApp = z.infer<typeof PracticeAppSchema>;
@@ -263,6 +345,9 @@ export const PRACTICE_FILE_EXTENSIONS: Record<PracticeApp, readonly string[]> = 
   notepad: ['txt', 'html', 'htm', 'css'],
   paint: ['png', 'jpg', 'jpeg', 'bmp'],
   browser: ['html', 'htm'],
+  scratch: ['sb3'],
+  arduino: ['ino'],
+  python: ['py'],
 };
 
 export const PracticeTaskSchema = z

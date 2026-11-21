@@ -47,7 +47,8 @@ internal sealed class WorkFolderSync : IAsyncDisposable
         poll = new System.Threading.Timer(_ => _ = SyncAsync(), null, Timeout.Infinite, Timeout.Infinite);
         watcher = new FileSystemWatcher(Folder)
         {
-            IncludeSubdirectories = false,
+            // Only for Arduino's sketch folders (B5); nothing else is ever kept in a subfolder.
+            IncludeSubdirectories = true,
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
         };
         FileSystemEventHandler later = (_, _) => Later();
@@ -79,8 +80,45 @@ internal sealed class WorkFolderSync : IAsyncDisposable
     /// <summary>A file of this folder by its name — never a path from outside it.</summary>
     public string? PathOf(string name)
     {
-        var path = Path.GetFullPath(Path.Combine(Folder, Path.GetFileName(name)));
+        var file = Path.GetFileName(name);
+        // An Arduino sketch already in its folder is read and written there (B5).
+        if (WorkFolder.SketchFolder(file) is { } sketch && Directory.Exists(Path.Combine(Folder, sketch)))
+        {
+            return Path.Combine(Folder, sketch, file);
+        }
+
+        var path = Path.GetFullPath(Path.Combine(Folder, file));
         return path.StartsWith(Folder, StringComparison.OrdinalIgnoreCase) ? path : null;
+    }
+
+    /// <summary>
+    /// Before the Arduino IDE opens a sketch, the file goes into a folder of its own name, so the IDE
+    /// does not stop the child with "move the file?" (B5). The path of the sketch, or null.
+    /// </summary>
+    public string? IntoSketchFolder(string name)
+    {
+        var file = Path.GetFileName(name);
+        if (WorkFolder.SketchFolder(file) is not { } sketch)
+        {
+            return null;
+        }
+
+        var target = Path.Combine(Folder, sketch, file);
+        var loose = Path.Combine(Folder, file);
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(Folder, sketch));
+            if (File.Exists(loose))
+            {
+                File.Move(loose, target, overwrite: true);
+            }
+        }
+        catch (IOException)
+        {
+            return File.Exists(loose) ? loose : null;
+        }
+
+        return File.Exists(target) ? target : null;
     }
 
     /// <summary>One exchange: what changed here goes, what is newer there comes (WorkFolder.Plan).</summary>
@@ -168,24 +206,39 @@ internal sealed class WorkFolderSync : IAsyncDisposable
         foreach (var path in Directory.EnumerateFiles(Folder))
         {
             var name = Path.GetFileName(path);
-            if (!WorkFolder.IsWork(name))
+            if (WorkFolder.IsWork(name))
             {
-                continue;
+                Read(path, name, files);
             }
+        }
 
-            try
+        // Arduino sketches in their folders (B5): "blink\blink.ino" is the child's "blink.ino".
+        foreach (var dir in Directory.EnumerateDirectories(Folder))
+        {
+            var name = Path.GetFileName(dir) + ".ino";
+            var path = Path.Combine(dir, name);
+            if (WorkFolder.SketchFolder(name) is not null && File.Exists(path))
             {
-                // Word and Excel keep a file open while it is shown; reading it beside them is allowed.
-                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-                files.Add(new LocalFile(name, WorkFolder.Sha256Of(stream), stream.Length));
-            }
-            catch (IOException)
-            {
-                // Being written right now: the next exchange takes it.
+                files.RemoveAll(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
+                Read(path, name, files);
             }
         }
 
         return files;
+    }
+
+    private static void Read(string path, string name, List<LocalFile> files)
+    {
+        try
+        {
+            // Word and Excel keep a file open while it is shown; reading it beside them is allowed.
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            files.Add(new LocalFile(name, WorkFolder.Sha256Of(stream), stream.Length));
+        }
+        catch (IOException)
+        {
+            // Being written right now: the next exchange takes it.
+        }
     }
 
     private async Task DownloadAsync(FolderAction.Download d)

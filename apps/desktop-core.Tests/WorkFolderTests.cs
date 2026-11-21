@@ -80,4 +80,17 @@ public class WorkFolderTests
         using var stream = new MemoryStream("abc"u8.ToArray());
         Assert.Equal("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", WorkFolder.Sha256Of(stream));
     }
+
+    [Theory]
+    [InlineData("blink.ino", "blink")]
+    [InlineData("Светофор.INO", "Светофор")]
+    [InlineData("blink.py", null)]
+    [InlineData(".ino", null)]
+    [InlineData("...ino", null)]
+    [InlineData("~$blink.ino", null)]
+    [InlineData(@"..\blink.ino", null)]
+    public void An_arduino_sketch_lives_in_a_folder_of_its_name(string name, string? folder)
+    {
+        Assert.Equal(folder, WorkFolder.SketchFolder(name));
+    }
 }

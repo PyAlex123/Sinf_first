@@ -7,7 +7,10 @@ import {
 } from '@sinf/shared';
 import { loadDocx, runDocx, type DocxModel } from './docx.js';
 import { loadCss, loadHtml, runHtml, type HtmlModel } from './html.js';
+import { loadIno, runIno, type InoModel } from './ino.js';
 import { loadPptx, runPptx, type PptxModel } from './pptx.js';
+import { loadPy, runPy, type PyModel } from './py.js';
+import { loadSb3, runSb3, type Sb3Model } from './scratch.js';
 import { decodeText } from './text.js';
 import { runTxt } from './txt.js';
 import { unknown, type Verdict } from './verdict.js';
@@ -15,7 +18,7 @@ import { loadXlsx, runXlsx, type XlsxModel } from './xlsx.js';
 import { FileProblem } from './zip.js';
 
 /**
- * Practice file checkers (CLAUDE.md §4.7; ADR-003, ADR-016): a saved file and the task's criteria in,
+ * Practice file checkers (CLAUDE.md §4.7; ADR-003, ADR-016; sb3, ino and py — stage 6, B5): a saved file and the task's criteria in,
  * a verdict per criterion out. The same code runs in the browser, inside the classroom app's
  * WebView2 and on the server; no network, no Office.
  *
@@ -30,8 +33,10 @@ export { parseCss } from './css.js';
 export { formatKind } from './xlsx.js';
 export { readTables, type ReadTable } from './tables.js';
 export { FileProblem } from './zip.js';
+export { readSlides, type ReadSlide } from './slides.js';
+export { syntaxProblem } from './py.js';
 
-type Family = 'docx' | 'xlsx' | 'pptx' | 'html' | 'css' | 'txt';
+type Family = 'docx' | 'xlsx' | 'pptx' | 'html' | 'css' | 'txt' | 'sb3' | 'ino' | 'py';
 
 function familyOfFile(name: string): Family | null {
   const ext = extensionOf(name);
@@ -40,14 +45,18 @@ function familyOfFile(name: string): Family | null {
   if (ext === 'pptx') return 'pptx';
   if (ext === 'html' || ext === 'htm') return 'html';
   if (ext === 'css') return 'css';
-  if (ext === 'txt' || ext === 'csv' || ext === 'py' || ext === 'ino') return 'txt';
+  if (ext === 'sb3') return 'sb3';
+  if (ext === 'ino') return 'ino';
+  if (ext === 'py') return 'py';
+  if (ext === 'txt' || ext === 'csv') return 'txt';
   return null;
 }
 
 /** Which kinds of file a check can look at. Text checks work on any text file. */
 function fits(check: PracticeCheck, family: Family): boolean {
   const prefix = check.type.split('.')[0];
-  if (prefix === 'txt') return family === 'txt' || family === 'html' || family === 'css';
+  if (prefix === 'txt')
+    return family !== 'docx' && family !== 'xlsx' && family !== 'pptx' && family !== 'sb3';
   if (prefix === 'html') return family === 'html';
   if (prefix === 'css') return family === 'html' || family === 'css';
   return prefix === family;
@@ -58,6 +67,9 @@ interface Loaded {
   xlsx?: XlsxModel;
   pptx?: PptxModel;
   html?: HtmlModel;
+  sb3?: Sb3Model;
+  ino?: InoModel;
+  py?: PyModel;
   text?: string;
 }
 
@@ -79,6 +91,16 @@ function load(bytes: Uint8Array, family: Family): Loaded {
     }
     case 'txt':
       return { text: decodeText(bytes) };
+    case 'sb3':
+      return { sb3: loadSb3(bytes) };
+    case 'ino': {
+      const text = decodeText(bytes);
+      return { text, ino: loadIno(text) };
+    }
+    case 'py': {
+      const text = decodeText(bytes);
+      return { text, py: loadPy(text) };
+    }
   }
 }
 
@@ -93,6 +115,12 @@ function run(loaded: Loaded, check: PracticeCheck): Verdict {
   if ((t.startsWith('html.') || t.startsWith('css.')) && loaded.html) {
     return runHtml(loaded.html, check as Parameters<typeof runHtml>[1]);
   }
+  if (t.startsWith('sb3.') && loaded.sb3)
+    return runSb3(loaded.sb3, check as Parameters<typeof runSb3>[1]);
+  if (t.startsWith('ino.') && loaded.ino)
+    return runIno(loaded.ino, check as Parameters<typeof runIno>[1]);
+  if (t.startsWith('py.') && loaded.py)
+    return runPy(loaded.py, check as Parameters<typeof runPy>[1]);
   if (t.startsWith('txt.') && loaded.text !== undefined)
     return runTxt(loaded.text, check as Parameters<typeof runTxt>[1]);
   return unknown('эту проверку нельзя сделать для такого файла');
@@ -150,4 +178,3 @@ export function checkFile(
   );
   return { file: 'ok', results, autoScore, autoMax, ms: now() - started };
 }
-export { readSlides, type ReadSlide } from './slides.js';

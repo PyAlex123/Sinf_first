@@ -538,7 +538,7 @@ internal sealed class StudentForm : Form
         {
             if (fileName is not null)
             {
-                file = folder.PathOf(fileName);
+                file = id == "arduino" ? folder.IntoSketchFolder(fileName) : folder.PathOf(fileName);
             }
             else if (id == "paint")
             {
