@@ -8,6 +8,11 @@ import {
   SessionResponseSchema,
   type AuthoredLesson,
 } from '@sinf/shared';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { JoinResponseSchema, QuizResponseSchema, StudentFilesResponseSchema } from '@sinf/shared';
+import { REPO_ROOT } from '../src/config.js';
+import { schema } from '../src/db/index.js';
 import { loginTeacher, testApp, type TestApp } from './helpers.js';
 
 /** W1 (STAGE4.md): a teacher's own lesson in the database, played as an author's (ADR-019). */
@@ -262,5 +267,113 @@ describe('files of a lesson', () => {
       url: `/content/_assets/${'0'.repeat(64)}.png`,
     });
     expect(missing.statusCode).toBe(404);
+  });
+});
+
+describe('the quiz and the practice of a teacher’s lesson (W5)', () => {
+  it('asks only the finished quiz questions, and runs the practice as the sample does', async () => {
+    const template = readFileSync(
+      join(REPO_ROOT, 'content/proba-praktiki/templates/oformi-dokument.docx'),
+    );
+    const done = readFileSync(
+      join(REPO_ROOT, 'apps/server/test/fixtures/practice/oformi-dokument-done.docx'),
+    );
+    const up = await t.app.inject({
+      method: 'POST',
+      url: '/api/assets?ext=docx',
+      headers: { cookie, 'content-type': 'application/octet-stream' },
+      payload: template,
+    });
+    const asset = AssetUploadResponseSchema.parse(up.json());
+    const lesson = await create('Оформление');
+    const doc = structuredClone(lesson.doc);
+    doc.quiz = {
+      questions: [
+        {
+          text: 'Где стили?',
+          options: ['Главная', '', 'Вставка', 'Вид'],
+          correct: 2,
+          limitSec: 15,
+        },
+        { text: '', options: ['а', 'б', '', ''], correct: 0, limitSec: 20 },
+      ],
+    };
+    doc.practice = {
+      app: 'word',
+      fileName: 'Мой документ.docx',
+      template: `${asset.sha}.docx`,
+      criteria: [
+        {
+          id: 'h1',
+          kind: 'auto',
+          label: { ru: 'Заголовок', uz: 'Sarlavha' },
+          points: 2,
+          check: { type: 'docx.headings', level: 1, min: 1 },
+        },
+        { id: 'neat', kind: 'manual', label: { ru: 'Аккуратно', uz: 'Ozoda' }, points: 1 },
+      ],
+      showChecklist: true,
+    };
+    expect((await save(lesson, { doc })).statusCode).toBe(200);
+
+    const quiz = QuizResponseSchema.parse(
+      (await t.app.inject({ method: 'GET', url: `/api/lessons/${lesson.id}/quiz` })).json(),
+    ).quiz;
+    // The empty option is dropped and the right answer follows it; the unfinished question is not asked.
+    expect(quiz?.questions).toEqual([
+      {
+        text: 'Где стили?',
+        say: 'Где стили?',
+        options: [{ text: 'Главная' }, { text: 'Вставка' }, { text: 'Вид' }],
+        correct: 1,
+        limitSec: 15,
+      },
+    ]);
+
+    const session = SessionResponseSchema.parse(
+      (
+        await t.app.inject({
+          method: 'POST',
+          url: '/api/sessions',
+          headers: { cookie },
+          payload: { classId: 'class-1a', lessonId: lesson.id },
+        })
+      ).json(),
+    ).session;
+    const student = t.database.db
+      .select()
+      .from(schema.students)
+      .all()
+      .find((x) => x.id === 'student-01');
+    if (!student) throw new Error('no student');
+    const joined = JoinResponseSchema.parse(
+      (
+        await t.app.inject({
+          method: 'POST',
+          url: '/api/join',
+          payload: {
+            sessionId: session.id,
+            studentId: student.id,
+            code: student.codePublic.split('+'),
+          },
+        })
+      ).json(),
+    );
+    const headers = { 'x-session-id': session.id, 'x-participant-token': joined.token };
+    const files = StudentFilesResponseSchema.parse(
+      (await t.app.inject({ method: 'GET', url: '/api/my/files', headers })).json(),
+    ).files;
+    expect(files.map((f) => [f.name, f.size])).toEqual([['Мой документ.docx', template.length]]);
+
+    await t.app.inject({
+      method: 'PUT',
+      url: `/api/my/files?name=${encodeURIComponent('Мой документ.docx')}&base=${files[0]?.sha256 ?? ''}`,
+      headers: { ...headers, 'content-type': 'application/octet-stream' },
+      payload: done,
+    });
+    expect(t.app.sessions.getState(session.id)?.participants['student-01']?.check).toMatchObject({
+      passed: 1,
+      total: 1,
+    });
   });
 });

@@ -156,3 +156,11 @@ export function checksFor(app: PracticeApp): CheckSpec[] {
   const families = FAMILIES[app];
   return CHECKS.filter((c) => families.includes(c.type.split('.')[0] ?? ''));
 }
+
+/** What a page may ask of the practice task editor (lib/ui/PracticeTaskEditor.svelte). */
+export interface PracticeEditorHandle {
+  /** The sample task "Оформи документ" (PLAN.md 3.7). */
+  sample: () => void;
+  /** The task as JSON, for a lesson file; null while it is incomplete. */
+  taskJson: () => string | null;
+}

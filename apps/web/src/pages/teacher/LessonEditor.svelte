@@ -4,6 +4,11 @@
     defaultStage,
     newBlockId,
     questionProblem,
+    quizQuestionProblem,
+    PRACTICE_FILE_EXTENSIONS,
+    type AuthoredQuizQuestion,
+    type AssetExtension,
+    type PracticeTask,
     STAGE_KEYS,
     type AuthoredBlock,
     type AuthoredLesson,
@@ -23,6 +28,7 @@
   import Header from '../../lib/ui/Header.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
   import LessonPlayer from '../../player/LessonPlayer.svelte';
+  import PracticeTaskEditor from '../../lib/ui/PracticeTaskEditor.svelte';
 
   /**
    * The lesson constructor (PLAN.md 3.3; stage 4, W2; ADR-019): the stages on the lesson's 45
@@ -179,7 +185,70 @@
 
   function pickStage(key: StageKey): void {
     stageKey = key;
+    special = null;
     blockId = doc?.stages.find((s) => s.key === key)?.blocks[0]?.id ?? null;
+  }
+
+  // ---------- the practice task and the live quiz (W5)
+
+  /** The right-hand side shows a block, the practice task or the quiz. */
+  let special = $state<'practice' | 'quiz' | null>(null);
+  let templateBusy = $state(false);
+
+  /** The editor's task, kept with this lesson's template and check-list switch. */
+  function practiceChanged(task: PracticeTask | null): void {
+    if (!doc || !task) return;
+    const next: PracticeTask = {
+      ...task,
+      template: doc.practice?.template ?? null,
+      showChecklist: doc.practice?.showChecklist ?? true,
+    };
+    // The editor reports the same task when it opens: that is not a change to save.
+    if (JSON.stringify(next) !== JSON.stringify($state.snapshot(doc.practice))) doc.practice = next;
+  }
+
+  function removePractice(): void {
+    if (!doc || !confirm(t('editor.practice.removeConfirm'))) return;
+    doc.practice = null;
+    special = null;
+  }
+
+  async function pickTemplate(file: File | undefined): Promise<void> {
+    if (!file || !doc?.practice) return;
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!PRACTICE_FILE_EXTENSIONS[doc.practice.app].includes(ext)) {
+      error = t('editor.practice.wrongTemplate', {
+        kinds: PRACTICE_FILE_EXTENSIONS[doc.practice.app].map((e) => `.${e}`).join(', '),
+      });
+      return;
+    }
+    templateBusy = true;
+    error = null;
+    try {
+      const asset = await api.uploadAsset(file, ext as AssetExtension);
+      doc.practice.template = `${asset.sha}.${asset.ext}`;
+    } catch (e) {
+      error = e instanceof ApiError ? e.message : t('common.error');
+    } finally {
+      templateBusy = false;
+    }
+  }
+
+  function addQuizQuestion(): void {
+    if (!doc) return;
+    const fresh: AuthoredQuizQuestion = {
+      text: '',
+      options: ['', '', '', ''],
+      correct: 0,
+      limitSec: 20,
+    };
+    doc.quiz = { questions: [...(doc.quiz?.questions ?? []), fresh].slice(0, 20) };
+  }
+
+  function removeQuizQuestion(i: number): void {
+    if (!doc?.quiz) return;
+    const questions = doc.quiz.questions.filter((_, j) => j !== i);
+    doc.quiz = questions.length > 0 ? { questions } : null;
   }
 
   // ---------- blocks
@@ -512,7 +581,14 @@
                 ondrop={() => drop(b.id)}
                 data-block={b.id}
               >
-                <button type="button" class="pick" onclick={() => (blockId = b.id)}>
+                <button
+                  type="button"
+                  class="pick"
+                  onclick={() => {
+                    blockId = b.id;
+                    special = null;
+                  }}
+                >
                   {i + 1}. {blockLabel(b, i)}
                 </button>
                 <span class="tools">
@@ -559,10 +635,115 @@
             </label>
           </div>
           <p class="muted small">{t('editor.pdf.hint')}</p>
+          {#if stage.key === 'practice'}
+            <Button
+              size="sm"
+              variant={special === 'practice' ? 'primary' : 'secondary'}
+              onclick={() => (special = 'practice')}
+            >
+              {doc.practice ? t('editor.practice.open') : t('editor.practice.add')}
+            </Button>
+          {/if}
+          {#if stage.key === 'reflection'}
+            <Button
+              size="sm"
+              variant={special === 'quiz' ? 'primary' : 'secondary'}
+              onclick={() => (special = 'quiz')}
+            >
+              {t('editor.quiz.open', { count: doc.quiz?.questions.length ?? 0 })}
+            </Button>
+          {/if}
         </section>
 
         <section class="blockbox">
-          {#if block?.kind === 'slide'}
+          {#if special === 'practice'}
+            <h2>{t('editor.practice.title')}</h2>
+            <p class="muted small">{t('editor.practice.hint')}</p>
+            <PracticeTaskEditor initial={doc.practice} onChange={practiceChanged} />
+            {#if doc.practice}
+              <div class="template">
+                <span class="muted small">
+                  {doc.practice.template
+                    ? t('editor.practice.templateSet', { name: doc.practice.fileName })
+                    : t('editor.practice.noTemplate')}
+                </span>
+                <label class="file ghost">
+                  {templateBusy ? t('files.uploading') : t('editor.practice.uploadTemplate')}
+                  <input
+                    type="file"
+                    disabled={templateBusy}
+                    onchange={(e) => void pickTemplate(e.currentTarget.files?.[0])}
+                    data-field="template"
+                  />
+                </label>
+              </div>
+              <label class="check">
+                <input type="checkbox" bind:checked={doc.practice.showChecklist} />
+                {t('editor.practice.checklist')}
+              </label>
+              <Button size="sm" variant="ghost" onclick={removePractice}
+                >{t('editor.practice.remove')}</Button
+              >
+            {/if}
+          {:else if special === 'quiz'}
+            <h2>{t('editor.quiz.title')}</h2>
+            <p class="muted small">{t('editor.quiz.hint')}</p>
+            {#each doc.quiz?.questions ?? [] as q, i (i)}
+              {@const qp = quizQuestionProblem(q)}
+              <div class="quizq" data-quiz={i}>
+                <div class="qhead">
+                  <b>{t('editor.quiz.n', { n: i + 1 })}</b>
+                  <label class="inline">
+                    {t('editor.quiz.seconds')}
+                    <input type="number" min="5" max="120" bind:value={q.limitSec} />
+                  </label>
+                  <button
+                    type="button"
+                    class="x"
+                    aria-label={t('editor.quiz.remove')}
+                    onclick={() => removeQuizQuestion(i)}>×</button
+                  >
+                </div>
+                <input
+                  bind:value={q.text}
+                  maxlength="200"
+                  placeholder={t('editor.quiz.question')}
+                  data-field="quiz-text"
+                />
+                {#each [0, 1, 2, 3] as o (o)}
+                  <div class="option">
+                    <input
+                      type="radio"
+                      name={`quiz-${i}`}
+                      checked={q.correct === o}
+                      onchange={() => (q.correct = o)}
+                      aria-label={t('editor.correct')}
+                      data-quiz-correct={o}
+                    />
+                    <input
+                      value={q.options[o] ?? ''}
+                      oninput={(e) => {
+                        const opts = [...q.options];
+                        while (opts.length <= o) opts.push('');
+                        opts[o] = e.currentTarget.value;
+                        q.options = opts.slice(0, 4);
+                      }}
+                      maxlength="60"
+                      placeholder={t('editor.quiz.option', { n: o + 1 })}
+                      data-quiz-option={o}
+                    />
+                    <span></span>
+                  </div>
+                {/each}
+                {#if qp}<p class="warn">{t(`editor.quiz.problem.${qp}`)}</p>{/if}
+              </div>
+            {/each}
+            {#if (doc.quiz?.questions.length ?? 0) < 20}
+              <Button size="sm" variant="secondary" onclick={addQuizQuestion}
+                >+ {t('editor.quiz.add')}</Button
+              >
+            {/if}
+          {:else if block?.kind === 'slide'}
             <h2>{t('editor.slide')}</h2>
             <label>
               <span>{t('editor.slideTitle')}</span>
@@ -912,6 +1093,32 @@
     background: none;
     font-size: var(--text-lg);
     cursor: pointer;
+  }
+  .template,
+  .qhead {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .check,
+  .inline {
+    display: inline-flex;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .inline input {
+    width: 5em;
+  }
+  .quizq {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--c-field-line);
+    border-radius: var(--radius-sm, 6px);
+  }
+  .qhead .x {
+    margin-left: auto;
   }
   .warn {
     margin: 0;

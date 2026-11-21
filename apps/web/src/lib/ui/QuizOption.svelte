@@ -41,7 +41,7 @@
     {#if option.pic}
       {@html pics[option.pic] ?? ''}
     {:else}
-      <b>{option.text}</b>
+      <b class:long={(option.text ?? '').length > 16}>{option.text}</b>
     {/if}
   </span>
 </svelte:element>
@@ -103,6 +103,16 @@
   }
   .big .face b {
     font-size: 72px;
+  }
+  /* A teacher's answers are words, not numbers (W5): smaller, and they wrap. */
+  .face b.long {
+    font-size: var(--text-xl);
+    line-height: 1.2;
+    text-align: center;
+    padding: var(--space-3) var(--space-4) var(--space-2);
+  }
+  .big .face b.long {
+    font-size: clamp(22px, 3vw, 40px);
   }
   .chosen {
     border-color: #fff;

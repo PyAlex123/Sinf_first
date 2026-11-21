@@ -8,7 +8,7 @@ import {
   type StageKey,
 } from './lesson.js';
 import { PracticeTaskSchema } from './practice.js';
-import { QuizQuestionSchema, type Quiz } from './quiz.js';
+import type { Quiz, QuizQuestion } from './quiz.js';
 
 /**
  * A teacher's own lesson (CLAUDE.md §4.3; PLAN.md 3.1; stage 4, W1; ADR-019).
@@ -120,11 +120,33 @@ export const AuthoredStageSchema = z.strictObject({
 });
 export type AuthoredStage = z.infer<typeof AuthoredStageSchema>;
 
-/** The live quiz of a teacher's lesson: text answers, read from the screen. */
+/**
+ * A question of a teacher's live quiz (W5): text answers, two to four. Kept as the teacher left it —
+ * an unfinished question is saved too, and simply not asked (`authoredQuiz`).
+ */
+export const AuthoredQuizQuestionSchema = z.strictObject({
+  text: text(200).default(''),
+  options: z.array(text(60)).max(4).default(['', '']),
+  correct: z.number().int().min(0).max(3).default(0),
+  limitSec: z.number().int().min(5).max(120).default(20),
+});
+export type AuthoredQuizQuestion = z.infer<typeof AuthoredQuizQuestionSchema>;
+
+/** The live quiz of a teacher's lesson: it runs in the reflection stage, as the author's. */
 export const AuthoredQuizSchema = z.strictObject({
-  questions: z.array(QuizQuestionSchema).min(1).max(20),
+  questions: z.array(AuthoredQuizQuestionSchema).max(20),
 });
 export type AuthoredQuiz = z.infer<typeof AuthoredQuizSchema>;
+
+/** Why a quiz question will not be asked; null when it will. */
+export function quizQuestionProblem(
+  q: AuthoredQuizQuestion,
+): 'text' | 'options' | 'correct' | null {
+  if (!q.text.trim()) return 'text';
+  if (q.options.filter((o) => o.trim()).length < 2) return 'options';
+  if (!q.options[q.correct]?.trim()) return 'correct';
+  return null;
+}
 
 /** A school lesson is 45 minutes; a double one is 90. */
 export const MAX_LESSON_MINUTES = 90;
@@ -466,9 +488,21 @@ export function authoredToLesson(source: AuthoredSource): Lesson {
   };
 }
 
-/** The live quiz of a teacher's lesson in the author's format. */
+/** The live quiz of a teacher's lesson in the author's format: the finished questions only. */
 export function authoredQuiz(source: AuthoredSource): Quiz | null {
-  return source.doc.quiz ? { lessonId: source.id, questions: source.doc.quiz.questions } : null;
+  const questions: QuizQuestion[] = [];
+  for (const q of source.doc.quiz?.questions ?? []) {
+    if (quizQuestionProblem(q)) continue;
+    const kept = q.options.map((text, i) => ({ text: text.trim(), i })).filter((o) => o.text);
+    questions.push({
+      text: q.text.trim(),
+      say: q.text.trim(),
+      options: kept.map((o) => ({ text: o.text })),
+      correct: kept.findIndex((o) => o.i === q.correct),
+      limitSec: q.limitSec,
+    });
+  }
+  return questions.length > 0 ? { lessonId: source.id, questions } : null;
 }
 
 /** Minutes and screens, for lists. */
