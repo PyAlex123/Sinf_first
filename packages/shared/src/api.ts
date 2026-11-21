@@ -40,6 +40,28 @@ export const TeacherRegisterSchema = z.strictObject({
 });
 export type TeacherRegister = z.infer<typeof TeacherRegisterSchema>;
 
+// ---------- a forgotten password (PLAN.md 2.1; stage 5, A7)
+
+/** "Forgot the password": a letter with a link goes to this address, if it is ours. */
+export const ForgotPasswordSchema = z.strictObject({ email: z.email() });
+export type ForgotPassword = z.infer<typeof ForgotPasswordSchema>;
+
+/** A new password by the link; the same rule as at registration. */
+export const ResetPasswordSchema = z.strictObject({
+  token: z.string().min(20).max(100),
+  password: TeacherRegisterSchema.shape.password,
+});
+export type ResetPassword = z.infer<typeof ResetPasswordSchema>;
+
+/** A link an administrator gives a teacher by hand (Telegram, in person). */
+export const ResetLinkResponseSchema = z.strictObject({
+  url: z.string().min(1),
+  expiresAt: z.string().min(1),
+});
+export type ResetLinkResponse = z.infer<typeof ResetLinkResponseSchema>;
+
+export const SuperadminResetLinkSchema = z.strictObject({ email: z.email() });
+
 export const TeacherSchema = z.strictObject({
   id,
   email: z.email(),
@@ -136,8 +158,14 @@ export const SchoolClassSchema = z.strictObject({
   grade: z.number().int().min(1).max(11),
   studentCount: z.number().int().nonnegative(),
   teachers: z.array(z.string().min(1)),
+  /** The same teachers by id, in the same order: the administrator assigns them (stage 5, A5). */
+  teacherIds: z.array(id),
 });
 export type SchoolClass = z.infer<typeof SchoolClassSchema>;
+
+/** Who teaches a class of the school, set by its administrator (stage 5, A5). */
+export const SetClassTeachersSchema = z.strictObject({ userIds: z.array(id).max(10) });
+export type SetClassTeachers = z.infer<typeof SetClassTeachersSchema>;
 
 export const SchoolJoinRequestSchema = z.strictObject({
   userId: id,
@@ -154,8 +182,6 @@ export const SchoolDetailsResponseSchema = z.strictObject({
   classes: z.array(SchoolClassSchema),
   /** Empty for a plain teacher: requests are the administrator's business. */
   requests: z.array(SchoolJoinRequestSchema),
-  /** How much of a KTP its teacher may change, in percent (CLAUDE.md §4.10; W11). */
-  ktpChangePercent: z.number().int().min(0).max(100),
 });
 export type SchoolDetailsResponse = z.infer<typeof SchoolDetailsResponseSchema>;
 
@@ -169,12 +195,8 @@ export const UpdateSchoolSchema = z
   .strictObject({
     name: z.string().trim().min(2).max(120).optional(),
     city: z.string().trim().max(60).nullable().optional(),
-    ktpChangePercent: z.number().int().min(0).max(100).optional(),
   })
-  .refine(
-    (v) => v.name !== undefined || v.city !== undefined || v.ktpChangePercent !== undefined,
-    'Nothing to change',
-  );
+  .refine((v) => v.name !== undefined || v.city !== undefined, 'Nothing to change');
 export type UpdateSchool = z.infer<typeof UpdateSchoolSchema>;
 
 export const SchoolDecisionSchema = z.strictObject({

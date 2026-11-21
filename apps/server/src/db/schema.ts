@@ -52,6 +52,8 @@ export const users = sqliteTable(
       .notNull()
       .default('ru'),
     createdAt: timestamp('created_at').notNull(),
+    /** Grows when the password is reset (stage 5, A7): every cookie of an older one stops working. */
+    sessionVersion: integer('session_version').notNull().default(0),
   },
   (t) => [uniqueIndex('users_email_idx').on(t.email)],
 );
@@ -670,8 +672,58 @@ export const emaktabMarks = sqliteTable(
   (t) => [primaryKey({ columns: [t.classId, t.columnId] })],
 );
 
+/**
+ * A link that lets a teacher into a school (PLAN.md 2.3; stage 5, A6; ADR-021). Many teachers may use
+ * one link until it expires or is revoked; only the hash of its secret is kept.
+ */
+export const schoolInvites = sqliteTable(
+  'school_invites',
+  {
+    id: id(),
+    schoolId: text('school_id')
+      .notNull()
+      .references(() => schools.id),
+    tokenHash: text('token_hash').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    revokedAt: timestamp('revoked_at'),
+    /** How many teachers came in by it. */
+    used: integer('used').notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex('school_invites_token_idx').on(t.tokenHash),
+    index('school_invites_school_idx').on(t.schoolId),
+  ],
+);
+
+/**
+ * A one-time link to set a new password (PLAN.md 2.1; stage 5, A7; ADR-021): sent by mail when the
+ * teacher asks, or given by the school's administrator or the superadmin. Only the hash is kept.
+ */
+export const passwordResets = sqliteTable(
+  'password_resets',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    tokenHash: text('token_hash').notNull(),
+    /** Null when the teacher asked by mail; otherwise the administrator who gave the link. */
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    usedAt: timestamp('used_at'),
+  },
+  (t) => [uniqueIndex('password_resets_token_idx').on(t.tokenHash)],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  passwordResets,
+  schoolInvites,
   emaktabMarks,
   ktpRows,
   ktpPlans,

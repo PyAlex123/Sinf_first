@@ -55,7 +55,9 @@
       } catch {
         seated = null;
       }
-      const known = found.students.find((s) => s.id === seated);
+      // The child's card says who it is (stage 5, A8: its QR carries `s`), or this browser knows.
+      const fromCard = query.get('s');
+      const known = found.students.find((s) => s.id === (fromCard ?? seated));
       if (known) {
         student = known;
         step = 'personal';

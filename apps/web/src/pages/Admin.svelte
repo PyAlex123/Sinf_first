@@ -2,7 +2,9 @@
   import AdminReports from './AdminReports.svelte';
   import type { AdminSchool } from '@sinf/shared';
   import { onMount } from 'svelte';
+  import type { ResetLinkResponse } from '@sinf/shared';
   import { api, ApiError } from '../lib/api.js';
+  import ResetLink from '../lib/ui/ResetLink.svelte';
   import { t } from '../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../lib/router.svelte.js';
   import Button from '../lib/ui/Button.svelte';
@@ -75,6 +77,20 @@
   }
 
   onMount(() => void load());
+
+  let resetEmail = $state('');
+  let resetLink = $state<ResetLinkResponse | null>(null);
+  async function giveLink(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    error = null;
+    resetLink = null;
+    try {
+      resetLink = await api.superadminResetLink(resetEmail.trim());
+    } catch (e) {
+      error =
+        e instanceof ApiError && e.status === 404 ? t('reset.noSuchTeacher') : t('common.error');
+    }
+  }
 </script>
 
 <Header back="/teacher" />
@@ -96,6 +112,18 @@
         </Field>
         <Button type="submit" disabled={busy}>{t('admin.create')}</Button>
       </form>
+    </Card>
+
+    <!-- A teacher who forgot the password and has no school admin to ask (A7). -->
+    <Card>
+      <h2>{t('reset.adminTitle')}</h2>
+      <form onsubmit={giveLink}>
+        <Field label={t('login.email')}>
+          <input type="email" bind:value={resetEmail} required data-field="reset-email" />
+        </Field>
+        <Button type="submit" variant="secondary" disabled={busy}>{t('reset.giveLink')}</Button>
+      </form>
+      {#if resetLink}<ResetLink link={resetLink} />{/if}
     </Card>
 
     <Card>

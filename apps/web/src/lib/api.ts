@@ -21,6 +21,12 @@ import {
   CourseSchema,
   ClassProgramSchema,
   EmaktabRemindersResponseSchema,
+  SchoolSettingsResponseSchema,
+  ResetLinkResponseSchema,
+  SchoolInvitesResponseSchema,
+  CreatedInviteResponseSchema,
+  InviteInfoResponseSchema,
+  InviteAcceptResponseSchema,
   KtpLessonsResponseSchema,
   KtpListResponseSchema,
   KtpPlanSchema,
@@ -67,6 +73,7 @@ import {
   type UpdateAuthoredLesson,
   type UpdateProgram,
   type AddKtpRow,
+  type UpdateSchoolSettings,
   type ImportGrades,
   type SetEmaktab,
   type CreateKtp,
@@ -142,6 +149,18 @@ export const api = {
   register: (body: TeacherRegister) =>
     request('POST', '/api/auth/register', LoginResponseSchema, body),
   login: (body: TeacherLogin) => request('POST', '/api/auth/teacher', LoginResponseSchema, body),
+  /** A forgotten password (A7): the letter, the new password, the administrators' links. */
+  forgotPassword: (email: string) => request('POST', '/api/auth/forgot', OkSchema, { email }),
+  resetPassword: (token: string, password: string) =>
+    request('POST', '/api/auth/reset', LoginResponseSchema, { token, password }),
+  memberResetLink: (schoolId: string, userId: string) =>
+    request(
+      'POST',
+      `/api/schools/${encodeURIComponent(schoolId)}/members/${encodeURIComponent(userId)}/reset-link`,
+      ResetLinkResponseSchema,
+    ),
+  superadminResetLink: (email: string) =>
+    request('POST', '/api/admin/reset-link', ResetLinkResponseSchema, { email }),
   logout: () => request('DELETE', '/api/auth/teacher', OkSchema),
   me: () => request('GET', '/api/me', MeResponseSchema),
   courses: () => request('GET', '/api/courses', CourseListResponseSchema),
@@ -356,6 +375,47 @@ export const api = {
       `/api/schools/${encodeURIComponent(schoolId)}/members/${encodeURIComponent(userId)}`,
       SchoolDetailsResponseSchema,
     ),
+  /** The school's rules (stage 5, A1): its administrator only. */
+  schoolSettings: (id: string) =>
+    request('GET', `/api/schools/${encodeURIComponent(id)}/settings`, SchoolSettingsResponseSchema),
+  updateSchoolSettings: (id: string, body: UpdateSchoolSettings) =>
+    request(
+      'PATCH',
+      `/api/schools/${encodeURIComponent(id)}/settings`,
+      SchoolSettingsResponseSchema,
+      body,
+    ),
+  /** Who teaches a class of the school (A5): its administrator only. */
+  setClassTeachers: (schoolId: string, classId: string, userIds: string[]) =>
+    request(
+      'PUT',
+      `/api/schools/${encodeURIComponent(schoolId)}/classes/${encodeURIComponent(classId)}/teachers`,
+      SchoolDetailsResponseSchema,
+      { userIds },
+    ),
+  /** Links into the school (A6). */
+  invites: (schoolId: string) =>
+    request(
+      'GET',
+      `/api/schools/${encodeURIComponent(schoolId)}/invites`,
+      SchoolInvitesResponseSchema,
+    ),
+  createInvite: (schoolId: string) =>
+    request(
+      'POST',
+      `/api/schools/${encodeURIComponent(schoolId)}/invites`,
+      CreatedInviteResponseSchema,
+    ),
+  revokeInvite: (schoolId: string, inviteId: string) =>
+    request(
+      'DELETE',
+      `/api/schools/${encodeURIComponent(schoolId)}/invites/${encodeURIComponent(inviteId)}`,
+      SchoolInvitesResponseSchema,
+    ),
+  invite: (token: string) =>
+    request('GET', `/api/invites/${encodeURIComponent(token)}`, InviteInfoResponseSchema),
+  acceptInvite: (token: string) =>
+    request('POST', `/api/invites/${encodeURIComponent(token)}/accept`, InviteAcceptResponseSchema),
   updateSchool: (id: string, body: UpdateSchool) =>
     request('PATCH', `/api/schools/${encodeURIComponent(id)}`, SchoolDetailsResponseSchema, body),
   devices: (schoolId: string) =>

@@ -18,6 +18,9 @@ import { authoredLessonRoutes } from './routes/authored-lessons.js';
 import { programRoutes } from './routes/programs.js';
 import { libraryRoutes } from './routes/library.js';
 import { ktpRoutes } from './routes/ktp.js';
+import { inviteRoutes } from './routes/invites.js';
+import { RetentionWorker } from './services/retention.js';
+import { createMailer, type Mailer } from './services/mailer.js';
 import { demoRoutes } from './routes/demo.js';
 import { buildContentManifest } from './content/manifest.js';
 import { contentSyncRoutes } from './routes/content-sync.js';
@@ -56,6 +59,10 @@ declare module 'fastify' {
     practice: PracticeService;
     /** Set only on a school computer (S2.6); null when this server is the platform. */
     sync: SyncWorker | null;
+    /** The cleaning of old works by the school's rules (stage 5, A4). */
+    retention: RetentionWorker;
+    /** Letters: "set a new password" (stage 5, A7). */
+    mailer: Mailer;
   }
 }
 
@@ -69,6 +76,8 @@ export async function buildApp(
     sync?: SyncWorker | null;
     /** How a school computer reaches the platform when a teacher logs in (S2.6); tests replace it. */
     platformFetch?: typeof fetch;
+    /** Tests read the letters instead of sending them. */
+    mailer?: Mailer;
   } = {},
 ): Promise<FastifyInstance> {
   // The author's courses and the teachers' own lessons behind one store (stage 4, ADR-019).
@@ -141,6 +150,18 @@ export async function buildApp(
     });
   }
 
+  app.decorate('mailer', options.mailer ?? createMailer(ctx.config, app.log));
+
+  // Old works and screenshots go on the school's day (stage 5, A4), here and on a school computer.
+  const retention = new RetentionWorker(ctx.db, ctx.config.dataDir, app.log);
+  app.decorate('retention', retention);
+  app.addHook('onReady', () => {
+    retention.start();
+  });
+  app.addHook('onClose', () => {
+    retention.stop();
+  });
+
   // Imported lesson content. Media files are named by content hash (ADR-005), so they are cached for a year;
   // JSON, CSS and scenarios are revalidated.
   await app.register(fastifyStatic, {
@@ -170,6 +191,7 @@ export async function buildApp(
   await app.register(programRoutes, { prefix: '/api' });
   await app.register(libraryRoutes, { prefix: '/api' });
   await app.register(ktpRoutes, { prefix: '/api' });
+  await app.register(inviteRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api', store, virtual });
   await app.register(classRoutes, { prefix: '/api' });
   await app.register(schoolRoutes, { prefix: '/api' });

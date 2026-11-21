@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   EmaktabRemindersResponseSchema,
   JournalSchema,
+  lessonDate,
   SessionResponseSchema,
   type Journal,
 } from '@sinf/shared';
@@ -123,7 +124,8 @@ describe('a column without a lesson', () => {
     const started = await call('POST', '/api/sessions', { classId: 'class-1a', lessonId: 'g10' });
     const { session } = SessionResponseSchema.parse(started.json());
     await call('POST', `/api/sessions/${session.id}/end`);
-    const today = session.startedAt.slice(0, 10);
+    // The lesson's day in Tashkent, not in UTC: after 19:00 UTC it is already tomorrow there.
+    const today = lessonDate(session.startedAt);
     await call('POST', '/api/journal/class-1a/columns', { date: '2000-01-01', title: 'Давно' });
     const j = journal(
       await call('POST', '/api/journal/class-1a/columns', { date: '2999-01-01', title: 'Потом' }),

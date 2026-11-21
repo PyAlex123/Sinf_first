@@ -66,17 +66,18 @@
 
   async function handIn(file: File): Promise<void> {
     if (!access) return;
-    const problem = uploadProblem(file);
-    if (problem) {
-      error = t(problem);
-      return;
-    }
     busy = true;
     error = null;
     try {
       // Kept under the practice's own name over the version it came from: the downloaded copy
       // may be called "Документ (1).docx" by the browser, and the work is still the same work.
-      const { files } = await listFiles(access);
+      const { files, maxFileBytes } = await listFiles(access);
+      // The school's limit comes with the folder (A2).
+      const problem = uploadProblem(file, maxFileBytes);
+      if (problem) {
+        error = t(problem.key, problem.params);
+        return;
+      }
       const there = files.find((f) => f.name === task.fileName);
       await uploadFile(access, file, there?.sha256 ?? undefined, task.fileName);
     } catch (e) {

@@ -203,7 +203,7 @@
   /**
    * Program tiles (CLAUDE.md §4.2; H15). The lesson gives its own — Paint on the practice of a club
    * lesson — and the teacher may give others, to everybody or to this child. Only programs this
-   * computer has are shown.
+   * computer has, and the school allows (A3), are shown.
    */
   let installed = $state<string[]>([]);
   let lastSaved = $state<string | null>(null);
@@ -224,7 +224,11 @@
     );
   }
   const allowedApps = $derived<LessonApp[]>(
-    (me ? session?.apps.byParticipant[me.id] : undefined) ?? session?.apps.all ?? lessonApps,
+    (
+      (me ? session?.apps.byParticipant[me.id] : undefined) ??
+      session?.apps.all ??
+      lessonApps
+    ).filter((a) => !session?.apps.allowed || session.apps.allowed.includes(a)),
   );
   const tiles = $derived(allowedApps.filter((a) => installed.includes(a)));
 

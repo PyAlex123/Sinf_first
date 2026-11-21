@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SchoolSettingsSchema } from './school.js';
 import { ClassSettingsSchema, SchoolRoleSchema } from './api.js';
 import { LocaleSchema } from './locale.js';
 import { CheckReportSchema, PracticeMarksSchema } from './practice.js';
@@ -69,6 +70,8 @@ export const SchoolSnapshotSchema = z.strictObject({
   students: z.array(SyncStudentSchema),
   /** The programmes of the school's classes (W7). */
   programs: z.array(SyncProgramSchema).optional(),
+  /** The school's rules (A1): quotas, programs, how long works are kept. */
+  settings: SchoolSettingsSchema.optional(),
   /** Changes whenever anything above changes, so an unchanged roster is not rewritten. */
   version: z.string().min(1),
 });

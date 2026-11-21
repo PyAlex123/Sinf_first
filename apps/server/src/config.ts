@@ -39,6 +39,15 @@ const EnvSchema = z.object({
    * app for its own server, random each start. Empty: no screen broadcast from a host app.
    */
   HOST_TOKEN: z.string().default(''),
+  /**
+   * Mail for "forgot the password" (stage 5, A7): `smtp://user:pass@host:587` or `smtps://…`.
+   * Empty — letters are written to the log instead (development, a school computer).
+   */
+  SMTP_URL: z.string().optional(),
+  /** The sender of the letters, e.g. `Sinf <no-reply@sinf.uz>`. */
+  MAIL_FROM: z.string().optional(),
+  /** The site's own address for links in letters (`https://sinf.uz`); empty — the request's. */
+  PUBLIC_URL: z.string().optional(),
   CLASSROOM_MODE: z.enum(['0', '1']).default('0'),
 });
 
@@ -56,6 +65,10 @@ export interface Config {
   superadmin: { email: string; password: string } | null;
   sessionSecret: string;
   logLevel: (typeof LOG_LEVELS)[number];
+  /** Mail for password resets (A7); null — letters go to the log. */
+  mail: { smtpUrl: string | null; from: string };
+  /** The site's address for links in letters; null — taken from the request. */
+  publicUrl: string | null;
   /** Where to look for this computer's link to the platform; null on the platform itself. */
   platformConfigFile: string | null;
   platformLink: PlatformLink | null;
@@ -114,6 +127,11 @@ export function loadConfig(
         ? { url: normalizePlatformUrl(e.PLATFORM_URL), deviceToken: e.DEVICE_TOKEN }
         : null,
     classroom: e.CLASSROOM_MODE === '1',
+    mail: {
+      smtpUrl: e.SMTP_URL?.trim() || null,
+      from: e.MAIL_FROM?.trim() || 'Sinf <no-reply@localhost>',
+    },
+    publicUrl: e.PUBLIC_URL?.trim() ? e.PUBLIC_URL.trim().replace(/\/+$/, '') : null,
     hostToken: e.HOST_TOKEN.length >= 16 ? e.HOST_TOKEN : null,
   };
 }

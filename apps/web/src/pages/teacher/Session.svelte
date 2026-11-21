@@ -155,6 +155,13 @@
   /** The live quiz (S1.12): it starts with its stage, and these buttons move it along. */
   const quiz = $derived(session?.quiz ?? null);
   const hasQuiz = $derived(!!bundle?.quiz);
+  /** The practice's program, when the school's list leaves it out (stage 5, A3). */
+  const practiceBlocked = $derived.by((): LessonApp | null => {
+    const app = bundle?.practice?.app;
+    const allowed = session?.apps.allowed;
+    if (!app || !allowed || !(LESSON_APPS as readonly string[]).includes(app)) return null;
+    return allowed.includes(app as LessonApp) ? null : (app as LessonApp);
+  });
 
   const paused = $derived(
     session?.stage.pausedAt !== null && session?.stage.pausedAt !== undefined,
@@ -566,7 +573,7 @@
                   })}
             </p>
             <div class="appchecks">
-              {#each LESSON_APPS as app (app)}
+              {#each session?.apps.allowed ?? LESSON_APPS as app (app)}
                 <label>
                   <input
                     type="checkbox"
@@ -596,6 +603,22 @@
               >
             </div>
             <p class="soft">{t('session.apps.hint')}</p>
+            <!-- The lesson's practice wants a program the school does not allow (A3). -->
+            {#if practiceBlocked}
+              <p class="warnline" data-practice-blocked>
+                {t('session.apps.practiceBlocked', { app: t(`apps.${practiceBlocked}`) })}
+              </p>
+            {/if}
+            <!-- The school's own list (stage 5, A3): what is not on it is not offered at all. -->
+            {#if session && session.apps.allowed && session.apps.allowed.length < LESSON_APPS.length}
+              <p class="soft" data-school-apps>
+                {t('session.apps.school', {
+                  list:
+                    session.apps.allowed.map((a) => t(`apps.${a}`)).join(', ') ||
+                    t('session.apps.none'),
+                })}
+              </p>
+            {/if}
           </div>
         {/if}
 
@@ -1389,5 +1412,11 @@
   }
   .check.full {
     color: var(--c-ok);
+  }
+  .warnline {
+    margin: var(--space-2) 0 0;
+    color: var(--c-danger-strong);
+    font-size: var(--text-sm);
+    font-weight: 600;
   }
 </style>

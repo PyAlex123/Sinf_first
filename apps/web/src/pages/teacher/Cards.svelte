@@ -9,6 +9,7 @@
   import Header from '../../lib/ui/Header.svelte';
   import Icon from '../../lib/ui/Icon.svelte';
   import Notice from '../../lib/ui/Notice.svelte';
+  import QrCode from '../../lib/ui/QrCode.svelte';
 
   let { params }: PageProps = $props();
   const classId = $derived(params['id'] ?? '');
@@ -16,6 +17,18 @@
   let pics = $state<Pics>({});
   let error = $state<string | null>(null);
   const site = $derived(typeof location === 'undefined' ? '' : location.host);
+  const origin = $derived(typeof location === 'undefined' ? '' : location.origin);
+  /**
+   * The card's QR (PLAN.md 2.4; stage 5, A8). Digit codes: "Мои работы" from home with the class
+   * code and the child ready — only the own code is left to type. Picture codes (no home login):
+   * the lesson's entrance, where after the lesson code the child goes straight to their pictures.
+   * No secret is in it: the personal code is on the card for the eye, not in the QR.
+   */
+  function qrOf(studentId: string, digits: boolean, homeCode: string | null): string {
+    return digits && homeCode
+      ? `${origin}/my?c=${homeCode}&s=${encodeURIComponent(studentId)}`
+      : `${origin}/join?s=${encodeURIComponent(studentId)}`;
+  }
 
   onMount(() => {
     void (async () => {
@@ -41,7 +54,7 @@
       {t('cards.print')}
     </Button>
   </Header>
-  <p class="page hint">{t('cards.perPage')}</p>
+  <p class="page hint">{t('cards.perPage')} {t('cards.qrHint')}</p>
 </div>
 
 {#if error}
@@ -53,11 +66,16 @@
     {#each details.students as s (s.id)}
       <article class="card">
         <div class="cls">{details.class.name} · {t('app.name')}</div>
-        <div class="name">{s.lastName} {s.firstName}</div>
+        <div class="top">
+          <div class="name">{s.lastName} {s.firstName}</div>
+          <div class="qr" data-qr={qrOf(s.id, s.codeKind === 'digits', details.class.homeCode)}>
+            <QrCode value={qrOf(s.id, s.codeKind === 'digits', details.class.homeCode)} size={76} />
+          </div>
+        </div>
         <div class="code">
           {#each s.code as key, i (i)}
             {#if i > 0}<span class="arrow">→</span>{/if}
-            <span class="pic">
+            <span class="pic" class:digit={s.codeKind === 'digits'}>
               {#if s.codeKind === 'pics'}{@html pics[key] ?? ''}{:else}<b>{key}</b>{/if}
             </span>
           {/each}
@@ -86,7 +104,8 @@
   }
   .sheet {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    /* Two columns that never grow past half a sheet, whatever is inside (A8). */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6mm;
     max-width: 190mm;
     margin: 0 auto;
@@ -109,6 +128,26 @@
     font-size: 10pt;
     color: #5e6878;
   }
+  .top {
+    display: flex;
+    gap: 3mm;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .qr {
+    flex: 0 0 auto;
+    width: 20mm;
+    height: 20mm;
+  }
+  .qr :global(.qr) {
+    width: 20mm !important;
+    height: 20mm !important;
+  }
+  .qr :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
   .name {
     font-size: 16pt;
     font-weight: 800;
@@ -128,6 +167,10 @@
     border-radius: 3mm;
     overflow: hidden;
     background: #fff;
+  }
+  /* Four digits must fit half a sheet: narrow cells, the digit itself as big as before. */
+  .pic.digit {
+    width: 14mm;
   }
   .pic :global(svg) {
     width: 100%;
@@ -150,9 +193,21 @@
     border-top: 1px dotted #c8ced6;
     padding-top: 1.5mm;
   }
+  .homecode {
+    gap: 2mm;
+    align-items: baseline;
+  }
   .homecode b {
     font-size: 10pt;
     color: #13233a;
+    white-space: nowrap;
+  }
+  /* The site's address gives way to the class code: one line, cut if it must be. */
+  .homecode span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .foot {
     display: flex;

@@ -120,11 +120,15 @@ const check = (name, pass, extra = '') => {
   await page.screenshot({ path: `${S}/w11-plan.png`, fullPage: true });
 
   // The school's administrator allows more.
-  await page.goto(`${BASE}/school/school-demo`);
-  await page.locator('button:has-text("Изменить")').first().click();
+  await page.goto(`${BASE}/school/school-demo#rules`);
+  // The school's rules (stage 5, A1) hold the KTP share now.
   await page.fill('input[data-field=ktp-percent]', '60');
-  await page.locator('button[type=submit]:has-text("Сохранить")').click();
-  await page.waitForSelector('input[data-field=ktp-percent]', { state: 'detached' });
+  await page
+    .locator('input[data-field=ktp-percent]')
+    .locator('xpath=ancestor::form')
+    .locator('button[type=submit]')
+    .click();
+  await page.waitForSelector('[data-saved]');
   await page.goto(`${BASE}/teacher/ktp/${planId}`);
   await page.waitForSelector('[data-changes]');
   const changes = await page.locator('[data-changes]').innerText();

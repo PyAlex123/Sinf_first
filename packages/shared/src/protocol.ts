@@ -186,6 +186,11 @@ export type LessonApp = z.infer<typeof LessonAppSchema>;
 export const AppsStateSchema = z.strictObject({
   all: z.array(LessonAppSchema).nullable(),
   byParticipant: z.record(id, z.array(LessonAppSchema)),
+  /**
+   * The programs the school allows (stage 5, A3; ADR-021), fixed when the lesson starts; null —
+   * every one. Nothing outside it is ever shown, whatever the lesson or the teacher says.
+   */
+  allowed: z.array(LessonAppSchema).nullable().default(null),
 });
 export type AppsState = z.infer<typeof AppsStateSchema>;
 
@@ -207,7 +212,7 @@ export const SessionStateSchema = z.strictObject({
   /** A screen broadcast, while it is on (H14). */
   demo: DemoStateSchema.nullable().default(null),
   /** Program tiles set by the teacher (H15); by default the lesson's own. */
-  apps: AppsStateSchema.default({ all: null, byParticipant: {} }),
+  apps: AppsStateSchema.default({ all: null, byParticipant: {}, allowed: null }),
   participants: z.record(id, ParticipantSchema),
 });
 export type SessionState = z.infer<typeof SessionStateSchema>;

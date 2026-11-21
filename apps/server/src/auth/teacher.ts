@@ -4,7 +4,12 @@ import type { Teacher } from '@sinf/shared';
 import { schema, type Db } from '../db/index.js';
 import { ApiHttpError } from '../errors.js';
 
-/** Login state: a signed httpOnly cookie with the user id. Rights are checked in auth/access.ts. */
+/**
+ * Login state: a signed httpOnly cookie with the user id and the user's session version
+ * (`<id>:<version>`; stage 5, A7). A password reset raises the version, and every older cookie stops
+ * working. A cookie of the old form (the id alone) is version 0. Rights are checked in
+ * auth/access.ts.
+ */
 
 export const TEACHER_COOKIE = 'sinf_teacher';
 const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
@@ -15,8 +20,12 @@ declare module 'fastify' {
   }
 }
 
-export function setTeacherCookie(reply: FastifyReply, userId: string, secure: boolean): void {
-  void reply.setCookie(TEACHER_COOKIE, userId, {
+export function setTeacherCookie(
+  reply: FastifyReply,
+  user: { id: string; sessionVersion: number },
+  secure: boolean,
+): void {
+  void reply.setCookie(TEACHER_COOKIE, `${user.id}:${user.sessionVersion}`, {
     signed: true,
     httpOnly: true,
     sameSite: 'lax',
@@ -40,10 +49,11 @@ export function readTeacher(request: FastifyRequest, db: Db): Teacher | null {
   if (!unsigned.valid || !unsigned.value) {
     return null;
   }
-  const user = db.select().from(schema.users).where(eq(schema.users.id, unsigned.value)).get();
+  const [userId = '', version = '0'] = unsigned.value.split(':');
+  const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
   // Any of our roles may hold this cookie: a school administrator and the superadmin are teachers
   // of the site too, and what each of them may do is decided in auth/access.ts (ADR-009).
-  if (!user) {
+  if (!user || String(user.sessionVersion) !== version) {
     return null;
   }
   return { id: user.id, email: user.email, fullName: user.fullName, locale: user.locale };

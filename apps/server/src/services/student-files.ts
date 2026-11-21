@@ -15,6 +15,7 @@ import {
   type StudentFilesResponse,
 } from '@sinf/shared';
 import { schema, type Db } from '../db/index.js';
+import { settingsForClass } from './school-settings.js';
 import { ApiHttpError, notFound } from '../errors.js';
 
 /**
@@ -78,6 +79,23 @@ export function usedBytes(db: Db, studentId: string): number {
   return Number(row?.total ?? 0);
 }
 
+const MB = 1024 * 1024;
+
+/** The folder and the largest file of this child, by the rules of their class's school (A2). */
+export function limitsFor(db: Db, studentId: string): { quotaBytes: number; maxFileBytes: number } {
+  const student = db
+    .select({ classId: schema.students.classId })
+    .from(schema.students)
+    .where(eq(schema.students.id, studentId))
+    .get();
+  if (!student) return { quotaBytes: FILE_QUOTA_BYTES, maxFileBytes: MAX_FILE_BYTES };
+  const rules = settingsForClass(db, student.classId);
+  return {
+    quotaBytes: Math.min(FILE_QUOTA_BYTES, rules.fileQuotaMb * MB),
+    maxFileBytes: Math.min(MAX_FILE_BYTES, rules.maxFileMb * MB),
+  };
+}
+
 export function listFiles(
   db: Db,
   student: { id: string; firstName: string; lastName: string },
@@ -92,7 +110,7 @@ export function listFiles(
     student: { id: student.id, name: `${student.lastName} ${student.firstName}` },
     files: rows.map(toFile),
     usedBytes: rows.reduce((sum, r) => sum + r.size, 0),
-    quotaBytes: FILE_QUOTA_BYTES,
+    ...limitsFor(db, student.id),
   };
 }
 
@@ -136,6 +154,7 @@ export async function receiveBlob(
   dataDir: string,
   body: Readable,
   declared: number,
+  maxBytes = MAX_FILE_BYTES,
 ): Promise<{ sha: string; size: number }> {
   const tmpDir = join(dataDir, 'files', 'tmp');
   mkdirSync(tmpDir, { recursive: true });
@@ -145,7 +164,7 @@ export async function receiveBlob(
   const count = new Transform({
     transform(chunk: Buffer, _encoding, done) {
       size += chunk.length;
-      if (size > declared || size > MAX_FILE_BYTES) {
+      if (size > declared || size > maxBytes) {
         done(new ApiHttpError(413, 'too_large', 'The file is longer than it said'));
         return;
       }
@@ -199,8 +218,9 @@ export function checkUpload(
   if (!Number.isInteger(input.declaredSize) || input.declaredSize < 0) {
     throw new ApiHttpError(411, 'length_required', 'Say how long the file is');
   }
-  if (input.declaredSize > MAX_FILE_BYTES) {
-    throw new ApiHttpError(413, 'too_large', 'A file may be at most 50 MB');
+  const limits = limitsFor(db, input.studentId);
+  if (input.declaredSize > limits.maxFileBytes) {
+    throw new ApiHttpError(413, 'too_large', 'The file is larger than the school allows');
   }
   const current = db
     .select({ size: schema.studentFiles.size })
@@ -209,7 +229,7 @@ export function checkUpload(
     .get();
   if (
     usedBytes(db, input.studentId) - (current?.size ?? 0) + input.declaredSize >
-    FILE_QUOTA_BYTES
+    limits.quotaBytes
   ) {
     throw new ApiHttpError(413, 'quota', 'The folder is full');
   }
@@ -230,7 +250,12 @@ export async function storeUpload(
   now = new Date(),
 ): Promise<FileUploadResponse> {
   const name = checkUpload(db, input);
-  const { sha, size } = await receiveBlob(dataDir, input.body, input.declaredSize);
+  const { sha, size } = await receiveBlob(
+    dataDir,
+    input.body,
+    input.declaredSize,
+    limitsFor(db, input.studentId).maxFileBytes,
+  );
   const at = now.toISOString();
 
   const rowFor = (key: string) =>

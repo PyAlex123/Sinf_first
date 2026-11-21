@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { and, count, eq } from 'drizzle-orm';
 import type { FastifyPluginCallback } from 'fastify';
 import {
+  ForgotPasswordSchema,
+  ResetPasswordSchema,
   TeacherLoginSchema,
   TeacherRegisterSchema,
   type MeResponse,
@@ -15,6 +17,13 @@ import { clearTeacherCookie, requireTeacher, setTeacherCookie } from '../auth/te
 import { schema } from '../db/index.js';
 import { ApiHttpError } from '../errors.js';
 import { AttemptGuard } from '../services/attempt-guard.js';
+import {
+  makeResetToken,
+  resetLetter,
+  resetPassword,
+  resetUrl,
+  siteUrl,
+} from '../services/password-reset.js';
 
 export const authRoutes: FastifyPluginCallback<{
   loginGuard?: AttemptGuard;
@@ -24,6 +33,8 @@ export const authRoutes: FastifyPluginCallback<{
   const { db, config } = app.ctx;
   // Slows a password search down; per process, like the student code guard (ADR-009).
   const guard = opts.loginGuard ?? new AttemptGuard();
+  /** At most three letters a quarter of an hour to one address: no mail bombing by our hand. */
+  const letters = new AttemptGuard(3, 15 * 60 * 1000);
 
   const toTeacher = (user: typeof schema.users.$inferSelect): Teacher => ({
     id: user.id,
@@ -47,10 +58,11 @@ export const authRoutes: FastifyPluginCallback<{
       fullName: body.fullName.trim(),
       locale: body.locale ?? ('ru' as const),
       createdAt: new Date().toISOString(),
+      sessionVersion: 0,
     };
     db.insert(schema.users).values(user).run();
     // A new teacher starts in their own space: no school, no classes yet (S2.2 adds creating them).
-    setTeacherCookie(reply, user.id, config.env === 'production');
+    setTeacherCookie(reply, user, config.env === 'production');
     return { teacher: toTeacher(user) };
   });
 
@@ -93,7 +105,48 @@ export const authRoutes: FastifyPluginCallback<{
       });
     }
     guard.reset(email);
-    setTeacherCookie(reply, user.id, config.env === 'production');
+    setTeacherCookie(reply, user, config.env === 'production');
+    return { teacher: toTeacher(user) };
+  });
+
+  // ---------- a forgotten password (PLAN.md 2.1; stage 5, A7)
+
+  const platformOnly = (): void => {
+    if (readPlatformLink(config)) {
+      throw new ApiHttpError(409, 'edit_on_platform', 'Passwords are reset on the website');
+    }
+  };
+
+  /** Always "sent": whether this address is ours is nobody's business. */
+  app.post('/auth/forgot', async (request): Promise<{ ok: true }> => {
+    platformOnly();
+    const { email: raw } = ForgotPasswordSchema.parse(request.body);
+    const email = raw.trim().toLowerCase();
+    const now = Date.now();
+    const user = db.select().from(schema.users).where(eq(schema.users.email, email)).get();
+    if (!user || letters.status(email, now).locked) return { ok: true };
+    letters.fail(email, now);
+    const { token } = makeResetToken(db, user.id, null);
+    const url = resetUrl(siteUrl(config, request), token);
+    try {
+      await app.mailer.send(resetLetter(user.email, user.fullName, url, user.locale));
+      request.log.info({ userId: user.id }, 'password reset letter sent');
+    } catch (error) {
+      request.log.error({ err: error, userId: user.id }, 'password reset letter failed');
+    }
+    return { ok: true };
+  });
+
+  /** A new password by the link; the teacher is signed in with it, every other login ends. */
+  app.post('/auth/reset', async (request, reply): Promise<{ teacher: Teacher }> => {
+    platformOnly();
+    const body = ResetPasswordSchema.parse(request.body);
+    const { userId } = await resetPassword(db, body.token, body.password);
+    const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+    if (!user) throw new ApiHttpError(400, 'reset_gone', 'This link no longer works');
+    guard.reset(user.email);
+    setTeacherCookie(reply, user, config.env === 'production');
+    request.log.info({ userId }, 'password reset');
     return { teacher: toTeacher(user) };
   });
 

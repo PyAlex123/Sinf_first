@@ -6,14 +6,20 @@ import {
   AssignSchoolAdminSchema,
   CreateSchoolSchema,
   SchoolDecisionSchema,
+  SetClassTeachersSchema,
+  SuperadminResetLinkSchema,
   SetSchoolRoleSchema,
   UpdateSchoolSchema,
+  UpdateSchoolSettingsSchema,
   type AdminSchoolListResponse,
   type SchoolBrief,
   type SchoolClass,
   type SchoolDetailsResponse,
   type SchoolListResponse,
+  type ResetLinkResponse,
   type SchoolMember,
+  type SchoolSettings,
+  type SchoolSettingsResponse,
   type Teacher,
 } from '@sinf/shared';
 import {
@@ -24,7 +30,9 @@ import {
 } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
-import { ktpChangePercent } from '../services/ktp.js';
+import { makeResetToken, resetUrl, siteUrl } from '../services/password-reset.js';
+import { retentionPreview } from '../services/retention.js';
+import { settingsOfSchool, updateSchoolSettings } from '../services/school-settings.js';
 import { ApiHttpError, notFound } from '../errors.js';
 
 const Params = z.object({ id: z.string().min(1) });
@@ -71,7 +79,11 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
       .groupBy(schema.students.classId)
       .all();
     const teachers = db
-      .select({ classId: schema.classTeachers.classId, name: schema.users.fullName })
+      .select({
+        classId: schema.classTeachers.classId,
+        userId: schema.classTeachers.userId,
+        name: schema.users.fullName,
+      })
       .from(schema.classTeachers)
       .innerJoin(schema.users, eq(schema.users.id, schema.classTeachers.userId))
       .where(inArray(schema.classTeachers.classId, ids))
@@ -82,6 +94,7 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
       grade: row.grade,
       studentCount: counts.find((c) => c.classId === row.id)?.n ?? 0,
       teachers: teachers.filter((t) => t.classId === row.id).map((t) => t.name),
+      teacherIds: teachers.filter((t) => t.classId === row.id).map((t) => t.userId),
     }));
   };
 
@@ -110,7 +123,6 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
     members: membersOf(school.id, role === 'admin'),
     classes: classesOfSchool(school.id),
     requests: role === 'admin' ? pendingOf(school.id) : [],
-    ktpChangePercent: ktpChangePercent(school),
   });
 
   // ---------- teacher side
@@ -190,16 +202,119 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
       .set({
         name: body.name ?? school.name,
         city: body.city === undefined ? school.city : body.city?.trim() || null,
-        settings:
-          body.ktpChangePercent === undefined
-            ? school.settings
-            : { ...school.settings, ktpChangePercent: body.ktpChangePercent },
       })
       .where(eq(schema.schools.id, id))
       .run();
     const updated = db.select().from(schema.schools).where(eq(schema.schools.id, id)).get();
     return details(updated as SchoolRow, 'admin');
   });
+
+  // ---------- a forgotten password, by hand (stage 5, A7)
+
+  /** A one-time link for a teacher of the school, to pass on by Telegram or in person. */
+  app.post(
+    '/schools/:id/members/:userId/reset-link',
+    { preHandler: requireTeacher },
+    (request): ResetLinkResponse => {
+      const { id, userId } = MemberParams.parse(request.params);
+      const admin = request.teacher as Teacher;
+      requireSchoolAdmin(db, admin, id);
+      if (app.sync?.link() != null) {
+        throw new ApiHttpError(409, 'edit_on_platform', 'Passwords are reset on the website');
+      }
+      const member = db
+        .select({ role: schema.users.role })
+        .from(schema.schoolMembers)
+        .innerJoin(schema.users, eq(schema.users.id, schema.schoolMembers.userId))
+        .where(and(eq(schema.schoolMembers.schoolId, id), eq(schema.schoolMembers.userId, userId)))
+        .get();
+      // Not the platform's own account: a school does not hold the keys to it.
+      if (!member || member.role === 'superadmin') throw notFound('Teacher');
+      const { token, expiresAt } = makeResetToken(db, userId, admin.id);
+      request.log.info({ schoolId: id, userId, by: admin.id }, 'reset link given');
+      return { url: resetUrl(siteUrl(app.ctx.config, request), token), expiresAt };
+    },
+  );
+
+  // ---------- who teaches which class (stage 5, A5)
+
+  app.put(
+    '/schools/:id/classes/:classId/teachers',
+    { preHandler: requireTeacher },
+    (request): SchoolDetailsResponse => {
+      const { id, classId } = z
+        .object({ id: z.string().min(1), classId: z.string().min(1) })
+        .parse(request.params);
+      const school = requireSchoolAdmin(db, request.teacher as Teacher, id);
+      if (app.sync?.link() != null) {
+        throw new ApiHttpError(409, 'edit_on_platform', 'Classes are assigned on the website');
+      }
+      const { userIds } = SetClassTeachersSchema.parse(request.body);
+      const cls = db.select().from(schema.classes).where(eq(schema.classes.id, classId)).get();
+      if (!cls || cls.schoolId !== id) throw notFound('Class');
+      const members = new Set(
+        db
+          .select({ userId: schema.schoolMembers.userId })
+          .from(schema.schoolMembers)
+          .where(eq(schema.schoolMembers.schoolId, id))
+          .all()
+          .map((m) => m.userId),
+      );
+      const wanted = [...new Set(userIds)];
+      if (wanted.some((u) => !members.has(u))) {
+        throw new ApiHttpError(
+          400,
+          'not_member',
+          'Only a teacher of the school can teach its class',
+        );
+      }
+      const createdAt = new Date().toISOString();
+      db.transaction((tx) => {
+        tx.delete(schema.classTeachers).where(eq(schema.classTeachers.classId, classId)).run();
+        for (const userId of wanted) {
+          tx.insert(schema.classTeachers).values({ classId, userId, createdAt }).run();
+        }
+      });
+      request.log.info({ schoolId: id, classId, teachers: wanted.length }, 'class teachers set');
+      return details(school, 'admin');
+    },
+  );
+
+  // ---------- the school's rules (stage 5, A1; ADR-021)
+
+  /** The rules are changed on the platform: a school computer only mirrors them (ADR-011). */
+  const onSchoolPc = (): boolean => app.sync?.link() != null;
+
+  /** The rules, and when the next cleaning of old works is and what it would take (A4). */
+  const withRetention = (schoolId: string, settings: SchoolSettings): SchoolSettingsResponse =>
+    onSchoolPc()
+      ? { settings }
+      : { settings, retention: retentionPreview(db, app.ctx.config.dataDir, schoolId) };
+
+  app.get(
+    '/schools/:id/settings',
+    { preHandler: requireTeacher },
+    (request): SchoolSettingsResponse => {
+      const { id } = Params.parse(request.params);
+      requireSchoolAdmin(db, request.teacher as Teacher, id);
+      return withRetention(id, settingsOfSchool(db, id));
+    },
+  );
+
+  app.patch(
+    '/schools/:id/settings',
+    { preHandler: requireTeacher },
+    (request): SchoolSettingsResponse => {
+      const { id } = Params.parse(request.params);
+      requireSchoolAdmin(db, request.teacher as Teacher, id);
+      if (onSchoolPc()) {
+        throw new ApiHttpError(409, 'edit_on_platform', 'School rules are set on the website');
+      }
+      const settings = updateSchoolSettings(db, id, UpdateSchoolSettingsSchema.parse(request.body));
+      request.log.info({ schoolId: id, settings }, 'school settings changed');
+      return withRetention(id, settings);
+    },
+  );
 
   app.post(
     '/schools/:id/requests/:userId',
@@ -336,6 +451,22 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
   });
 
   /** Puts a registered teacher in charge of a school; this is how a school gets its first person. */
+  /** The superadmin's link for any teacher of the site (A7). */
+  app.post('/admin/reset-link', { preHandler: requireTeacher }, (request): ResetLinkResponse => {
+    const admin = request.teacher as Teacher;
+    requireSuperadmin(db, admin);
+    const { email } = SuperadminResetLinkSchema.parse(request.body);
+    const user = db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, email.trim().toLowerCase()))
+      .get();
+    if (!user) throw notFound('Teacher');
+    const { token, expiresAt } = makeResetToken(db, user.id, admin.id);
+    request.log.info({ userId: user.id, by: admin.id }, 'reset link given by superadmin');
+    return { url: resetUrl(siteUrl(app.ctx.config, request), token), expiresAt };
+  });
+
   app.post('/admin/schools/:id/admins', { preHandler: requireTeacher }, (request): { ok: true } => {
     requireSuperadmin(db, request.teacher as Teacher);
     const { id } = Params.parse(request.params);

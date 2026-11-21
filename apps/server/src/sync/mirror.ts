@@ -34,12 +34,17 @@ export function applySchoolSnapshot(db: Db, snapshot: SchoolSnapshot): MirrorRes
         id: snapshot.school.id,
         name: snapshot.school.name,
         city: snapshot.school.city,
-        settings: {},
+        settings: snapshot.settings ?? {},
         createdAt: now,
       })
       .onConflictDoUpdate({
         target: schema.schools.id,
-        set: { name: snapshot.school.name, city: snapshot.school.city },
+        // The school's rules come down with the roster (A1): quotas, programs, keeping works.
+        set: {
+          name: snapshot.school.name,
+          city: snapshot.school.city,
+          ...(snapshot.settings ? { settings: snapshot.settings } : {}),
+        },
       })
       .run();
 

@@ -125,7 +125,7 @@ export function buildLessonBundle(db: Db, sessionId: string): LessonSyncBundle |
     ),
     // What was handed in, where there is such a version; otherwise what was checked last (H16).
     checks: checks.map((c) =>
-      c.submittedSha
+      c.submittedAt
         ? {
             studentId: c.studentId,
             fileName: c.submittedName,

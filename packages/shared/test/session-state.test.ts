@@ -248,7 +248,7 @@ describe('program tiles (H15)', () => {
     };
     let r = joined(base(), 'a', 1);
     r = joined(r.state, 'b', 2);
-    expect(r.state.apps).toEqual({ all: null, byParticipant: {} });
+    expect(r.state.apps).toEqual({ all: null, byParticipant: {}, allowed: null });
     const set = (state: SessionState, message: ClientMessage) =>
       reduce(
         state,
@@ -257,9 +257,9 @@ describe('program tiles (H15)', () => {
       );
 
     r = set(r.state, { v: 1, type: 'teacher.apps.set', targets: 'all', apps: ['word'] });
-    expect(r.state.apps).toEqual({ all: ['word'], byParticipant: {} });
+    expect(r.state.apps).toEqual({ all: ['word'], byParticipant: {}, allowed: null });
     expect(r.broadcast).toEqual([
-      { v: 1, type: 'apps.changed', apps: { all: ['word'], byParticipant: {} } },
+      { v: 1, type: 'apps.changed', apps: { all: ['word'], byParticipant: {}, allowed: null } },
     ]);
     r = set(r.state, {
       v: 1,
@@ -267,7 +267,11 @@ describe('program tiles (H15)', () => {
       targets: ['a', 'nobody'],
       apps: ['paint', 'notepad'],
     });
-    expect(r.state.apps).toEqual({ all: ['word'], byParticipant: { a: ['paint', 'notepad'] } });
+    expect(r.state.apps).toEqual({
+      all: ['word'],
+      byParticipant: { a: ['paint', 'notepad'] },
+      allowed: null,
+    });
     r = set(r.state, { v: 1, type: 'teacher.apps.set', targets: ['a'], apps: null });
     expect(r.state.apps.byParticipant).toEqual({});
     r = set(r.state, { v: 1, type: 'teacher.apps.set', targets: ['b'], apps: [] });
@@ -278,7 +282,40 @@ describe('program tiles (H15)', () => {
     ).toEqual(r.state.apps);
     // The next stage brings the lesson's own back.
     r = set(r.state, { v: 1, type: 'teacher.stage.skip' });
-    expect(r.state.apps).toEqual({ all: null, byParticipant: {} });
+    expect(r.state.apps).toEqual({ all: null, byParticipant: {}, allowed: null });
     expect(r.broadcast.some((m) => m.type === 'apps.changed')).toBe(true);
+  });
+
+  it('never go beyond what the school allows (stage 5, A3)', () => {
+    const school = createSessionState({
+      id: 's1',
+      lessonId: 'g10',
+      classId: 'class-1a',
+      screenCount: 5,
+      now: 1000,
+      allowedApps: ['paint', 'word'],
+    });
+    let r = joined(school, 'a', 1);
+    r = teacher(r.state, {
+      v: 1,
+      type: 'teacher.apps.set',
+      targets: 'all',
+      apps: ['word', 'excel'],
+    });
+    expect(r.state.apps).toEqual({ all: ['word'], byParticipant: {}, allowed: ['paint', 'word'] });
+    r = teacher(r.state, {
+      v: 1,
+      type: 'teacher.apps.set',
+      targets: ['a'],
+      apps: ['powerpoint'],
+    });
+    expect(r.state.apps.byParticipant).toEqual({ a: [] });
+    // A new stage keeps the school's list.
+    r = teacher(r.state, { v: 1, type: 'teacher.stage.skip' });
+    expect(r.state.apps.allowed).toEqual(['paint', 'word']);
+    // A lesson saved before stage 5 has no list: every program.
+    const old = JSON.parse(JSON.stringify(base())) as { apps: Record<string, unknown> };
+    delete old.apps['allowed'];
+    expect(SessionStateSchema.parse(old).apps.allowed).toBeNull();
   });
 });

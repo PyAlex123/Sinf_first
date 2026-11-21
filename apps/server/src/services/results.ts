@@ -129,7 +129,8 @@ type CheckRow = typeof schema.practiceChecks.$inferSelect;
  */
 function resultCheck(task: PracticeTask, row: CheckRow | undefined): ResultCheck | null {
   if (!row) return null;
-  const handedIn = !!row.submittedSha && !!row.submittedReport;
+  // Handed in is a fact of the lesson; the file itself may be gone by the school's rules (A4).
+  const handedIn = !!row.submittedAt && !!row.submittedReport;
   const report = handedIn ? row.submittedReport : row.report;
   const score = practiceScore(task, report, row.marks);
   const found: Record<string, string> = {};
