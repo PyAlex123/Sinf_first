@@ -22,6 +22,8 @@ import {
   ClassProgramSchema,
   EmaktabRemindersResponseSchema,
   SchoolSettingsResponseSchema,
+  SchoolReportSchema,
+  ClassReportSchema,
   ResetLinkResponseSchema,
   SchoolInvitesResponseSchema,
   CreatedInviteResponseSchema,
@@ -137,6 +139,16 @@ async function sendBytes<T>(url: string, bytes: Blob, schema: ZodType<T>): Promi
       : new ApiError(res.status, 'http', `HTTP ${res.status}`);
   }
   return schema.parse(json);
+}
+
+/** `?from=…&to=…&lang=…`, only what is given. */
+function periodQuery(period: { from?: string; to?: string }, lang?: Locale): string {
+  const q = new URLSearchParams();
+  if (period.from) q.set('from', period.from);
+  if (period.to) q.set('to', period.to);
+  if (lang) q.set('lang', lang);
+  const text = q.toString();
+  return text ? `?${text}` : '';
 }
 
 const LoginResponseSchema = z.strictObject({ teacher: TeacherSchema });
@@ -324,6 +336,23 @@ export const api = {
       pc,
       studentId,
     }),
+  /** Reports (B1): a period, the school year so far without one. */
+  schoolReport: (schoolId: string, period: { from?: string; to?: string }) =>
+    request(
+      'GET',
+      `/api/schools/${encodeURIComponent(schoolId)}/reports${periodQuery(period)}`,
+      SchoolReportSchema,
+    ),
+  schoolReportUrl: (schoolId: string, period: { from?: string; to?: string }, lang: Locale) =>
+    `/api/schools/${encodeURIComponent(schoolId)}/reports.xlsx${periodQuery(period, lang)}`,
+  classReport: (classId: string, period: { from?: string; to?: string }) =>
+    request(
+      'GET',
+      `/api/classes/${encodeURIComponent(classId)}/report${periodQuery(period)}`,
+      ClassReportSchema,
+    ),
+  classReportUrl: (classId: string, period: { from?: string; to?: string }, lang: Locale) =>
+    `/api/classes/${encodeURIComponent(classId)}/report.xlsx${periodQuery(period, lang)}`,
   classDetails: (id: string) =>
     request('GET', `/api/classes/${encodeURIComponent(id)}`, ClassDetailsResponseSchema),
   createClass: (body: CreateClass) =>

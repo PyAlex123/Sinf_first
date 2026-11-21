@@ -19,6 +19,7 @@ import { programRoutes } from './routes/programs.js';
 import { libraryRoutes } from './routes/library.js';
 import { ktpRoutes } from './routes/ktp.js';
 import { inviteRoutes } from './routes/invites.js';
+import { reportRoutes } from './routes/reports.js';
 import { RetentionWorker } from './services/retention.js';
 import { createMailer, type Mailer } from './services/mailer.js';
 import { demoRoutes } from './routes/demo.js';
@@ -192,6 +193,7 @@ export async function buildApp(
   await app.register(libraryRoutes, { prefix: '/api' });
   await app.register(ktpRoutes, { prefix: '/api' });
   await app.register(inviteRoutes, { prefix: '/api' });
+  await app.register(reportRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api', store, virtual });
   await app.register(classRoutes, { prefix: '/api' });
   await app.register(schoolRoutes, { prefix: '/api' });
