@@ -20,6 +20,7 @@ import {
 } from '@sinf/shared';
 import { requireClass, requireStudent, schoolsOf, type ClassRow } from '../auth/access.js';
 import { hashSecretSync } from '../auth/password.js';
+import { ensureHomeCodes } from '../services/student-files.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
@@ -99,6 +100,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
     studentCount,
     schoolId: cls.schoolId,
     schoolName: schoolNameOf(cls.schoolId),
+    homeCode: cls.homeCode,
   });
 
   /**
@@ -241,6 +243,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
       academicYear: body.academicYear ?? currentAcademicYear(),
       settings,
       createdAt: new Date().toISOString(),
+      homeCode: null as string | null,
     };
     db.transaction((tx) => {
       tx.insert(schema.classes).values(row).run();
@@ -248,6 +251,14 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
         .values({ classId: row.id, userId: teacher.id, createdAt: row.createdAt })
         .run();
     });
+    // The code for "Мои работы" at home; a school computer gets the platform's with the roster.
+    if (!app.sync) ensureHomeCodes(db);
+    row.homeCode =
+      db
+        .select({ homeCode: schema.classes.homeCode })
+        .from(schema.classes)
+        .where(eq(schema.classes.id, row.id))
+        .get()?.homeCode ?? null;
     request.log.info({ classId: row.id, schoolId }, 'class created');
     return { class: summaryOf(row, 0) };
   });

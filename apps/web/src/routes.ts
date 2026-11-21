@@ -22,4 +22,9 @@ export const routes: RouteDef[] = [
   { pattern: '/present/:id', load: () => import('./pages/Present.svelte') },
   { pattern: '/join', load: () => import('./pages/Join.svelte') },
   { pattern: '/s/:id', load: () => import('./pages/Student.svelte') },
+  { pattern: '/my', load: () => import('./pages/MyFiles.svelte') },
+  {
+    pattern: '/teacher/student/:id/files',
+    load: () => import('./pages/teacher/StudentFiles.svelte'),
+  },
 ];

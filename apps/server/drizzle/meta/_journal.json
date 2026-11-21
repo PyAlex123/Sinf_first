@@ -71,6 +71,13 @@
       "when": 1795256592354,
       "tag": "0009_sturdy_demogoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1795257641781,
+      "tag": "0010_naive_captain_cross",
+      "breakpoints": true
     }
   ]
 }

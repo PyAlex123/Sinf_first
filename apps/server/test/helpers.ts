@@ -53,8 +53,8 @@ export interface TestApp {
   close: () => Promise<void>;
 }
 
-export async function testApp(): Promise<TestApp> {
-  const config = testConfig();
+export async function testApp(overrides: Partial<Record<string, string>> = {}): Promise<TestApp> {
+  const config = testConfig(overrides);
   const database = testDatabase();
   const app = await buildApp({ config, db: database.db, content: testContent() });
   await app.ready();

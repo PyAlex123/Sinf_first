@@ -188,6 +188,8 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
       sortOrder: student.sortOrder,
       pc: body.pc && app.ctx.config.classroom ? body.pc : null,
     });
+    // Their folder from the platform, if there is a connection: what they did at home (H12).
+    void app.sync?.pullFiles(student.id);
     if (body.pc && app.ctx.config.classroom) {
       computers.seen(body.pc);
       rememberSeat(db, summary.classId, body.pc, student.id);

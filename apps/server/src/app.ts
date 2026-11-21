@@ -24,6 +24,9 @@ import { resultRoutes } from './routes/results.js';
 import { screenshotRoutes } from './routes/screenshots.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { syncRoutes } from './routes/sync.js';
+import { fileRoutes } from './routes/files.js';
+import { ensureHomeCodes } from './services/student-files.js';
+import { clearUploadLeftovers } from './sync/files.js';
 import { SyncWorker } from './sync/worker.js';
 import { VirtualStudents } from './services/virtual-students.js';
 
@@ -88,6 +91,11 @@ export async function buildApp(
         ? new SyncWorker(ctx.db, ctx.config, app.log)
         : null;
   app.decorate('sync', worker);
+  // Class codes for "Мои работы" at home are the platform's to make (H12); a school computer gets
+  // them with the roster, and making its own could clash with the platform's.
+  if (!worker) ensureHomeCodes(ctx.db);
+  // An upload cut off by a power cut leaves half a file behind; it belongs to nobody.
+  await clearUploadLeftovers(ctx.config.dataDir);
   if (worker) {
     // A lesson that has just ended should not wait a minute for its turn.
     store.onSessionEnded = () => void worker.push();
@@ -137,6 +145,7 @@ export async function buildApp(
   await app.register(resultRoutes, { prefix: '/api' });
   await app.register(screenshotRoutes, { prefix: '/api', store });
   await app.register(joinRoutes, { prefix: '/api', store });
+  await app.register(fileRoutes, { prefix: '/api', store });
   await app.register(realtimePlugin, { store });
 
   // Built web client (single-page app). In development Vite serves it and proxies /api, /ws, /content here.

@@ -128,6 +128,10 @@
         <Button variant="secondary" href={`/teacher/class/${cls?.id}/cards`}>
           {t('teacher.cards')}
         </Button>
+        <!-- "Собрать работы" (H12): every child's folder in one ZIP, a folder per child. -->
+        <Button variant="secondary" href={`/api/classes/${cls?.id}/works.zip`} download>
+          {t('files.collect')}
+        </Button>
       {/snippet}
     </PageHeader>
 
@@ -145,6 +149,7 @@
             {students}
             {pics}
             editable
+            filesLink
             onChange={(u: Student) => (students = students.map((s) => (s.id === u.id ? u : s)))}
             onRename={rename}
             onRemove={remove}

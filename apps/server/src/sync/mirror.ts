@@ -104,6 +104,7 @@ export function applySchoolSnapshot(db: Db, snapshot: SchoolSnapshot): MirrorRes
           academicYear: cls.academicYear,
           settings: cls.settings,
           createdAt: now,
+          homeCode: cls.homeCode ?? null,
         })
         .onConflictDoUpdate({
           target: schema.classes.id,
@@ -114,6 +115,8 @@ export function applySchoolSnapshot(db: Db, snapshot: SchoolSnapshot): MirrorRes
             grade: cls.grade,
             academicYear: cls.academicYear,
             settings: cls.settings,
+            // The platform's code is the one on the cards; an older platform sends none.
+            ...(cls.homeCode !== undefined ? { homeCode: cls.homeCode } : {}),
           },
         })
         .run();

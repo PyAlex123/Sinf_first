@@ -16,6 +16,7 @@
   import RestScreen from '../lib/ui/RestScreen.svelte';
   import StageTimer from '../lib/ui/StageTimer.svelte';
   import LessonPlayer from '../player/LessonPlayer.svelte';
+  import FilesPanel from '../lib/ui/FilesPanel.svelte';
 
   let { params }: PageProps = $props();
   const sessionId = $derived(params['id'] ?? '');
@@ -177,6 +178,14 @@
 
   /** The classroom app's window already covers the screen (stage 3): nothing to press there. */
   const inClassroomApp = platform.role === 'student';
+
+  /**
+   * "Мои работы" in a browser lesson (H12): the child's folder over the lesson page. Not in the
+   * classroom app: a file dialog there would show the computer's disks; the classroom has its own
+   * work folder (H15).
+   */
+  let filesOpen = $state(false);
+  const filesToken = $derived(readParticipantToken(sessionId));
 
   function start(): void {
     started = true;
@@ -367,6 +376,11 @@
           </span>
         {/if}
         {#if store?.status !== 'open'}<span class="conn">{t('student.reconnecting')}</span>{/if}
+        {#if !inClassroomApp && filesToken && !quiz}
+          <button type="button" class="hand" onclick={() => (filesOpen = !filesOpen)}>
+            {t('files.title')}
+          </button>
+        {/if}
         {#if !step && !quiz}
           <!-- On a step the child has their own "Помогите" button below; one hand is enough.
                During a quiz nothing may sit on top of an answer. -->
@@ -381,6 +395,17 @@
           </button>
         {/if}
       </div>
+      {#if filesOpen && filesToken && !lock}
+        <div class="filesover" role="dialog" aria-label={t('files.title')}>
+          <div class="fhead">
+            <h2>{t('files.title')}</h2>
+            <Button variant="secondary" size="sm" onclick={() => (filesOpen = false)}>
+              {t('common.close')}
+            </Button>
+          </div>
+          <FilesPanel access={{ kind: 'lesson', sessionId, token: filesToken }} />
+        </div>
+      {/if}
       {#if lock}
         <div class="lock" role="alert">
           <Icon name="lock" size={64} />
@@ -392,6 +417,25 @@
 </div>
 
 <style>
+  .filesover {
+    position: fixed;
+    inset: 56px 0 0 0;
+    overflow: auto;
+    padding: var(--space-4);
+    background: var(--c-bg);
+    z-index: 20;
+  }
+  .fhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 760px;
+    margin: 0 auto var(--space-3);
+  }
+  .filesover :global(.files) {
+    max-width: 760px;
+    margin: 0 auto;
+  }
   .student {
     height: 100vh;
   }

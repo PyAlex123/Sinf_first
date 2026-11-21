@@ -20,6 +20,7 @@ import {
   pendingScreenshots,
   pendingSessionIds,
 } from './outbox.js';
+import { countDirtyFiles, pullFiles, pushFiles } from './files.js';
 
 /**
  * The school computer's side of S2.6 (ADR-011): it pulls the school's roster down and pushes what
@@ -142,7 +143,13 @@ export class SyncWorker {
     const link = this.link();
     if (!link || this.running || this.stopped) return 0;
     const waiting = pendingSessionIds(this.db);
-    if (waiting.length === 0 && pendingScreenshots(this.db, 1).length === 0) return 0;
+    if (
+      waiting.length === 0 &&
+      pendingScreenshots(this.db, 1).length === 0 &&
+      countDirtyFiles(this.db) === 0
+    ) {
+      return 0;
+    }
 
     this.running = true;
     let sent = 0;
@@ -181,10 +188,14 @@ export class SyncWorker {
         break; // 401 or a server problem: try the whole queue again on the next tick.
       }
       const shots = blocked || this.stopped ? 0 : await this.pushScreenshots(link);
-      if (sent + shots > 0 && !this.stopped) {
+      const files =
+        blocked || this.stopped
+          ? 0
+          : await pushFiles(this.db, this.config.dataDir, link, this.fetchImpl, this.log);
+      if (sent + shots + files > 0 && !this.stopped) {
         this.note(LAST_SYNC_KEY, new Date().toISOString());
         this.note(LAST_ERROR_KEY, null);
-        this.log.info({ sent, shots }, 'lesson results sent to the platform');
+        this.log.info({ sent, shots, files }, 'lesson results sent to the platform');
       }
     } catch (error) {
       this.note(LAST_ERROR_KEY, OFFLINE);
@@ -193,6 +204,21 @@ export class SyncWorker {
       this.running = false;
     }
     return sent;
+  }
+
+  /**
+   * A child logged into a lesson here: bring their folder from the platform, so what they did at
+   * home is here (H12). Without a connection the lesson simply works with what this computer has.
+   */
+  async pullFiles(studentId: string): Promise<number> {
+    const link = this.link();
+    if (!link || this.stopped) return 0;
+    try {
+      return await pullFiles(this.db, this.config.dataDir, link, this.fetchImpl, studentId);
+    } catch (error) {
+      this.log.debug({ err: error, studentId }, 'student files not fetched');
+      return 0;
+    }
   }
 
   /**
@@ -252,6 +278,7 @@ export class SyncWorker {
         mode: 'platform',
         pending: 0,
         pendingShots: 0,
+        pendingFiles: 0,
         lastSyncAt: null,
         lastError: null,
         rosterAt: null,
@@ -261,6 +288,7 @@ export class SyncWorker {
       mode: 'school',
       pending: countPending(this.db),
       pendingShots: countPendingScreenshots(this.db),
+      pendingFiles: countDirtyFiles(this.db),
       lastSyncAt: this.read(LAST_SYNC_KEY),
       lastError: this.read(LAST_ERROR_KEY),
       rosterAt: this.read(ROSTER_AT_KEY),

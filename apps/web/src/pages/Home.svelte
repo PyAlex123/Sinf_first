@@ -14,6 +14,7 @@
   <div class="choice">
     <Button href="/join" size="xl">{t('home.student')}</Button>
     <Button href="/teacher" size="lg" variant="secondary">{t('home.teacher')}</Button>
+    <Button href="/my" size="lg" variant="ghost">{t('home.myFiles')}</Button>
   </div>
 </main>
 

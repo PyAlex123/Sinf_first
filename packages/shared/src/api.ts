@@ -71,6 +71,8 @@ export const ClassSummarySchema = z.strictObject({
   /** Null for a teacher's personal class (ADR-009). */
   schoolId: id.nullable(),
   schoolName: z.string().min(1).nullable(),
+  /** Six digits on the cards for "Мои работы" at home (H12); null until the platform gives one. */
+  homeCode: z.string().nullable().default(null),
 });
 
 /** Creating a class (S2.2). `schoolId` is only needed when the teacher belongs to several schools. */

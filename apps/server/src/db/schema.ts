@@ -139,8 +139,17 @@ export const classes = sqliteTable(
     academicYear: text('academic_year').notNull(),
     settings: text('settings', { mode: 'json' }).$type<ClassSettings>().notNull(),
     createdAt: timestamp('created_at').notNull(),
+    /**
+     * Six digits printed on the cards: with them a child opens "Мои работы" at home (H12). Made by
+     * the platform, carried to school computers with the roster.
+     */
+    homeCode: text('home_code'),
   },
-  (t) => [index('classes_school_idx').on(t.schoolId), index('classes_owner_idx').on(t.ownerId)],
+  (t) => [
+    index('classes_school_idx').on(t.schoolId),
+    index('classes_owner_idx').on(t.ownerId),
+    uniqueIndex('classes_home_code_idx').on(t.homeCode),
+  ],
 );
 
 /** Teachers of a school class (CLAUDE.md §6, ClassTeacher). A personal class has only its owner. */
@@ -404,8 +413,42 @@ export const syncState = sqliteTable('sync_state', {
   updatedAt: timestamp('updated_at').notNull(),
 });
 
+/**
+ * A child's own files, "Мои работы" (CLAUDE.md §4.9; stage 3, H12; ADR-015). The bytes are kept once
+ * per content in `DATA_DIR/files/<sha256>`; a row gives one of them a name in one child's folder.
+ *
+ * On a school computer a row also remembers what the platform has: `cloudSha` is the content the
+ * platform confirmed under this name, and `dirty` says this computer has a change to send. A deleted
+ * file stays as a row without content (`deletedAt`) until the platform has heard of it.
+ */
+export const studentFiles = sqliteTable(
+  'student_files',
+  {
+    id: id(),
+    studentId: text('student_id')
+      .notNull()
+      .references(() => students.id),
+    name: text('name').notNull(),
+    /** Lower-case NFC: "Рисунок.PNG" and "рисунок.png" are one file, as on Windows. */
+    nameKey: text('name_key').notNull(),
+    size: integer('size').notNull(),
+    sha256: text('sha256'),
+    updatedAt: timestamp('updated_at').notNull(),
+    /** Where the latest version came from: "ПК-05", "браузер", "облако". */
+    origin: text('origin').notNull(),
+    deletedAt: timestamp('deleted_at'),
+    cloudSha: text('cloud_sha'),
+    dirty: integer('dirty', { mode: 'boolean' }).notNull().default(false),
+  },
+  (t) => [
+    uniqueIndex('student_files_name_idx').on(t.studentId, t.nameKey),
+    index('student_files_sha_idx').on(t.sha256),
+  ],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  studentFiles,
   screenshots,
   seats,
   roomComputers,

@@ -39,6 +39,8 @@ export const SyncClassSchema = z.strictObject({
   academicYear: z.string().min(1),
   settings: ClassSettingsSchema,
   teacherIds: z.array(id),
+  /** The code a child types at home to reach "Мои работы" (H12); printed on the cards. */
+  homeCode: z.string().nullable().optional(),
 });
 export type SyncClass = z.infer<typeof SyncClassSchema>;
 
@@ -183,6 +185,8 @@ export const SyncStatusSchema = z.strictObject({
   pending: z.number().int().nonnegative(),
   /** Screenshots of lessons already sent that are still waiting to go up (H10). */
   pendingShots: z.number().int().nonnegative().default(0),
+  /** Changes in children's folders waiting to go up (H12). */
+  pendingFiles: z.number().int().nonnegative().default(0),
   lastSyncAt: at.nullable(),
   lastError: z.string().nullable(),
   /** The roster this computer holds, if it ever received one. */
