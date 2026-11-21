@@ -58,7 +58,7 @@ const tiles = (page) =>
   await teacher.waitForURL(`${BASE}/teacher`);
 
   // The school's rules: Paint and Word only.
-  await teacher.goto(`${BASE}/school/school-demo`);
+  await teacher.goto(`${BASE}/school/school-demo#rules`);
   for (const app of ['notepad', 'excel', 'powerpoint'])
     await teacher.locator(`input[data-app=${app}]`).uncheck();
   await teacher

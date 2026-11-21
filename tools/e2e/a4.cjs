@@ -67,7 +67,7 @@ function nextCleaning(month, day) {
     });
   });
 
-  await page.goto(`${BASE}/school/school-demo`);
+  await page.goto(`${BASE}/school/school-demo#rules`);
   await page.waitForSelector('[data-retention]');
   const before = await page.locator('[data-retention]').innerText();
   check(

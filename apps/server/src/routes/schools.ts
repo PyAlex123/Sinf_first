@@ -6,6 +6,7 @@ import {
   AssignSchoolAdminSchema,
   CreateSchoolSchema,
   SchoolDecisionSchema,
+  SetClassTeachersSchema,
   SetSchoolRoleSchema,
   UpdateSchoolSchema,
   UpdateSchoolSettingsSchema,
@@ -75,7 +76,11 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
       .groupBy(schema.students.classId)
       .all();
     const teachers = db
-      .select({ classId: schema.classTeachers.classId, name: schema.users.fullName })
+      .select({
+        classId: schema.classTeachers.classId,
+        userId: schema.classTeachers.userId,
+        name: schema.users.fullName,
+      })
       .from(schema.classTeachers)
       .innerJoin(schema.users, eq(schema.users.id, schema.classTeachers.userId))
       .where(inArray(schema.classTeachers.classId, ids))
@@ -86,6 +91,7 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
       grade: row.grade,
       studentCount: counts.find((c) => c.classId === row.id)?.n ?? 0,
       teachers: teachers.filter((t) => t.classId === row.id).map((t) => t.name),
+      teacherIds: teachers.filter((t) => t.classId === row.id).map((t) => t.userId),
     }));
   };
 
@@ -199,6 +205,50 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
     const updated = db.select().from(schema.schools).where(eq(schema.schools.id, id)).get();
     return details(updated as SchoolRow, 'admin');
   });
+
+  // ---------- who teaches which class (stage 5, A5)
+
+  app.put(
+    '/schools/:id/classes/:classId/teachers',
+    { preHandler: requireTeacher },
+    (request): SchoolDetailsResponse => {
+      const { id, classId } = z
+        .object({ id: z.string().min(1), classId: z.string().min(1) })
+        .parse(request.params);
+      const school = requireSchoolAdmin(db, request.teacher as Teacher, id);
+      if (app.sync?.link() != null) {
+        throw new ApiHttpError(409, 'edit_on_platform', 'Classes are assigned on the website');
+      }
+      const { userIds } = SetClassTeachersSchema.parse(request.body);
+      const cls = db.select().from(schema.classes).where(eq(schema.classes.id, classId)).get();
+      if (!cls || cls.schoolId !== id) throw notFound('Class');
+      const members = new Set(
+        db
+          .select({ userId: schema.schoolMembers.userId })
+          .from(schema.schoolMembers)
+          .where(eq(schema.schoolMembers.schoolId, id))
+          .all()
+          .map((m) => m.userId),
+      );
+      const wanted = [...new Set(userIds)];
+      if (wanted.some((u) => !members.has(u))) {
+        throw new ApiHttpError(
+          400,
+          'not_member',
+          'Only a teacher of the school can teach its class',
+        );
+      }
+      const createdAt = new Date().toISOString();
+      db.transaction((tx) => {
+        tx.delete(schema.classTeachers).where(eq(schema.classTeachers.classId, classId)).run();
+        for (const userId of wanted) {
+          tx.insert(schema.classTeachers).values({ classId, userId, createdAt }).run();
+        }
+      });
+      request.log.info({ schoolId: id, classId, teachers: wanted.length }, 'class teachers set');
+      return details(school, 'admin');
+    },
+  );
 
   // ---------- the school's rules (stage 5, A1; ADR-021)
 

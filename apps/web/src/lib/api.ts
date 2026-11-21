@@ -368,6 +368,14 @@ export const api = {
       SchoolSettingsResponseSchema,
       body,
     ),
+  /** Who teaches a class of the school (A5): its administrator only. */
+  setClassTeachers: (schoolId: string, classId: string, userIds: string[]) =>
+    request(
+      'PUT',
+      `/api/schools/${encodeURIComponent(schoolId)}/classes/${encodeURIComponent(classId)}/teachers`,
+      SchoolDetailsResponseSchema,
+      { userIds },
+    ),
   updateSchool: (id: string, body: UpdateSchool) =>
     request('PATCH', `/api/schools/${encodeURIComponent(id)}`, SchoolDetailsResponseSchema, body),
   devices: (schoolId: string) =>

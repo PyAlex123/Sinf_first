@@ -918,5 +918,18 @@
   "session.apps.school": "Maktab faqat bularga ruxsat bergan: {list}",
   "session.apps.practiceBlocked": "Bu dars amaliyoti {app} da, maktab esa bu dasturga ruxsat bermagan: o‘quvchilar uni ocha olmaydi.",
   "schoolSettings.next": "Keyingi tozalash — {date}.",
-  "schoolSettings.nextTakes": "Agar u bugun bo‘lganida, o‘chgan bo‘lardi: skrinshotlar — {screenshots}, o‘quvchilar papkalaridagi fayllar — {files}, amaliyotda topshirilganlar — {practice}."
+  "schoolSettings.nextTakes": "Agar u bugun bo‘lganida, o‘chgan bo‘lardi: skrinshotlar — {screenshots}, o‘quvchilar papkalaridagi fayllar — {files}, amaliyotda topshirilganlar — {practice}.",
+  "school.tab.overview": "Umumiy",
+  "school.tab.teachers": "O‘qituvchilar",
+  "school.tab.classes": "Sinflar",
+  "school.tab.computers": "Kompyuterlar",
+  "school.tab.rules": "Qoidalar",
+  "school.overview.requests": "Arizalar: {count}",
+  "school.overview.online": "{count} tadan {online} tasi tarmoqda",
+  "school.overview.old": "Eski versiya: {count} — {version} ga yangilang",
+  "school.class.noTeacher": "o‘qituvchi yo‘q",
+  "school.class.assign": "Sinf o‘qituvchilari",
+  "devices.noRoom": "Kabinetsiz",
+  "devices.version": "Versiya",
+  "devices.old": "eski"
 }

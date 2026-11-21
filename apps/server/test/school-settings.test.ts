@@ -1,11 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   DEFAULT_SCHOOL_SETTINGS,
+  SchoolDetailsResponseSchema,
   readSchoolSettings,
   SchoolSettingsResponseSchema,
   SessionResponseSchema,
   SessionStateSchema,
 } from '@sinf/shared';
+import { schema } from '../src/db/index.js';
 import { DEMO } from '../src/db/seed.js';
 import { applySchoolSnapshot } from '../src/sync/mirror.js';
 import { buildSchoolSnapshot } from '../src/sync/snapshot.js';
@@ -134,5 +136,46 @@ describe('the rules of a school', () => {
       ).json(),
     );
     expect(live.state?.apps.allowed).toEqual(['word']);
+  });
+});
+
+describe('who teaches a class (A5)', () => {
+  it('is set by the administrator, among the school’s teachers only', async () => {
+    const other = await registerTeacher(t.app, 'colleague@example.com', 'Коллега Учитель');
+    // The colleague joins the school.
+    await t.app.inject({
+      method: 'POST',
+      url: `/api/schools/${DEMO.schoolId}/requests`,
+      headers: { cookie: other },
+    });
+    const colleague = t.database.db
+      .select()
+      .from(schema.users)
+      .all()
+      .find((u) => u.email === 'colleague@example.com');
+    if (!colleague) throw new Error('no colleague');
+    const put = (userIds: string[], as = cookie) =>
+      t.app.inject({
+        method: 'PUT',
+        url: `/api/schools/${DEMO.schoolId}/classes/class-1a/teachers`,
+        headers: { cookie: as },
+        payload: { userIds },
+      });
+    // Not a member yet.
+    expect((await put([colleague.id])).statusCode).toBe(400);
+    await t.app.inject({
+      method: 'POST',
+      url: `/api/schools/${DEMO.schoolId}/requests/${colleague.id}`,
+      headers: { cookie },
+      payload: { decision: 'approve' },
+    });
+    const res = await put([DEMO.teacherId, colleague.id]);
+    expect(res.statusCode).toBe(200);
+    const details = SchoolDetailsResponseSchema.parse(res.json());
+    expect(details.classes.find((c) => c.id === 'class-1a')?.teacherIds.sort()).toEqual(
+      [DEMO.teacherId, colleague.id].sort(),
+    );
+    // A plain teacher may not assign.
+    expect((await put([colleague.id], other)).statusCode).toBe(404);
   });
 });

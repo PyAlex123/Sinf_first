@@ -972,5 +972,21 @@
   "session.apps.school": "Школа разрешила только: {list}",
   "session.apps.practiceBlocked": "Практика этого урока — в {app}, а школа эту программу не разрешила: ученики не смогут её открыть.",
   "schoolSettings.next": "Следующая очистка — {date}.",
-  "schoolSettings.nextTakes": "Если бы она была сегодня, удалились бы: скриншотов — {screenshots}, файлов в папках учеников — {files}, сданных на практике — {practice}."
+  "schoolSettings.nextTakes": "Если бы она была сегодня, удалились бы: скриншотов — {screenshots}, файлов в папках учеников — {files}, сданных на практике — {practice}.",
+  "school.tab.overview": "Обзор",
+  "school.tab.teachers": "Учителя",
+  "school.tab.classes": "Классы",
+  "school.tab.computers": "Компьютеры",
+  "school.tab.rules": "Правила",
+  "school.overview.requests": "Заявок: {count}",
+  "school.overview.online": "в сети {online} из {count}",
+  "school.overview.old": "Старая версия: {count} — обновите до {version}",
+  "school.overview.old#one": "Старая версия: {count} — обновите до {version}",
+  "school.overview.old#few": "Старая версия: {count} — обновите до {version}",
+  "school.overview.old#many": "Старая версия: {count} — обновите до {version}",
+  "school.class.noTeacher": "нет учителя",
+  "school.class.assign": "Учителя класса",
+  "devices.noRoom": "Без кабинета",
+  "devices.version": "Версия",
+  "devices.old": "старая"
 }

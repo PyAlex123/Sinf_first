@@ -120,7 +120,7 @@ const check = (name, pass, extra = '') => {
   await page.screenshot({ path: `${S}/w11-plan.png`, fullPage: true });
 
   // The school's administrator allows more.
-  await page.goto(`${BASE}/school/school-demo`);
+  await page.goto(`${BASE}/school/school-demo#rules`);
   // The school's rules (stage 5, A1) hold the KTP share now.
   await page.fill('input[data-field=ktp-percent]', '60');
   await page

@@ -27,7 +27,7 @@ const check = (name, pass, extra = '') => {
   await teacher.waitForURL(`${BASE}/teacher`);
 
   // The administrator: 3 MB a child, 1 MB a file.
-  await teacher.goto(`${BASE}/school/school-demo`);
+  await teacher.goto(`${BASE}/school/school-demo#rules`);
   await teacher.fill('input[data-field=quota]', '3');
   await teacher.fill('input[data-field=max-file]', '1');
   await teacher

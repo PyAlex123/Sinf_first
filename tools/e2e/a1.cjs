@@ -29,7 +29,7 @@ async function login(page, email, password) {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   await login(page, 'demo@sinf.local', 'demo1234');
 
-  await page.goto(`${BASE}/school/school-demo`);
+  await page.goto(`${BASE}/school/school-demo#rules`);
   await page.waitForSelector('input[data-field=quota]');
   check(
     'по умолчанию: 200 МБ, файл 50 МБ, все пять программ',
@@ -86,7 +86,7 @@ async function login(page, email, password) {
       body: JSON.stringify({ decision: 'approve' }),
     });
   });
-  await other.goto(`${BASE}/school/school-demo`);
+  await other.goto(`${BASE}/school/school-demo#rules`);
   await other.waitForSelector('h2');
   check(
     'учителю школы правила не видны',

@@ -136,8 +136,14 @@ export const SchoolClassSchema = z.strictObject({
   grade: z.number().int().min(1).max(11),
   studentCount: z.number().int().nonnegative(),
   teachers: z.array(z.string().min(1)),
+  /** The same teachers by id, in the same order: the administrator assigns them (stage 5, A5). */
+  teacherIds: z.array(id),
 });
 export type SchoolClass = z.infer<typeof SchoolClassSchema>;
+
+/** Who teaches a class of the school, set by its administrator (stage 5, A5). */
+export const SetClassTeachersSchema = z.strictObject({ userIds: z.array(id).max(10) });
+export type SetClassTeachers = z.infer<typeof SetClassTeachersSchema>;
 
 export const SchoolJoinRequestSchema = z.strictObject({
   userId: id,
