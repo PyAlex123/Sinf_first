@@ -243,6 +243,21 @@ const LABELS: Record<Locale, Labels> = {
     ktpRows: 'KTR: jami mavzu',
     period: 'Davr',
   },
+  en: {
+    school: 'School report',
+    cls: 'Class',
+    parallel: 'Grade year',
+    student: 'Student',
+    students: 'Students',
+    lessons: 'Lessons',
+    attendance: 'Attendance, %',
+    present: 'At lessons',
+    average: 'Average grade',
+    ktpDone: 'Plan: done',
+    ktpPlanned: 'Plan: due',
+    ktpRows: 'Plan: topics',
+    period: 'Period',
+  },
 };
 
 const bold = (value: string): Cell => ({ value, style: 'boldCenter' });

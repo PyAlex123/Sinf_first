@@ -2,7 +2,7 @@
   import type { SyncStatus } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api } from '../api.js';
-  import { i18n, t } from '../i18n/index.svelte.js';
+  import { i18n, localeTag, t } from '../i18n/index.svelte.js';
   import Badge from './Badge.svelte';
   import Button from './Button.svelte';
   import Card from './Card.svelte';
@@ -16,7 +16,7 @@
   let busy = $state(false);
 
   const time = (iso: string): string =>
-    new Date(iso).toLocaleString(i18n.locale === 'uz' ? 'uz-UZ' : 'ru-RU', {
+    new Date(iso).toLocaleString(localeTag(i18n.locale), {
       dateStyle: 'short',
       timeStyle: 'short',
     });

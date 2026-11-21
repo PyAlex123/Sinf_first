@@ -81,7 +81,7 @@
                 <li class={o}>
                   <span class="sign" aria-label={t(`practice.outcome.${o}`)}>{sign(o)}</span>
                   <span class="lab">
-                    {c.label[i18n.locale]}
+                    {c.label[i18n.contentLocale]}
                     <span class="muted small">· {c.points} {t('practice.pointsShort')}</span>
                     {#if check?.found[c.id] && m === undefined}
                       <span class="muted small found">{check.found[c.id]}</span>

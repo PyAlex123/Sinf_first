@@ -168,7 +168,7 @@ export const home = {
 
 /** "1,4 МБ" — the way a school computer shows it. */
 export function formatSize(bytes: number, locale: string): string {
-  const units = locale === 'uz' ? ['B', 'KB', 'MB'] : ['Б', 'КБ', 'МБ'];
+  const units = locale === 'ru' ? ['Б', 'КБ', 'МБ'] : ['B', 'KB', 'MB'];
   let value = bytes;
   let unit = 0;
   while (value >= 1024 && unit < units.length - 1) {
@@ -176,5 +176,7 @@ export function formatSize(bytes: number, locale: string): string {
     unit += 1;
   }
   const digits = unit === 0 || value >= 10 ? 0 : 1;
-  return `${value.toLocaleString(locale === 'uz' ? 'uz-UZ' : 'ru-RU', { maximumFractionDigits: digits })} ${units[unit]}`;
+  return `${value.toLocaleString(locale === 'uz' ? 'uz-UZ' : locale === 'en' ? 'en-GB' : 'ru-RU', {
+    maximumFractionDigits: digits,
+  })} ${units[unit]}`;
 }

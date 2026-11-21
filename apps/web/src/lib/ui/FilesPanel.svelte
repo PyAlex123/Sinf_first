@@ -18,7 +18,7 @@
     uploadProblem,
     type FilesAccess,
   } from '../files.js';
-  import { i18n, t } from '../i18n/index.svelte.js';
+  import { i18n, localeTag, t } from '../i18n/index.svelte.js';
   import Button from './Button.svelte';
   import EmptyState from './EmptyState.svelte';
   import Notice from './Notice.svelte';
@@ -40,7 +40,7 @@
     folder ? Math.min(100, Math.round((100 * folder.usedBytes) / folder.quotaBytes)) : 0,
   );
   const date = (iso: string): string =>
-    new Date(iso).toLocaleString(i18n.locale === 'uz' ? 'uz-UZ' : 'ru-RU', {
+    new Date(iso).toLocaleString(localeTag(i18n.locale), {
       dateStyle: 'short',
       timeStyle: 'short',
     });

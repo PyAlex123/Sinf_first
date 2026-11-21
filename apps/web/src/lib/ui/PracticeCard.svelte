@@ -46,7 +46,7 @@
           : undefined,
   );
   const outcome = (id: string): CheckOutcome | null => check?.outcomes[id] ?? null;
-  const label = (c: PracticeTask['criteria'][number]): string => c.label[i18n.locale];
+  const label = (c: PracticeTask['criteria'][number]): string => c.label[i18n.contentLocale];
 
   async function download(): Promise<void> {
     if (!access) return;

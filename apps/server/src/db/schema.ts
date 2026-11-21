@@ -48,7 +48,7 @@ export const users = sqliteTable(
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     fullName: text('full_name').notNull(),
-    locale: text('locale', { enum: ['uz', 'ru'] })
+    locale: text('locale', { enum: ['uz', 'ru', 'en'] })
       .notNull()
       .default('ru'),
     createdAt: timestamp('created_at').notNull(),

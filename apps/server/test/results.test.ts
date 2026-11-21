@@ -364,10 +364,20 @@ describe('journal in Excel', () => {
     expect(sheet).toContain('2–5 baho');
   });
 
-  it('refuses a language it does not have', async () => {
+  it('speaks English too (B3)', async () => {
     const res = await t.app.inject({
       method: 'GET',
       url: '/api/journal/class-1a/export.xlsx?lang=en',
+      headers: { cookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(String(res.headers['content-disposition'])).toContain('gradebook');
+  });
+
+  it('refuses a language it does not have', async () => {
+    const res = await t.app.inject({
+      method: 'GET',
+      url: '/api/journal/class-1a/export.xlsx?lang=de',
       headers: { cookie },
     });
     expect(res.statusCode).toBe(400);

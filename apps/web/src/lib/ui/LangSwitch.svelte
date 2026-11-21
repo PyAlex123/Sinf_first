@@ -8,7 +8,7 @@
       type="button"
       class:active={i18n.locale === locale}
       aria-pressed={i18n.locale === locale}
-      onclick={() => i18n.set(locale)}
+      onclick={() => void i18n.set(locale)}
     >
       {LOCALE_NAMES[locale]}
     </button>
