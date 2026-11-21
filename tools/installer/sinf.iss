@@ -19,6 +19,10 @@
 ; - Uninstalling removes the program, the autostart and the firewall rules. Lessons, results and the
 ;   children's files in each user's %LOCALAPPDATA%\Sinf stay: they are the school's, not the program's.
 ;
+; - The agent (stage 6, B7; ADR-024) only when asked, and only on a student computer: the wizard's
+;   checkbox or /AGENT=1. It makes the "Ученик" account with autologon and Sinf as its shell
+;   (Sinf.Agent.exe enable); /AGENT=0, a teacher's role or removing Sinf undo it (disable).
+;   Uninstall with /REMOVEACCOUNT=1 also deletes the account the agent made.
 ; - Updates (stage 6, B6; ADR-023): the task "Sinf\Update" runs {app}\Sinf.Updater.exe as SYSTEM
 ;   every 30 minutes and 5 minutes after Windows starts. An update is this same installer built with
 ;   /DUpdateBuild (no WebView2 inside, Sinf-update-<version>.exe) and run with /UPDATE=1: silent,
@@ -92,6 +96,11 @@ ru.PcNeeded=Введите имя компьютера, не больше 20 з�
 ru.WebView2=Устанавливается среда WebView2…
 ru.Firewall=Настраивается брандмауэр Windows…
 ru.LaunchSinf=Открыть Sinf
+ru.AgentTitle=Закрытая среда
+ru.AgentSubtitle=Агент Sinf превращает компьютер ученика в киоск на уровне Windows.
+ru.AgentPrompt=Агент создаёт учётку «Ученик» с автовходом, ставит Sinf вместо рабочего стола, отключает диспетчер задач и смену пользователя и поднимает Sinf, если его закрыть. Отключается командой «Sinf.Agent.exe disable» или удалением Sinf. Первый раз включите его на запасном компьютере.
+ru.AgentCheck=Включить закрытую среду (агент)
+ru.AgentOn=Включается закрытая среда…
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -134,6 +143,7 @@ Type: filesandordirs; Name: "{app}\updates"
 var
   RolePage: TInputOptionWizardPage;
   PcPage: TInputQueryWizardPage;
+  AgentPage: TInputOptionWizardPage;
 
 { "teacher", "student" or "" — from /ROLE=, as typed; else what this computer was before (an
   update, B6, runs with no /ROLE at all and must not forget it). }
@@ -183,6 +193,41 @@ begin
   Result := ChosenRole = 'student';
 end;
 
+{ The agent (B7): /AGENT=1 or 0 when given; else the wizard's checkbox; else what it was before. }
+function AgentParam: String;
+begin
+  Result := Trim(ExpandConstant('{param:AGENT|}'));
+  if (Result <> '1') and (Result <> '0') then
+    Result := GetPreviousData('Agent', '0');
+end;
+
+function WantsAgent: Boolean;
+begin
+  if not IsStudent then
+    Result := False
+  else if WizardSilent or (AgentPage = nil) then
+    Result := AgentParam = '1'
+  else
+    Result := AgentPage.Values[0];
+end;
+
+function AgentInstalled: Boolean;
+var
+  Code: Integer;
+begin
+  Result := Exec(ExpandConstant('{sys}\sc.exe'), 'query SinfAgent', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+end;
+
+procedure RunAgent(const Command: String);
+var
+  Code: Integer;
+begin
+  if not FileExists(ExpandConstant('{app}\Sinf.Agent.exe')) then
+    Exit;
+  Exec(ExpandConstant('{app}\Sinf.Agent.exe'), Command, '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Log('Sinf.Agent.exe ' + Command + ': ' + IntToStr(Code));
+end;
+
 { Found in either place Microsoft puts it: for the whole computer or for one user. }
 function NeedsWebView2: Boolean;
 var
@@ -201,6 +246,10 @@ procedure RegisterPreviousData(PreviousDataKey: Integer);
 begin
   SetPreviousData(PreviousDataKey, 'Role', ChosenRole);
   SetPreviousData(PreviousDataKey, 'Pc', ChosenPc);
+  if WantsAgent then
+    SetPreviousData(PreviousDataKey, 'Agent', '1')
+  else
+    SetPreviousData(PreviousDataKey, 'Agent', '0');
 end;
 
 { The updater's tasks (B6): as SYSTEM, every 30 minutes and 5 minutes after Windows starts. Made
@@ -244,11 +293,17 @@ begin
     CustomMessage('PcSubtitle'), CustomMessage('PcPrompt'));
   PcPage.Add(CustomMessage('PcLabel'), False);
   PcPage.Values[0] := PcParam;
+
+  AgentPage := CreateInputOptionPage(PcPage.ID, CustomMessage('AgentTitle'),
+    CustomMessage('AgentSubtitle'), CustomMessage('AgentPrompt'), False, False);
+  AgentPage.Add(CustomMessage('AgentCheck'));
+  AgentPage.Values[0] := AgentParam = '1';
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PcPage <> nil) and (PageID = PcPage.ID) and (RolePage.SelectedValueIndex <> 1);
+  Result := ((PcPage <> nil) and (PageID = PcPage.ID) and (RolePage.SelectedValueIndex <> 1))
+    or ((AgentPage <> nil) and (PageID = AgentPage.ID) and (RolePage.SelectedValueIndex <> 1));
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -283,13 +338,26 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
 begin
+  { The agent's service holds its file and would bring Sinf back mid-install: it stops first. }
+  if AgentInstalled then
+  begin
+    Exec(ExpandConstant('{sys}\sc.exe'), 'stop SinfAgent', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    Sleep(1500);
+  end;
   CloseSinf;
   Result := '';
 end;
 
 function InitializeUninstall: Boolean;
 begin
+  { Ordinary Windows again before the files go: shell, policies, autologon, the service. }
+  if Trim(ExpandConstant('{param:REMOVEACCOUNT|0}')) = '1' then
+    RunAgent('disable --remove-account')
+  else
+    RunAgent('disable');
   CloseSinf;
   DeleteUpdateTasks;
   Result := True;
@@ -322,6 +390,14 @@ begin
   if CurStep <> ssPostInstall then
     Exit;
   CreateUpdateTasks;
+  { The agent (B7): on when wanted — again after an update, which keeps the choice; off when not. }
+  if WantsAgent then
+  begin
+    WizardForm.StatusLabel.Caption := CustomMessage('AgentOn');
+    RunAgent('enable');
+  end
+  else if AgentInstalled then
+    RunAgent('disable');
   Role := ChosenRole;
   if Role = '' then
   begin

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The agent (PLAN.md 6.4; stage 6, B7; ADR-024): a Windows service on a student computer, only
+    where the administrator chose it (installer checkbox or /AGENT=1). It makes the "Ученик" account
+    with autologon and Sinf as its shell, sets the policies of CLAUDE.md §8, brings Sinf back when
+    it dies and keeps the teacher's lock; `disable` brings back ordinary Windows.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Sinf.Agent</AssemblyName>
+    <RootNamespace>Sinf.Agent</RootNamespace>
+    <Product>Sinf</Product>
+    <Version>0.1.0</Version>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- One small file, as the updater (B6): `dotnet publish -r win-x64`. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../desktop-core/Sinf.Desktop.Core.csproj" />
+    <!-- Starting Sinf on the student's desktop from SYSTEM: the same code as the updater's. -->
+    <Compile Include="../updater/UserSession.cs" Link="UserSession.cs" />
+  </ItemGroup>
+
+</Project>

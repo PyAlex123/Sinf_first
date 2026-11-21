@@ -104,3 +104,6 @@ jobs:
 
       - name: The updater compiles (B6)
         run: dotnet build apps/updater/Sinf.Updater.csproj -c Release
+
+      - name: The agent compiles (B7)
+        run: dotnet build apps/agent/Sinf.Agent.csproj -c Release

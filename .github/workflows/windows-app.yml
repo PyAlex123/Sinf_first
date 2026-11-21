@@ -58,6 +58,9 @@ jobs:
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
           -p:Version=${{ env.SINF_VERSION }}
 
+      - name: The agent (B7; one trimmed file, switched on only when asked)
+        run: dotnet publish apps/agent/Sinf.Agent.csproj -c Release -r win-x64 -p:Version=${{ env.SINF_VERSION }}
+
       - name: The updater (B6; one trimmed file with the update key built in)
         shell: pwsh
         run: |
@@ -187,6 +190,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "dotnet publish: код $LASTEXITCODE" }
           ./tools/installer/update-smoke.ps1 -Version $env:SINF_VERSION `
             -TestUpdater out/test-updater/Sinf.Updater.exe -KeyFile out/update-smoke/test-key.txt
+
+      # B7: the agent switched on by the installer and off by removing Sinf; the computer as before.
+      - name: The agent on and off
+        shell: pwsh
+        run: ./tools/installer/agent-smoke.ps1
 
       # The update for the platform's /admin: signed with the project's key, only where CI has it.
       - name: Sign the update

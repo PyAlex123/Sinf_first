@@ -98,6 +98,9 @@ internal sealed class ExitPasswordDialog : SmallDialog
 
     public Choice Chosen { get; private set; }
 
+    /// <summary>The password that opened the dialog, for the agent's maintenance time (B7).</summary>
+    public string Password => password.Text;
+
     private void Confirm(Choice choice)
     {
         var now = DateTimeOffset.UtcNow;

@@ -201,6 +201,15 @@ internal sealed class StudentForm : Form
     protected override async void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        // A Sinf that died under "Attention!" comes back locked (B7): the agent remembers, and the
+        // teacher's computer confirms or lifts it once found.
+        var agent = await Task.Run(AgentPipe.Hello).ConfigureAwait(true);
+        if (agent is { Lock: true } && !dev)
+        {
+            lockedByTeacher = true;
+            SetLock(true);
+        }
+
         await SearchAsync().ConfigureAwait(true);
     }
 
@@ -429,6 +438,8 @@ internal sealed class StudentForm : Form
                 case "lock":
                     lockedByTeacher = root.TryGetProperty("on", out var on) && on.ValueKind == JsonValueKind.True;
                     SetLock(lockedByTeacher);
+                    // The agent remembers it for a Sinf that dies and comes back (B7).
+                    AgentPipe.Lock(lockedByTeacher);
                     break;
                 case "thumbs":
                     SetThumbs(root.TryGetProperty("on", out var wanted) && wanted.ValueKind == JsonValueKind.True);
@@ -870,6 +881,7 @@ internal sealed class StudentForm : Form
 
         if (!config.HasExitPassword)
         {
+            AgentPipe.Maintenance(string.Empty);
             LeaveKiosk();
             return;
         }
@@ -886,6 +898,10 @@ internal sealed class StudentForm : Form
             Activate();
             return;
         }
+
+        // With the agent (B7), the administrator gets maintenance time: the watchdog does not
+        // bring the kiosk back, and an ordinary desktop opens.
+        AgentPipe.Maintenance(dialog.Password);
 
         if (dialog.Chosen == ExitPasswordDialog.Choice.Setup)
         {

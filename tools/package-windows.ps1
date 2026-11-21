@@ -28,6 +28,8 @@ param(
     [string]$DesktopPublish = 'apps/desktop/bin/Release/net10.0-windows/win-x64/publish',
     # The updater (B6): one small file, published on its own (`dotnet publish apps/updater -r win-x64`).
     [string]$UpdaterPublish = 'apps/updater/bin/Release/net10.0-windows/win-x64/publish',
+    # The agent (B7), the same way.
+    [string]$AgentPublish = 'apps/agent/bin/Release/net10.0-windows/win-x64/publish',
     [string]$NodeVersion = '22.23.4'
 )
 
@@ -46,6 +48,12 @@ New-Item -ItemType Directory -Force -Path $Out | Out-Null
 Write-Host '1/5 our window'
 Copy-Tree $DesktopPublish $Out
 Copy-Item 'apps/desktop/sinf.ico' (Join-Path $Out 'sinf.ico') -Force
+$agent = Join-Path $AgentPublish 'Sinf.Agent.exe'
+if (Test-Path $agent) {
+    Copy-Item $agent (Join-Path $Out 'Sinf.Agent.exe') -Force
+} else {
+    Write-Host "   (без агента: нет $agent)"
+}
 $updater = Join-Path $UpdaterPublish 'Sinf.Updater.exe'
 if (Test-Path $updater) {
     Copy-Item $updater (Join-Path $Out 'Sinf.Updater.exe') -Force

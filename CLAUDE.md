@@ -519,7 +519,7 @@ dotnet publish apps/desktop/Sinf.Desktop.csproj -c Release -r win-x64 --self-con
 
 В облачном контейнере Windows-приложение **собирается** (`dotnet build apps/desktop/Sinf.Desktop.csproj`, нужен .NET 10 SDK: `apt-get install -y dotnet-sdk-10.0`), но не запускается. Чистая логика C# живёт в `apps/desktop-core` (без Windows), её тесты — `dotnet test apps/desktop-core.Tests` — идут и здесь, и в CI.
 
-Агент (служба Windows) пока не делается (ADR-014): он вне первого MVP этапа 3.
+Агент (служба Windows, `apps/agent`, ADR-024) включается только по выбору: галочка установщика для ПК ученика или `/AGENT=1`; `Sinf.Agent.exe enable | disable | status`. CI включает и откатывает его на раннере (`tools/installer/agent-smoke.ps1`); сторож проверяется только на настоящем ПК (`docs/pc-test.md`, раздел 7).
 
 ---
 
