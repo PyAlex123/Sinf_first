@@ -34,6 +34,11 @@ const EnvSchema = z.object({
    * network ask it which lesson to open, without a lesson code. Set by the Windows app; never on
    * the platform, where it would show any running lesson's class list to anyone who asks.
    */
+  /**
+   * The teacher's classroom app sends its screen to this server with this token (H14); set by the
+   * app for its own server, random each start. Empty: no screen broadcast from a host app.
+   */
+  HOST_TOKEN: z.string().default(''),
   CLASSROOM_MODE: z.enum(['0', '1']).default('0'),
 });
 
@@ -56,6 +61,8 @@ export interface Config {
   platformLink: PlatformLink | null;
   /** The teacher's computer in a classroom: student computers find their lesson here (ADR-014). */
   classroom: boolean;
+  /** The teacher's app's token for its screen broadcast (H14); null when not set. */
+  hostToken: string | null;
 }
 
 /** This computer's link to the platform: where it is and who we are (S2.4). */
@@ -107,6 +114,7 @@ export function loadConfig(
         ? { url: normalizePlatformUrl(e.PLATFORM_URL), deviceToken: e.DEVICE_TOKEN }
         : null,
     classroom: e.CLASSROOM_MODE === '1',
+    hostToken: e.HOST_TOKEN.length >= 16 ? e.HOST_TOKEN : null,
   };
 }
 

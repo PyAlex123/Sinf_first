@@ -34,12 +34,29 @@
 
   /**
    * In the classroom app "Attention!" is real (H4): the app stops keyboard and mouse while the
-   * curtain is up. In a browser this sends nothing — the curtain is all there is.
+   * curtain is up. In a browser this sends nothing — the curtain is all there is. "Мой экран на весь
+   * экран" holds the input the same way: the class looks, and does not click (CLAUDE.md §4.4).
    */
   $effect(() => {
-    const on = !!lock && !ended;
+    const on = (!!lock || fullscreenDemo) && !ended;
     hostSend({ type: 'lock', on });
     return () => hostSend({ type: 'lock', on: false });
+  });
+
+  /** This computer films its screen while it is the one shown (H14). */
+  $effect(() => {
+    if (!filmed || !inClassroomApp) return;
+    const token = readParticipantToken(sessionId) ?? undefined;
+    hostSend({ type: 'share', on: true, sessionId, ...(token ? { token } : {}) });
+    return () => hostSend({ type: 'share', on: false, sessionId });
+  });
+
+  /** "В окне" over an open program: the lesson becomes a small picture in a corner (H14). */
+  $effect(() => {
+    const on = watching && demo?.mode === 'window' && paintRunning;
+    if (!on) return;
+    hostSend({ type: 'pip', on: true });
+    return () => hostSend({ type: 'pip', on: false });
   });
 
   /**
@@ -92,6 +109,15 @@
     }),
   );
   const ended = $derived(endedBefore || session?.status === 'ended' || store?.status === 'ended');
+
+  /**
+   * A screen broadcast (H14): the teacher's screen, or a classmate's. This child watches it — unless
+   * it is this child's own screen being shown, which this computer films instead.
+   */
+  const demo = $derived(session?.demo ?? null);
+  const filmed = $derived(!!demo && !!me && demo.source === me.id);
+  const watching = $derived(!!demo && !filmed && !ended);
+  const fullscreenDemo = $derived(watching && demo?.mode === 'fullscreen');
 
   /**
    * On a classroom computer (stage 3, H2) the lesson is not the end: after a moment the screen goes
@@ -377,7 +403,7 @@
         {/if}
         {#if store?.status !== 'open'}<span class="conn">{t('student.reconnecting')}</span>{/if}
         {#if !inClassroomApp && filesToken && !quiz}
-          <button type="button" class="hand" onclick={() => (filesOpen = !filesOpen)}>
+          <button type="button" class="pill filesbtn" onclick={() => (filesOpen = !filesOpen)}>
             {t('files.title')}
           </button>
         {/if}
@@ -395,6 +421,21 @@
           </button>
         {/if}
       </div>
+      {#if watching && store && demo && !lock}
+        {#await import('../lib/ui/ScreenView.svelte') then { default: ScreenView }}
+          <div
+            class="demo"
+            class:full={demo.mode === 'fullscreen'}
+            role="img"
+            aria-label={t('share.watching')}
+          >
+            <ScreenView {store} {demo} />
+          </div>
+        {/await}
+      {/if}
+      {#if filmed}
+        <div class="filmed" role="status">{t('share.yours')}</div>
+      {/if}
       {#if filesOpen && filesToken && !lock}
         <div class="filesover" role="dialog" aria-label={t('files.title')}>
           <div class="fhead">
@@ -417,6 +458,46 @@
 </div>
 
 <style>
+  .demo {
+    position: fixed;
+    z-index: 25;
+    background: #111;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-lg, 0 8px 30px rgb(0 0 0 / 0.35));
+    /* "В окне": a panel in the corner; the child keeps working beside it. */
+    right: var(--space-3);
+    bottom: var(--space-3);
+    width: min(48vw, 640px);
+    height: min(27vw, 360px);
+  }
+  .demo.full {
+    inset: 0;
+    width: auto;
+    height: auto;
+    border-radius: 0;
+  }
+  /* The app shrank the window into a corner over a program: the picture is all it shows. */
+  @media (max-width: 560px) {
+    .demo {
+      inset: 0;
+      width: auto;
+      height: auto;
+      border-radius: 0;
+    }
+  }
+  .filmed {
+    position: fixed;
+    z-index: 25;
+    top: var(--space-2);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: var(--space-1) var(--space-3);
+    border-radius: 999px;
+    background: var(--c-danger);
+    color: #fff;
+    font-weight: 700;
+  }
   .filesover {
     position: fixed;
     inset: 56px 0 0 0;
@@ -482,7 +563,8 @@
   .conn {
     background: var(--c-danger);
   }
-  .hand {
+  .hand,
+  .pill {
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);

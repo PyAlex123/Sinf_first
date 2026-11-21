@@ -551,5 +551,17 @@
   "practice.check.txt.matches": "Namunaga mos keladi",
   "practice.check.txt.startsWith": "Bilan boshlanadi",
   "practice.check.txt.endsWith": "Bilan tugaydi",
-  "teacher.practice": "Amaliy topshiriqlar"
+  "teacher.practice": "Amaliy topshiriqlar",
+  "share.title": "Ekranni ko‘rsatish",
+  "share.mine.fullscreen": "Mening ekranim: to‘liq ekran",
+  "share.mine.window": "Mening ekranim: oynada",
+  "share.stop": "Ko‘rsatishni to‘xtatish",
+  "share.on.mine": "O‘quvchilar sizning ekraningizni ko‘rmoqda",
+  "share.on.child": "Sinfga ekran ko‘rsatilmoqda: {name}",
+  "share.fullscreen": "to‘liq ekranda, o‘quvchilar kiritishi bloklangan",
+  "share.window": "oynada",
+  "share.appOnly": "O‘z ekraningizni faqat o‘qituvchi kompyuteridagi Sinf ilovasi ko‘rsatadi. O‘quvchi ekrani — uning ekrani oynasidagi «Hammaga ko‘rsatish» tugmasi.",
+  "share.showChild": "Hammaga ko‘rsatish",
+  "share.watching": "O‘qituvchi ekrani",
+  "share.yours": "Sening ekraning sinfga ko‘rsatilmoqda"
 }

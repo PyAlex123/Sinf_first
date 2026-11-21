@@ -65,6 +65,10 @@ internal sealed class StudentForm : Form
     /// <summary>A practice program is open (H6): it may have the focus, the lesson steps back.</summary>
     private bool appMode;
     private bool appWasRunning;
+    /// <summary>This child's screen is being shown to the class (H14).</summary>
+    private ScreenShare? share;
+    /// <summary>"Мой экран в окне" over a program: the lesson is a small picture in a corner (H14).</summary>
+    private bool pip;
     private ProgramPanel? panel;
     private readonly System.Windows.Forms.Timer appWatch = new() { Interval = 1000 };
     private readonly System.Windows.Forms.Timer closeDeadline = new();
@@ -426,6 +430,15 @@ internal sealed class StudentForm : Form
                     var reason = root.TryGetProperty("reason", out var r) ? r.GetString() : null;
                     _ = SendScreenshotAsync(reason is "before_end" or "stage_end" ? reason : "manual");
                     break;
+                case "share":
+                    var shareOn = root.TryGetProperty("on", out var so) && so.ValueKind == JsonValueKind.True;
+                    var sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
+                    var lessonToken = root.TryGetProperty("token", out var tk) ? tk.GetString() : null;
+                    _ = SetShareAsync(shareOn ? sessionId : null, lessonToken);
+                    break;
+                case "pip":
+                    SetPip(root.TryGetProperty("on", out var po) && po.ValueKind == JsonValueKind.True);
+                    break;
             }
         }
         catch (JsonException)
@@ -498,6 +511,7 @@ internal sealed class StudentForm : Form
         if (!running && appMode)
         {
             appMode = false;
+            SetPip(false);
             appWatch.Stop();
             closeDeadline.Stop();
             panel?.Hide();
@@ -602,12 +616,78 @@ internal sealed class StudentForm : Form
         view.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(message));
     }
 
+    /// <summary>
+    /// "Экран ученика" (H14): this computer films its screen for the class while the teacher shows it.
+    /// The lesson token proves to the teacher's computer that this child is the one shown.
+    /// </summary>
+    private async Task SetShareAsync(string? sessionId, string? lessonToken)
+    {
+        var old = share;
+        share = null;
+        if (old is not null)
+        {
+            await old.DisposeAsync().ConfigureAwait(true);
+        }
+
+        if (sessionId is null || lessonToken is null || teacherUrl is null)
+        {
+            return;
+        }
+
+        var ws = new UriBuilder(teacherUrl) { Scheme = "ws", Path = "/ws/demo" };
+        ws.Query = $"session={Uri.EscapeDataString(sessionId)}&participant={Uri.EscapeDataString(lessonToken)}";
+        var next = new ScreenShare(ws.Uri, hostToken: null);
+        try
+        {
+            await next.StartAsync().ConfigureAwait(true);
+            share = next;
+        }
+        catch (Exception error) when (error is System.Net.WebSockets.WebSocketException or OperationCanceledException)
+        {
+            await next.DisposeAsync().ConfigureAwait(true);
+        }
+    }
+
+    /// <summary>
+    /// "Мой экран в окне" while a program is open (H14): the lesson window shrinks into the bottom
+    /// right corner, over the program, and does not take the keyboard; off — full screen again.
+    /// </summary>
+    private void SetPip(bool on)
+    {
+        if (dev || on == pip)
+        {
+            return;
+        }
+
+        pip = on && appMode;
+        var area = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 1366, 728);
+        if (pip)
+        {
+            WindowState = FormWindowState.Normal;
+            var width = Math.Min(560, area.Width * 2 / 5);
+            var height = width * 9 / 16;
+            Bounds = new Rectangle(area.Right - width - 12, area.Bottom - height - 12, width, height);
+            TopMost = true;
+        }
+        else
+        {
+            WindowState = FormWindowState.Maximized;
+            TopMost = true;
+            if (!appMode)
+            {
+                Activate();
+            }
+        }
+    }
+
     private void BackToSearch(string reason)
     {
         // No lesson, no "Attention!": a lost teacher must not leave the computer frozen.
         lockedByTeacher = false;
         SetLock(false);
         SetThumbs(false);
+        SetPip(false);
+        _ = SetShareAsync(null, null);
         if (searching)
         {
             return;
@@ -736,6 +816,7 @@ internal sealed class StudentForm : Form
         accessibility?.Dispose();
         mouse?.Dispose();
         http.Dispose();
+        _ = share?.DisposeAsync();
         base.OnFormClosed(e);
     }
 }

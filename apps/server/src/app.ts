@@ -24,6 +24,7 @@ import { resultRoutes } from './routes/results.js';
 import { screenshotRoutes } from './routes/screenshots.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { syncRoutes } from './routes/sync.js';
+import { DemoRelay } from './realtime/demo-relay.js';
 import { fileRoutes } from './routes/files.js';
 import { practiceRoutes } from './routes/practice.js';
 import { ensureHomeCodes } from './services/student-files.js';
@@ -43,6 +44,8 @@ declare module 'fastify' {
     sessions: SessionStore;
     /** Virtual students of the demo lesson (S1.15). */
     virtual: VirtualStudents;
+    /** Screen broadcasts of the lessons (H14). */
+    demo: DemoRelay;
     /** Set only on a school computer (S2.6); null when this server is the platform. */
     sync: SyncWorker | null;
   }
@@ -75,6 +78,9 @@ export async function buildApp(
   app.decorate('sessions', store);
   const virtual = new VirtualStudents(store, ctx.content, app.log);
   app.decorate('virtual', virtual);
+  // Screen broadcasts ride on the lesson sockets (H14, ADR-017).
+  const demo = new DemoRelay(store);
+  app.decorate('demo', demo);
   app.addHook('onClose', (_instance, done) => {
     virtual.close();
     done();
@@ -92,6 +98,7 @@ export async function buildApp(
         ? new SyncWorker(ctx.db, ctx.config, app.log)
         : null;
   app.decorate('sync', worker);
+  store.onSessionEnded ??= (id) => demo.end(id);
   // Class codes for "Мои работы" at home are the platform's to make (H12); a school computer gets
   // them with the roster, and making its own could clash with the platform's.
   if (!worker) ensureHomeCodes(ctx.db);
@@ -99,7 +106,10 @@ export async function buildApp(
   await clearUploadLeftovers(ctx.config.dataDir);
   if (worker) {
     // A lesson that has just ended should not wait a minute for its turn.
-    store.onSessionEnded = () => void worker.push();
+    store.onSessionEnded = (id) => {
+      demo.end(id);
+      void worker.push();
+    };
     app.addHook('onReady', () => {
       worker.start();
     });
@@ -148,7 +158,7 @@ export async function buildApp(
   await app.register(joinRoutes, { prefix: '/api', store });
   await app.register(fileRoutes, { prefix: '/api', store });
   await app.register(practiceRoutes, { prefix: '/api' });
-  await app.register(realtimePlugin, { store });
+  await app.register(realtimePlugin, { store, demo });
 
   // Built web client (single-page app). In development Vite serves it and proxies /api, /ws, /content here.
   const indexHtml = join(ctx.config.webDir, 'index.html');

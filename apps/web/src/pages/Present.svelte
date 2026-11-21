@@ -139,7 +139,12 @@
       </div>
     </main>
   {:else}
-    {#if quiz && question}
+    {#if session.demo && store}
+      <!-- A screen broadcast goes to the projector as well (H14). -->
+      {#await import('../lib/ui/ScreenView.svelte') then { default: ScreenView }}
+        <main class="demo"><ScreenView {store} demo={session.demo} /></main>
+      {/await}
+    {:else if quiz && question}
       <main class="quiz">
         {#if quiz.phase === 'podium'}
           <h1 class="big">{t('quiz.podium')}</h1>
@@ -242,6 +247,11 @@
 </div>
 
 <style>
+  .demo {
+    position: fixed;
+    inset: 0;
+    background: #111;
+  }
   .present {
     height: 100vh;
   }

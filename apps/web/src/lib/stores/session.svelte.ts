@@ -52,6 +52,18 @@ export class SessionStore {
     [],
   );
   private moveCount = 0;
+  /**
+   * Who draws the frames of a screen broadcast (H14): the screen view, while it is open. Not state:
+   * nothing on the page depends on who listens.
+   */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity
+  private readonly frameListeners = new Set<(frame: Uint8Array) => void>();
+
+  /** Listens to broadcast frames; returns the way to stop. */
+  onFrame(listener: (frame: Uint8Array) => void): () => void {
+    this.frameListeners.add(listener);
+    return () => this.frameListeners.delete(listener);
+  }
   private socket: SessionSocket | null = null;
 
   constructor(
@@ -70,6 +82,9 @@ export class SessionStore {
       role: this.role,
       participantToken: token,
       onMessage: (m) => this.apply(m),
+      onBinary: (frame) => {
+        for (const listener of this.frameListeners) listener(frame);
+      },
       onStatus: (s) => {
         this.status = s;
       },
@@ -142,6 +157,14 @@ export class SessionStore {
 
   setDemoSpeed(speed: number): void {
     this.socket?.send({ type: 'teacher.demoSpeed.set', speed });
+  }
+  /** "Мой экран" or a child's screen to the class (H14). */
+  demoStart(mode: 'fullscreen' | 'window', source: string): void {
+    this.socket?.send({ type: 'teacher.demo.start', mode, source });
+  }
+
+  demoStop(): void {
+    this.socket?.send({ type: 'teacher.demo.stop' });
   }
 
   // ---------- screens of classroom computers (H5)
@@ -276,6 +299,9 @@ export class SessionStore {
         return;
       case 'thumb':
         this.thumbs = { ...this.thumbs, [m.participantId]: `data:image/jpeg;base64,${m.jpeg}` };
+        return;
+      case 'demo.changed':
+        if (this.state) this.state = { ...this.state, demo: m.demo };
         return;
       case 'student.moved':
         this.moveCount += 1;

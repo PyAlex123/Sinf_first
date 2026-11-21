@@ -10,6 +10,7 @@
   import { loadLessonBundle, type LessonBundle } from '../../lib/content.js';
   import { t } from '../../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../../lib/router.svelte.js';
+  import { hostSend, platform } from '../../lib/platform.js';
   import { SessionStore } from '../../lib/stores/session.svelte.js';
   import Button from '../../lib/ui/Button.svelte';
   import EmptyState from '../../lib/ui/EmptyState.svelte';
@@ -70,6 +71,18 @@
         )
       : participants,
   );
+
+  /**
+   * Screen broadcast (H14). The teacher's own screen can only be filmed by the teacher's app; the
+   * page asks the app to film while "Мой экран" is on — and to stop when it is off.
+   */
+  const demoNow = $derived(session?.demo ?? null);
+  const canShareMine = platform.isDesktop && platform.role === 'teacher';
+  $effect(() => {
+    if (!canShareMine || demoNow?.source !== 'teacher') return;
+    hostSend({ type: 'share', on: true, sessionId });
+    return () => hostSend({ type: 'share', on: false, sessionId });
+  });
 
   /** One child's screen, large (H8): the live thumbnail, with the lock and a screenshot at hand. */
   let zoomed = $state<string | null>(null);
@@ -461,6 +474,46 @@
           {/if}
         </div>
 
+        <!-- "Мой экран" and a child's screen to the class (H14, CLAUDE.md §4.4). -->
+        <div class="lockbox demobox">
+          <h2 class="boxtitle">
+            <Icon name="screen" size={16} />
+            {t('share.title')}
+          </h2>
+          {#if demoNow}
+            <p class="soft">
+              {demoNow.source === 'teacher'
+                ? t('share.on.mine')
+                : t('share.on.child', { name: session?.participants[demoNow.source]?.name ?? '' })}
+              · {demoNow.mode === 'fullscreen' ? t('share.fullscreen') : t('share.window')}
+            </p>
+            {#if demoNow.source !== 'teacher' && store}
+              <!-- What the class sees of the child's screen. -->
+              {#await import('../../lib/ui/ScreenView.svelte') then { default: ScreenView }}
+                <div class="demoview"><ScreenView {store} demo={demoNow} /></div>
+              {/await}
+            {/if}
+            <Button variant="danger" block onclick={() => store?.demoStop()}
+              >{t('share.stop')}</Button
+            >
+          {:else if canShareMine}
+            <div class="lockbtns">
+              <Button size="sm" onclick={() => store?.demoStart('fullscreen', 'teacher')}>
+                {t('share.mine.fullscreen')}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onclick={() => store?.demoStart('window', 'teacher')}
+              >
+                {t('share.mine.window')}
+              </Button>
+            </div>
+          {:else}
+            <p class="soft">{t('share.appOnly')}</p>
+          {/if}
+        </div>
+
         <h2>
           {t('session.participants')}
           <span class="muted">({participants.filter((p) => p.online).length})</span>
@@ -691,6 +744,16 @@
       {#if zoomedP.pc}
         <Button variant="secondary" onclick={() => zoomedP && store?.screenshot([zoomedP.id])}>
           {t('session.shot.one')}
+        </Button>
+        <!-- A good piece of work, to everybody (H14, "Экран ученика"). -->
+        <Button
+          variant="secondary"
+          onclick={() => {
+            if (zoomedP) store?.demoStart('fullscreen', zoomedP.id);
+            zoomed = null;
+          }}
+        >
+          {t('share.showChild')}
         </Button>
       {/if}
     </div>
@@ -935,6 +998,12 @@
     margin: 0;
     font-size: var(--text-md);
     color: var(--c-danger-strong);
+  }
+  .demoview {
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: var(--space-2);
   }
   .lockbox input {
     min-height: var(--control);

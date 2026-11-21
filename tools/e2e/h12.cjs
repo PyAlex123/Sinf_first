@@ -66,7 +66,7 @@ const check = (name, pass, extra = '') => {
   // In a browser the lesson opens with a big "Начать" (full screen); wait for it to be there.
   await kid.waitForSelector('button:has-text("Начать")', { timeout: 8000 });
   await kid.locator('button:has-text("Начать")').first().click();
-  await kid.locator('button.hand', { hasText: 'Мои работы' }).click();
+  await kid.locator('button.filesbtn').click();
   await kid.waitForSelector('.filesover');
   check('в уроке в браузере есть «Мои работы»', (await kid.locator('.filesover').count()) === 1);
   // Files are handed over as data: headless Chromium drops paths with Cyrillic letters.

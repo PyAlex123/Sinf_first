@@ -578,5 +578,17 @@
   "practice.check.txt.matches": "Подходит под образец",
   "practice.check.txt.startsWith": "Начинается с",
   "practice.check.txt.endsWith": "Заканчивается на",
-  "teacher.practice": "Задания практики"
+  "teacher.practice": "Задания практики",
+  "share.title": "Показ экрана",
+  "share.mine.fullscreen": "Мой экран: весь экран",
+  "share.mine.window": "Мой экран: в окне",
+  "share.stop": "Остановить показ",
+  "share.on.mine": "Ученики видят ваш экран",
+  "share.on.child": "Классу показан экран: {name}",
+  "share.fullscreen": "на весь экран, ввод учеников заблокирован",
+  "share.window": "в окне",
+  "share.appOnly": "Свой экран показывает только приложение Sinf на ПК учителя. Экран ученика — кнопка «Показать всем» в окне его экрана.",
+  "share.showChild": "Показать всем",
+  "share.watching": "Экран учителя",
+  "share.yours": "Твой экран показывают классу"
 }

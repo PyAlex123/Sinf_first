@@ -4,6 +4,7 @@ import type { RawData, WebSocket } from 'ws';
 import { z } from 'zod';
 import { parseClientMessage, PROTOCOL_VERSION, RoleSchema, type ServerMessage } from '@sinf/shared';
 import { ApiHttpError } from '../errors.js';
+import type { DemoRelay, DemoSource } from './demo-relay.js';
 import type { SessionStore } from './session-store.js';
 
 /**
@@ -19,11 +20,76 @@ const QuerySchema = z.object({
 });
 
 const HEARTBEAT_MS = 15_000;
-const MAX_PAYLOAD_BYTES = 64 * 1024;
+/** A lesson message is small; only a screen broadcast frame may be bigger (H14). */
+const MAX_MESSAGE_BYTES = 64 * 1024;
+const MAX_FRAME_BYTES = 1024 * 1024;
 
-export const realtimePlugin: FastifyPluginAsync<{ store: SessionStore }> = async (app, opts) => {
-  const { store } = opts;
-  await app.register(fastifyWebsocket, { options: { maxPayload: MAX_PAYLOAD_BYTES } });
+const DemoQuerySchema = z.object({
+  session: z.string().min(1),
+  participant: z.string().min(1).optional(),
+});
+
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+export const realtimePlugin: FastifyPluginAsync<{ store: SessionStore; demo: DemoRelay }> = async (
+  app,
+  opts,
+) => {
+  const { store, demo } = opts;
+  // One limit for the plugin: the frames of a broadcast; lesson messages are checked by hand below.
+  await app.register(fastifyWebsocket, { options: { maxPayload: MAX_FRAME_BYTES } });
+
+  /**
+   * `/ws/demo?session=<id>[&participant=<token>]` — the source of a screen broadcast (H14, ADR-017):
+   * the teacher's app on this computer (header `x-host-token`, from 127.0.0.1 only), or the app of
+   * the child whose screen is being shown (their lesson token). It sends binary frames and hears
+   * "keyframe" and "stop".
+   */
+  app.get('/ws/demo', { websocket: true }, (socket: WebSocket, request) => {
+    const query = DemoQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      socket.close(4000, 'bad_request');
+      return;
+    }
+    const sessionId = query.data.session;
+    let sourceId: string | null = null;
+    const token = request.headers['x-host-token'];
+    if (
+      app.ctx.config.hostToken &&
+      typeof token === 'string' &&
+      token === app.ctx.config.hostToken &&
+      LOOPBACK.has(request.socket.remoteAddress ?? '')
+    ) {
+      sourceId = 'teacher';
+    } else if (query.data.participant) {
+      sourceId = store.participantByToken(sessionId, query.data.participant) ?? null;
+    }
+    if (!sourceId || !demo.canSource(sessionId, sourceId)) {
+      socket.close(4001, 'not_the_source');
+      return;
+    }
+    const source: DemoSource = {
+      tell: (message) => {
+        if (socket.readyState === socket.OPEN) socket.send(message);
+      },
+      close: () => socket.close(1000, 'stop'),
+    };
+    demo.attachSource(sessionId, sourceId, source);
+    request.log.info({ sessionId, sourceId }, 'screen broadcast source connected');
+    socket.on('message', (data, isBinary) => {
+      if (!isBinary) return;
+      const bytes = Array.isArray(data)
+        ? Buffer.concat(data)
+        : data instanceof ArrayBuffer
+          ? Buffer.from(data)
+          : data;
+      const dropped = demo.frame(sessionId, source, bytes);
+      if (dropped && dropped !== 'too fast')
+        request.log.debug({ dropped }, 'broadcast frame dropped');
+    });
+    socket.on('close', () => demo.detachSource(sessionId, source));
+    socket.on('error', (error) => request.log.warn({ err: error }, 'demo ws error'));
+  });
 
   app.get('/ws', { websocket: true }, (socket: WebSocket, request) => {
     const query = QuerySchema.safeParse(request.query);
@@ -62,10 +128,16 @@ export const realtimePlugin: FastifyPluginAsync<{ store: SessionStore }> = async
     socket.on('pong', () => {
       connection.alive = true;
     });
-    socket.on('message', (data) => {
+    socket.on('message', (data, isBinary) => {
+      // A lesson socket carries small JSON only; binary and oversized messages are not ours.
+      const text = isBinary ? '' : rawDataToString(data);
+      if (isBinary || text.length > MAX_MESSAGE_BYTES) {
+        socket.close(1009, 'too_big');
+        return;
+      }
       let raw: unknown;
       try {
-        raw = JSON.parse(rawDataToString(data)) as unknown;
+        raw = JSON.parse(text) as unknown;
       } catch {
         send(socket, { v: PROTOCOL_VERSION, type: 'error', code: 'bad_json', message: 'Not JSON' });
         return;

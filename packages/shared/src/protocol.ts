@@ -138,6 +138,18 @@ export const QuizStateSchema = z.strictObject({
 });
 export type QuizState = z.infer<typeof QuizStateSchema>;
 
+/**
+ * "Мой экран" and "Экран ученика" (CLAUDE.md §4.4; stage 3, H14; ADR-017). `fullscreen`: the
+ * picture covers the whole screen and the classroom computer's input is locked; `window`: a panel,
+ * and the child may work alongside. `epoch` tells frames of this broadcast from an earlier one.
+ */
+export const DemoStateSchema = z.strictObject({
+  mode: z.enum(['fullscreen', 'window']),
+  source: z.union([z.literal('teacher'), id]),
+  epoch: z.number().int().nonnegative(),
+});
+export type DemoState = z.infer<typeof DemoStateSchema>;
+
 export const SessionStateSchema = z.strictObject({
   id,
   lessonId: id,
@@ -153,6 +165,8 @@ export const SessionStateSchema = z.strictObject({
   lock: LockStateSchema,
   /** The live quiz, while it is on (S1.12). */
   quiz: QuizStateSchema.nullable().default(null),
+  /** A screen broadcast, while it is on (H14). */
+  demo: DemoStateSchema.nullable().default(null),
   participants: z.record(id, ParticipantSchema),
 });
 export type SessionState = z.infer<typeof SessionStateSchema>;
@@ -206,6 +220,14 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({ v, type: z.literal('teacher.quiz.next') }),
   z.strictObject({ v, type: z.literal('teacher.quiz.finish') }),
   z.strictObject({ v, type: z.literal('teacher.session.end') }),
+  /** Show the teacher's screen, or a child's, to the class (H14). */
+  z.strictObject({
+    v,
+    type: z.literal('teacher.demo.start'),
+    mode: z.enum(['fullscreen', 'window']),
+    source: z.union([z.literal('teacher'), id]),
+  }),
+  z.strictObject({ v, type: z.literal('teacher.demo.stop') }),
   z.strictObject({ v, type: z.literal('student.screen.set'), index: screenIndex }),
   z.strictObject({
     v,
@@ -283,6 +305,8 @@ export const ServerMessageSchema = z.discriminatedUnion('type', [
     serverNow: serverTime,
   }),
   z.strictObject({ v, type: z.literal('participant.updated'), participant: ParticipantSchema }),
+  /** A screen broadcast started, changed or stopped (H14); the frames come as binary messages. */
+  z.strictObject({ v, type: z.literal('demo.changed'), demo: DemoStateSchema.nullable() }),
   z.strictObject({ v, type: z.literal('session.ended') }),
   /** To teachers only: the latest thumbnail of one child's screen (H5). */
   z.strictObject({ v, type: z.literal('thumb'), participantId: id, jpeg: z.string().min(1) }),

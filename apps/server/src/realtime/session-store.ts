@@ -37,7 +37,10 @@ import { ApiHttpError, notFound } from '../errors.js';
 export interface RoomSocket {
   readonly readyState: number;
   readonly OPEN: number;
-  send(data: string): void;
+  /** Bytes waiting to go out; a viewer far behind skips broadcast frames (H14). */
+  readonly bufferedAmount?: number;
+  /** Text for messages; binary for the frames of a screen broadcast (H14). */
+  send(data: string | Uint8Array): void;
   close(code?: number, reason?: string): void;
   ping(): void;
   terminate(): void;
@@ -89,6 +92,10 @@ export class SessionStore {
    * at once instead of waiting for the next tick (S2.6). Nothing on the platform sets it.
    */
   onSessionEnded: ((sessionId: string) => void) | null = null;
+  /** A screen broadcast started, changed or stopped (H14); the relay follows it. */
+  onDemoChanged: ((sessionId: string, demo: SessionState['demo']) => void) | null = null;
+  /** A socket joined a room; during a broadcast it needs a whole picture to start from (H14). */
+  onAttached: ((sessionId: string, socket: RoomSocket) => void) | null = null;
 
   /** Starts a session for a class; the previous active session of the class is ended. */
   create(input: {
@@ -245,6 +252,7 @@ export class SessionStore {
     } else if (role === 'teacher' && !watchedBefore) {
       this.tellThumbs(session, true);
     }
+    if (session.state.demo) this.onAttached?.(id, socket);
     return { connection, participantToken: role === 'student' ? participantToken : null };
   }
 
@@ -498,6 +506,8 @@ export class SessionStore {
       for (const socket of session.sockets.keys()) {
         for (const message of result.broadcast) this.send(socket, message);
       }
+      const demo = result.broadcast.find((m) => m.type === 'demo.changed');
+      if (demo) this.onDemoChanged?.(id, result.state.demo);
     }
     this.recordActivity(id, session, result.activity);
     if (result.state.status === 'ended') {

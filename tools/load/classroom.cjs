@@ -6,7 +6,8 @@
 //   3. measures how long a slide change and a quiz question take to reach all 30 (goal < 300 ms);
 //   4. the same while all 30 send thumbnails (30 KB every 3 s), as when the teacher's panel is open;
 //   5. 30 screenshots of ~300 KB at once (only where CLASSROOM_MODE is on, as on the teacher's PC);
-//   6. the server's memory and processor time, when it runs on this machine (Linux: found by itself;
+//   6. with HOST_TOKEN (the server's own), a screen broadcast to all 30: 5 frames a second for 15 s;
+//   7. the server's memory and processor time, when it runs on this machine (Linux: found by itself;
 //      elsewhere pass SERVER_PID, or watch node.exe in the Task Manager).
 //
 // Usage:  node tools/load/classroom.cjs
@@ -395,7 +396,74 @@ function fakeJpeg(bytes) {
           statuses: [...new Set(shots)],
         };
 
-  // 6. The end of the lesson.
+  // 6. A screen broadcast to all 30 (H14), when the server was started with a HOST_TOKEN we know:
+  //    5 frames a second, a whole 1280×720 picture every 2 s (~100 KB), small changes between.
+  if (process.env.HOST_TOKEN) {
+    send(teacher, { type: 'teacher.demo.start', mode: 'fullscreen', source: 'teacher' });
+    await sleep(300);
+    const host = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/demo?session=${sessionId}`, {
+      headers: { 'x-host-token': process.env.HOST_TOKEN },
+      perMessageDeflate: false,
+    });
+    await new Promise((resolve, reject) => {
+      host.once('open', resolve);
+      host.once('error', reject);
+    });
+    const frameOf = (keyframe, seq, bytes) => {
+      const b = Buffer.alloc(24 + 12 + bytes);
+      b.write('SNF1', 0, 'ascii');
+      b.writeUInt8(1, 4);
+      b.writeUInt8(keyframe ? 1 : 0, 5);
+      b.writeUInt32LE(seq, 10);
+      b.writeUInt16LE(1280, 14);
+      b.writeUInt16LE(720, 16);
+      b.writeInt16LE(-1, 18);
+      b.writeInt16LE(-1, 20);
+      b.writeUInt16LE(1, 22);
+      b.writeUInt16LE(keyframe ? 1280 : 160, 28);
+      b.writeUInt16LE(keyframe ? 720 : 160, 30);
+      b.writeUInt32LE(bytes, 32);
+      b.writeUInt32LE(seq, 36); // the sending time travels in the picture, for the latency
+      return b;
+    };
+    const sentAt = new Map();
+    const latency = [];
+    const got = new Map(students.map((s) => [s, 0]));
+    for (const s of students) {
+      s.ws.on('message', (data, isBinary) => {
+        if (!isBinary) return;
+        got.set(s, got.get(s) + 1);
+        const seq = data.readUInt32LE(36);
+        const at = sentAt.get(seq);
+        if (at) latency.push(now() - at);
+      });
+    }
+    const usageBefore = sample(pid);
+    const seconds = Number(process.env.DEMO_SECONDS ?? 15);
+    let seq = 0;
+    const until = now() + seconds * 1000;
+    while (now() < until) {
+      seq += 1;
+      const keyframe = seq % 10 === 1;
+      sentAt.set(seq, now());
+      host.send(frameOf(keyframe, seq, keyframe ? 100_000 : 20_000));
+      await sleep(200);
+    }
+    await sleep(500);
+    host.close();
+    send(teacher, { type: 'teacher.demo.stop' });
+    const counts = [...got.values()];
+    report.broadcast = {
+      seconds,
+      framesSent: seq,
+      perViewerMin: Math.min(...counts),
+      perViewerMax: Math.max(...counts),
+      latencyMs: stats(latency),
+      server: usage(usageBefore, sample(pid)),
+    };
+  }
+
+  // 7. The end of the lesson.
   send(teacher, { type: 'teacher.session.end' });
   await sleep(500);
   for (const s of students) s.ws.close();
@@ -430,6 +498,16 @@ function fakeJpeg(bytes) {
       ? `Скриншоты: пропущено — ${report.screenshots.skipped}`
       : `Скриншоты: ${report.screenshots.ok} из ${STUDENTS} за ${report.screenshots.allMs} мс`,
   );
+  if (report.broadcast) {
+    const b = report.broadcast;
+    console.log(
+      `Показ экрана ${b.seconds} с: отправлено ${b.framesSent} кадров, каждый ученик получил ${b.perViewerMin}–${b.perViewerMax}; задержка p50 ${b.latencyMs.p50} мс, p95 ${goal(b.latencyMs.p95)}`,
+    );
+    if (b.server)
+      console.log(
+        `  сервер: процессор ${b.server.cpuPercentOfOneCore} % одного ядра, память ${b.server.rssMb} МБ`,
+      );
+  }
   if (report.server.idleRssMb) {
     console.log(
       `Память сервера: до урока ${report.server.idleRssMb} МБ, после ${report.server.endRssMb} МБ`,

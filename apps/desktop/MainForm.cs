@@ -39,6 +39,8 @@ internal sealed class MainForm : Form
     private HostConfig config;
     private readonly Platform platform;
     private ServerProcess? server;
+    /// <summary>"Мой экран" (H14): this computer's screen for the class, while the teacher shows it.</summary>
+    private ScreenShare? share;
     /// <summary>Answers student computers that look for this lesson on the network (ADR-014 §3).</summary>
     private TeacherBeacon? beacon;
     private TeacherIdentity? identity;
@@ -371,7 +373,71 @@ internal sealed class MainForm : Form
             }
         };
 
+        // The panel asks this app for one thing only: to film this screen for the class (H14).
+        core.WebMessageReceived += (_, e) =>
+        {
+            if (server is not null && Uri.TryCreate(e.Source, UriKind.Absolute, out var from) && IsOurs(from.ToString()))
+            {
+                OnPanelMessage(e.WebMessageAsJson);
+            }
+        };
+
         core.Navigate($"{server!.LocalUrl}/teacher");
+    }
+
+    private void OnPanelMessage(string json)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("type", out var type)
+                || type.GetString() != "share")
+            {
+                return;
+            }
+
+            var on = root.TryGetProperty("on", out var o) && o.ValueKind == JsonValueKind.True;
+            var sessionId = root.TryGetProperty("sessionId", out var s) ? s.GetString() : null;
+            _ = SetShareAsync(on ? sessionId : null);
+        }
+        catch (JsonException)
+        {
+            // Not ours.
+        }
+    }
+
+    /// <summary>
+    /// "Мой экран" on (a lesson id) or off (null). The screen goes to this computer's own lesson
+    /// server with the secret it was started with; the server passes it on to every child.
+    /// </summary>
+    private async Task SetShareAsync(string? sessionId)
+    {
+        var old = share;
+        share = null;
+        if (old is not null)
+        {
+            await old.DisposeAsync().ConfigureAwait(true);
+        }
+
+        if (sessionId is null || server is null)
+        {
+            return;
+        }
+
+        var next = new ScreenShare(
+            new Uri($"ws://127.0.0.1:{server.Port}/ws/demo?session={Uri.EscapeDataString(sessionId)}"),
+            server.HostToken);
+        try
+        {
+            await next.StartAsync().ConfigureAwait(true);
+            share = next;
+        }
+        catch (Exception error) when (error is System.Net.WebSockets.WebSocketException or OperationCanceledException)
+        {
+            await next.DisposeAsync().ConfigureAwait(true);
+        }
     }
 
     private bool IsOurs(string uri)
@@ -471,6 +537,12 @@ internal sealed class MainForm : Form
         splash.Text = "Завершаем урок…";
         splash.Visible = true;
         platform.Dispose();
+        if (share is not null)
+        {
+            await share.DisposeAsync().ConfigureAwait(true);
+            share = null;
+        }
+
         beacon?.Dispose();
         beacon = null;
         identity?.Dispose();

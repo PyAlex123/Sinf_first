@@ -18,15 +18,22 @@ internal sealed class ServerProcess : IAsyncDisposable
     private readonly JobObject job;
     private readonly StreamWriter log;
 
-    private ServerProcess(Process process, JobObject job, StreamWriter log, int port)
+    private ServerProcess(Process process, JobObject job, StreamWriter log, int port, string hostToken)
     {
         this.process = process;
         this.job = job;
         this.log = log;
         Port = port;
+        HostToken = hostToken;
     }
 
     public int Port { get; }
+
+    /// <summary>
+    /// The secret this app sends its screen to its own server with (H14). New at every start, never
+    /// stored, and accepted by the server only from 127.0.0.1.
+    /// </summary>
+    public string HostToken { get; }
 
     public string LocalUrl => $"http://127.0.0.1:{Port}";
 
@@ -72,6 +79,8 @@ internal sealed class ServerProcess : IAsyncDisposable
         start.Environment["LOG_LEVEL"] = "info";
         // Stage 3 (ADR-014): student computers in this room ask which lesson to open, no code needed.
         start.Environment["CLASSROOM_MODE"] = "1";
+        var hostToken = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24));
+        start.Environment["HOST_TOKEN"] = hostToken;
 
         var writer = new StreamWriter(
             new FileStream(paths.LogFile, FileMode.Create, FileAccess.Write, FileShare.Read))
@@ -87,7 +96,7 @@ internal sealed class ServerProcess : IAsyncDisposable
         started.BeginOutputReadLine();
         started.BeginErrorReadLine();
 
-        var server = new ServerProcess(started, job, writer, port);
+        var server = new ServerProcess(started, job, writer, port, hostToken);
         try
         {
             await server.WaitUntilReadyAsync(report, token).ConfigureAwait(false);

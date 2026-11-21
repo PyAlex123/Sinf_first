@@ -99,6 +99,7 @@ export interface ActivityRecord {
     | 'mode'
     | 'screen'
     | 'stage_change'
+    | 'demo_start'
     | 'session_end';
   participantId: string | null;
   data?: Record<string, unknown>;
@@ -138,6 +139,7 @@ export function createSessionState(input: NewSessionInput): SessionState {
     demoSpeed: input.demoSpeed ?? 1,
     lock: { all: null, byParticipant: {} },
     quiz: null,
+    demo: null,
     participants: {},
   };
 }
@@ -442,6 +444,24 @@ function command(
     }
     case 'teacher.lock':
       return setLock(r, m.targets, m.text ?? '');
+    case 'teacher.demo.start': {
+      // A child's screen only from a classroom computer: a browser cannot film its screen.
+      if (m.source !== 'teacher' && !r.state.participants[m.source]?.pc) return r;
+      // A new number for every broadcast, so a frame of the last one is never drawn in this one.
+      const demo = { mode: m.mode, source: m.source, epoch: (e.now % 0xfffffff0) + 1 };
+      r.state = { ...r.state, demo };
+      r.broadcast.push({ v, type: 'demo.changed', demo });
+      r.activity.push({
+        type: 'demo_start',
+        participantId: m.source === 'teacher' ? null : m.source,
+      });
+      return r;
+    }
+    case 'teacher.demo.stop':
+      if (!r.state.demo) return r;
+      r.state = { ...r.state, demo: null };
+      r.broadcast.push({ v, type: 'demo.changed', demo: null });
+      return r;
     case 'teacher.screenshot':
       // Classroom computers answer by uploading; a browser cannot photograph its screen (H5).
       r.broadcast.push({ v, type: 'screenshot.request', targets: m.targets, reason: 'manual' });

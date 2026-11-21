@@ -64,7 +64,17 @@ export type HostCommand =
   /** Open a program of the practice, or bring it back to the front (H6). Only Paint for now. */
   | { type: 'launch'; app: 'paint' }
   /** The practice is over: close its programs, asking to save first (H6). */
-  | { type: 'closeApps' };
+  | { type: 'closeApps' }
+  /**
+   * Film this screen for the class, or stop (H14). The teacher's app needs only the lesson; a
+   * child's app also the child's lesson token, which lets it be the source of the broadcast.
+   */
+  | { type: 'share'; on: boolean; sessionId: string; token?: string }
+  /**
+   * "Мой экран в окне" while a program is open (H14): the lesson window becomes a small picture in
+   * a corner, over the program; off brings it back to full screen.
+   */
+  | { type: 'pip'; on: boolean };
 
 /** What the classroom app tells the page. */
 export type HostEvent =
@@ -97,8 +107,10 @@ function channel(): WebViewChannel | null {
 
 /** Sends a command to the classroom app; in a browser there is nobody to hear it. */
 export function hostSend(command: HostCommand): void {
-  if (platform.role !== 'student') return;
-  channel()?.postMessage(command);
+  // The teacher's app takes only "share" — its screen for the class (H14); a browser takes nothing.
+  if (platform.role === 'student' || (platform.role === 'teacher' && command.type === 'share')) {
+    channel()?.postMessage(command);
+  }
 }
 
 /** Listens to the classroom app; returns the way to stop listening. */
