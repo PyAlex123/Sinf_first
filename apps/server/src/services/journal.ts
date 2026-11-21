@@ -4,6 +4,7 @@ import {
   emaktabDue,
   type CreateJournalColumn,
   type EmaktabReminder,
+  type ImportGrades,
   type Journal,
   type JournalSync,
   type SetEmaktab,
@@ -426,4 +427,78 @@ export function emaktabReminders(
       }),
     )
     .sort((a, b) => a.hoursLeft - b.hoursLeft);
+}
+
+// ---------- grades from a file (PLAN.md 5.5; W13)
+
+/**
+ * Each column of the file becomes a journal column without a lesson, with its grades and "н".
+ * Every child must be of this class; all of it goes in at once or not at all.
+ */
+export function importGrades(
+  db: Db,
+  classId: string,
+  teacherId: string,
+  input: ImportGrades,
+  now = new Date(),
+): number {
+  const ids = new Set(
+    db
+      .select({ id: schema.students.id })
+      .from(schema.students)
+      .where(eq(schema.students.classId, classId))
+      .all()
+      .map((s) => s.id),
+  );
+  for (const column of input.columns) {
+    for (const cell of column.cells) {
+      if (!ids.has(cell.studentId)) throw notFound('Student');
+    }
+  }
+  const at = now.toISOString();
+  let grades = 0;
+  db.transaction((tx) => {
+    for (const column of input.columns) {
+      const columnId = randomUUID();
+      tx.insert(schema.journalColumns)
+        .values({
+          id: columnId,
+          classId,
+          date: column.date,
+          title: column.title,
+          createdBy: teacherId,
+          createdAt: at,
+          updatedAt: at,
+          deletedAt: null,
+          syncedAt: null,
+        })
+        .run();
+      const seen = new Set<string>();
+      for (const cell of column.cells) {
+        // One cell per child: a name twice in the file keeps its first row.
+        if (seen.has(cell.studentId) || (cell.value === null && !cell.absent)) continue;
+        seen.add(cell.studentId);
+        tx.insert(schema.grades)
+          .values({
+            id: randomUUID(),
+            studentId: cell.studentId,
+            classId,
+            sessionId: null,
+            columnId,
+            date: column.date,
+            stars: 0,
+            value: cell.absent ? null : cell.value,
+            absent: cell.absent,
+            source: 'manual',
+            comment: null,
+            createdAt: at,
+            updatedAt: at,
+            syncedAt: null,
+          })
+          .run();
+        grades += 1;
+      }
+    }
+  });
+  return grades;
 }

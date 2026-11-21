@@ -27,6 +27,10 @@ export const routes: RouteDef[] = [
     load: () => import('./pages/teacher/Results.svelte'),
   },
   { pattern: '/teacher/session/:id', load: () => import('./pages/teacher/Session.svelte') },
+  {
+    pattern: '/teacher/journal/:classId/import',
+    load: () => import('./pages/teacher/JournalImport.svelte'),
+  },
   { pattern: '/teacher/journal/:classId', load: () => import('./pages/teacher/Journal.svelte') },
   { pattern: '/teacher/demo', load: () => import('./pages/teacher/Demo.svelte') },
   { pattern: '/present/:id', load: () => import('./pages/Present.svelte') },

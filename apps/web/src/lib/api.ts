@@ -67,6 +67,7 @@ import {
   type UpdateAuthoredLesson,
   type UpdateProgram,
   type AddKtpRow,
+  type ImportGrades,
   type SetEmaktab,
   type CreateKtp,
   type LinkKtpRows,
@@ -207,6 +208,11 @@ export const api = {
   /** The KTP (W10): the file's tables, then the rows the teacher mapped. */
   parseKtp: (bytes: Blob, name: string) =>
     sendBytes(`/api/ktp/parse?name=${encodeURIComponent(name)}`, bytes, ParsedTablesSchema),
+  /** Tables of a file for the grades wizard (W13); works on a school computer too. */
+  parseTables: (bytes: Blob, name: string) =>
+    sendBytes(`/api/tables/parse?name=${encodeURIComponent(name)}`, bytes, ParsedTablesSchema),
+  importGrades: (classId: string, body: ImportGrades) =>
+    request('POST', `/api/journal/${encodeURIComponent(classId)}/import`, JournalSchema, body),
   ktpList: () => request('GET', '/api/ktp', KtpListResponseSchema),
   ktp: (id: string) => request('GET', `/api/ktp/${encodeURIComponent(id)}`, KtpPlanSchema),
   createKtp: (body: CreateKtp) => request('POST', '/api/ktp', KtpPlanSchema, body),

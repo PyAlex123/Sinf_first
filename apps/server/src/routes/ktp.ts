@@ -1,4 +1,4 @@
-import type { FastifyPluginCallback } from 'fastify';
+import type { FastifyPluginCallback, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { FileProblem, readTables } from '@sinf/checkers';
 import { eq } from 'drizzle-orm';
@@ -63,8 +63,8 @@ export const ktpRoutes: FastifyPluginCallback = (app, _opts, done) => {
     (_request, body, parsed) => parsed(null, body),
   );
 
-  app.post('/ktp/parse', { preHandler: requireTeacher }, (request): ParsedTables => {
-    platformOnly();
+  /** Tables of an Excel or Word file, for the KTP (W10) and the grades (W13) wizards. */
+  const parse = (request: FastifyRequest): ParsedTables => {
     const { name } = ParseQuery.parse(request.query);
     const body = request.body;
     if (!Buffer.isBuffer(body)) {
@@ -72,7 +72,7 @@ export const ktpRoutes: FastifyPluginCallback = (app, _opts, done) => {
     }
     try {
       const tables = readTables(new Uint8Array(body), name).filter((t) => t.rows.length > 0);
-      request.log.info({ name, size: body.byteLength, tables: tables.length }, 'ktp file read');
+      request.log.info({ name, size: body.byteLength, tables: tables.length }, 'tables read');
       return { tables };
     } catch (error) {
       if (error instanceof FileProblem) {
@@ -80,7 +80,17 @@ export const ktpRoutes: FastifyPluginCallback = (app, _opts, done) => {
       }
       throw error;
     }
+  };
+
+  app.post('/ktp/parse', { preHandler: requireTeacher }, (request): ParsedTables => {
+    platformOnly();
+    return parse(request);
   });
+
+  /** Grades are imported on a school computer too: the journal's columns travel both ways. */
+  app.post('/tables/parse', { preHandler: requireTeacher }, (request): ParsedTables =>
+    parse(request),
+  );
 
   app.get('/ktp', { preHandler: requireTeacher }, (request): KtpListResponse => {
     const teacher = request.teacher as Teacher;

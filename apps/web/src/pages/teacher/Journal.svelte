@@ -206,6 +206,10 @@
         <Button variant="secondary" onclick={() => (adding = !adding)}
           >{t('journal.column.add')}</Button
         >
+        <!-- Grades kept in Excel before (PLAN.md 5.5, W13). -->
+        <Button variant="secondary" href={`/teacher/journal/${classId}/import`}>
+          {t('gradesImport.open')}
+        </Button>
         <Button variant="secondary" href={`/teacher/class/${journal?.class.id}`}>
           {t('class.manage')}
         </Button>

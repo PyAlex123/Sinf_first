@@ -10,6 +10,7 @@ import {
   JournalSyncSchema,
   SetJournalCellSchema,
   SetEmaktabSchema,
+  ImportGradesSchema,
   type EmaktabRemindersResponse,
   type JournalSync,
   type Journal,
@@ -27,6 +28,7 @@ import {
   createColumn,
   deleteColumn,
   emaktabReminders,
+  importGrades,
   journalOfClasses,
   setCell,
   setEmaktab,
@@ -242,6 +244,19 @@ export const resultRoutes: FastifyPluginCallback = (app, _opts, done) => {
       return { reminders: emaktabReminders(journals) };
     },
   );
+
+  // ---------- grades from a file (PLAN.md 5.5; W13)
+
+  app.post('/journal/:classId/import', { preHandler: requireTeacher }, (request): Journal => {
+    const { classId } = ClassParams.parse(request.params);
+    const teacher = request.teacher as Teacher;
+    requireClass(db, teacher, classId);
+    const input = ImportGradesSchema.parse(request.body);
+    const grades = importGrades(db, classId, teacher.id, input);
+    request.log.info({ classId, columns: input.columns.length, grades }, 'grades imported');
+    void app.sync?.push();
+    return journalOf(classId);
+  });
 
   // ---------- the journal by hand (W9)
 
