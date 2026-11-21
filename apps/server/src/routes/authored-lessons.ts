@@ -24,7 +24,7 @@ import {
   type SyncLessonList,
   type Teacher,
 } from '@sinf/shared';
-import { requireDevice, schoolsOf } from '../auth/access.js';
+import { colleaguesOf, requireDevice } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
@@ -69,22 +69,7 @@ export const authoredLessonRoutes: FastifyPluginCallback = (app, _opts, done) =>
       .where(eq(schema.users.id, id))
       .get()?.name ?? '—';
 
-  /** Teachers who share a school with this one (themselves included). */
-  const colleagues = (teacher: Teacher): string[] => {
-    const schools = schoolsOf(db, teacher.id);
-    if (schools.length === 0) return [teacher.id];
-    return [
-      ...new Set([
-        teacher.id,
-        ...db
-          .select({ userId: schema.schoolMembers.userId })
-          .from(schema.schoolMembers)
-          .where(inArray(schema.schoolMembers.schoolId, schools))
-          .all()
-          .map((r) => r.userId),
-      ]),
-    ];
-  };
+  const colleagues = (teacher: Teacher): string[] => colleaguesOf(db, teacher.id);
 
   const canSee = (teacher: Teacher, row: Row): boolean =>
     row.ownerId === teacher.id ||

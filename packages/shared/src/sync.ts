@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ClassSettingsSchema, SchoolRoleSchema } from './api.js';
 import { LocaleSchema } from './locale.js';
 import { CheckReportSchema, PracticeMarksSchema } from './practice.js';
+import { SyncProgramSchema } from './programs.js';
 
 /**
  * What a school computer and the platform say to each other (S2.6, ADR-011).
@@ -42,6 +43,8 @@ export const SyncClassSchema = z.strictObject({
   teacherIds: z.array(id),
   /** The code a child types at home to reach "Мои работы" (H12); printed on the cards. */
   homeCode: z.string().nullable().optional(),
+  /** The class's programme (W7); absent from a platform before it. */
+  programId: z.string().nullable().optional(),
 });
 export type SyncClass = z.infer<typeof SyncClassSchema>;
 
@@ -64,6 +67,8 @@ export const SchoolSnapshotSchema = z.strictObject({
   teachers: z.array(SyncTeacherSchema),
   classes: z.array(SyncClassSchema),
   students: z.array(SyncStudentSchema),
+  /** The programmes of the school's classes (W7). */
+  programs: z.array(SyncProgramSchema).optional(),
   /** Changes whenever anything above changes, so an unchanged roster is not rewritten. */
   version: z.string().min(1),
 });

@@ -28,6 +28,7 @@
   import StudentList from '../../lib/ui/StudentList.svelte';
   import SyncBox from '../../lib/ui/SyncBox.svelte';
   import OwnLessons from './OwnLessons.svelte';
+  import ClassProgramBox from './ClassProgramBox.svelte';
 
   let { params: _params }: PageProps = $props();
   let teacher = $state<Teacher | null>(null);
@@ -208,6 +209,14 @@
             level={1}
             title={t('teacher.noClasses')}
             text={t('teacher.noClasses.hint')}
+          />
+        {/if}
+
+        {#if cls}
+          <ClassProgramBox
+            classId={cls.id}
+            busyId={busy}
+            onStart={(id: string) => void start(id)}
           />
         {/if}
 

@@ -93,6 +93,25 @@ export function applySchoolSnapshot(db: Db, snapshot: SchoolSnapshot): MirrorRes
       )
       .run();
 
+    // Programmes first: a class names one (W7). Read-only copies, written whole; one whose author
+    // is not a teacher here (a public one from another school) is not kept.
+    const knownTeacher = (id: string): boolean =>
+      !!tx.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.id, id)).get();
+    for (const program of snapshot.programs ?? []) {
+      if (!knownTeacher(program.ownerId)) continue;
+      const values = {
+        ...program,
+        visibility: 'private' as const,
+        sourceId: null,
+        createdAt: program.updatedAt,
+        deletedAt: null,
+      };
+      tx.insert(schema.programs)
+        .values(values)
+        .onConflictDoUpdate({ target: schema.programs.id, set: values })
+        .run();
+    }
+
     for (const cls of snapshot.classes) {
       tx.insert(schema.classes)
         .values({
@@ -105,6 +124,7 @@ export function applySchoolSnapshot(db: Db, snapshot: SchoolSnapshot): MirrorRes
           settings: cls.settings,
           createdAt: now,
           homeCode: cls.homeCode ?? null,
+          programId: cls.programId ?? null,
         })
         .onConflictDoUpdate({
           target: schema.classes.id,
@@ -117,6 +137,7 @@ export function applySchoolSnapshot(db: Db, snapshot: SchoolSnapshot): MirrorRes
             settings: cls.settings,
             // The platform's code is the one on the cards; an older platform sends none.
             ...(cls.homeCode !== undefined ? { homeCode: cls.homeCode } : {}),
+            ...(cls.programId !== undefined ? { programId: cls.programId } : {}),
           },
         })
         .run();

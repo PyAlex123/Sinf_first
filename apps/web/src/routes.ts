@@ -7,6 +7,8 @@ export const routes: RouteDef[] = [
   { pattern: '/teacher/register', load: () => import('./pages/teacher/Register.svelte') },
   { pattern: '/teacher', load: () => import('./pages/teacher/Dashboard.svelte') },
   { pattern: '/teacher/lesson/:id', load: () => import('./pages/teacher/Lesson.svelte') },
+  { pattern: '/teacher/programs', load: () => import('./pages/teacher/Programs.svelte') },
+  { pattern: '/teacher/programs/:id', load: () => import('./pages/teacher/ProgramEditor.svelte') },
   {
     pattern: '/teacher/lessons/:id/edit',
     load: () => import('./pages/teacher/LessonEditor.svelte'),

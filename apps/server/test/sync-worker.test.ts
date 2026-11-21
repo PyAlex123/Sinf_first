@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
+  ClassProgramSchema,
   AssetUploadResponseSchema,
   AuthoredLessonListResponseSchema,
   AuthoredLessonSchema,
@@ -588,6 +589,53 @@ describe('teachers’ own lessons coming down (W1, ADR-019)', () => {
       ).json(),
     );
     expect(list.lessons).toEqual([]);
+  });
+});
+
+describe('a class’s programme coming down (W7)', () => {
+  it('shows the next lesson on the school computer', async () => {
+    const made = (
+      await cloud.app.inject({
+        method: 'POST',
+        url: '/api/programs',
+        headers: { cookie: cloudCookie },
+        payload: { title: 'Год 1А', grade: 1 },
+      })
+    ).json<{ id: string }>();
+    await cloud.app.inject({
+      method: 'PUT',
+      url: `/api/programs/${made.id}`,
+      headers: { cookie: cloudCookie },
+      payload: {
+        title: 'Год 1А',
+        grade: 1,
+        visibility: 'private',
+        items: [
+          { lessonId: 'g10', quarter: 2 },
+          { lessonId: 'g11', quarter: 2 },
+        ],
+        version: 1,
+      },
+    });
+    await cloud.app.inject({
+      method: 'PUT',
+      url: `/api/classes/${DEMO.classId}/program`,
+      headers: { cookie: cloudCookie },
+      payload: { programId: made.id },
+    });
+    await worker.pull();
+    const cookie = await teacherCookie();
+    const here = ClassProgramSchema.parse(
+      (
+        await school.inject({
+          method: 'GET',
+          url: `/api/classes/${DEMO.classId}/program`,
+          headers: { cookie },
+        })
+      ).json(),
+    );
+    expect(here.program?.title).toBe('Год 1А');
+    expect(here.next?.lessonId).toBe('g10');
   });
 });
 

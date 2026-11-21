@@ -19,6 +19,9 @@ import {
   AuthoredLessonListResponseSchema,
   AssetUploadResponseSchema,
   CourseSchema,
+  ClassProgramSchema,
+  ProgramSchema,
+  ProgramListResponseSchema,
   PracticeResponseSchema,
   SessionResponseSchema,
   SessionStateSchema,
@@ -54,6 +57,7 @@ import {
   type CreateAuthoredLesson,
   type Locale,
   type UpdateAuthoredLesson,
+  type UpdateProgram,
 } from '@sinf/shared';
 import { z } from 'zod';
 
@@ -130,6 +134,24 @@ export const api = {
     request('DELETE', `/api/authored-lessons/${encodeURIComponent(id)}`, OkSchema),
   copyAuthoredLesson: (id: string) =>
     request('POST', `/api/authored-lessons/${encodeURIComponent(id)}/copy`, AuthoredLessonSchema),
+  /** Programmes: lessons by quarters (W7). */
+  programs: (scope: 'mine' | 'school' = 'mine') =>
+    request('GET', `/api/programs?scope=${scope}`, ProgramListResponseSchema),
+  program: (id: string) => request('GET', `/api/programs/${encodeURIComponent(id)}`, ProgramSchema),
+  createProgram: (title: string, grade: number) =>
+    request('POST', '/api/programs', ProgramSchema, { title, grade }),
+  saveProgram: (id: string, body: UpdateProgram) =>
+    request('PUT', `/api/programs/${encodeURIComponent(id)}`, ProgramSchema, body),
+  deleteProgram: (id: string) =>
+    request('DELETE', `/api/programs/${encodeURIComponent(id)}`, OkSchema),
+  copyProgram: (id: string) =>
+    request('POST', `/api/programs/${encodeURIComponent(id)}/copy`, ProgramSchema),
+  classProgram: (classId: string) =>
+    request('GET', `/api/classes/${encodeURIComponent(classId)}/program`, ClassProgramSchema),
+  setClassProgram: (classId: string, programId: string | null) =>
+    request('PUT', `/api/classes/${encodeURIComponent(classId)}/program`, ClassProgramSchema, {
+      programId,
+    }),
   /** A picture or a template of a lesson, as raw bytes (W1). */
   uploadAsset: async (bytes: Blob, ext: AssetExtension): Promise<AssetUploadResponse> => {
     const res = await fetch(`/api/assets?ext=${ext}`, {

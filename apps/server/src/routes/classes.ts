@@ -244,6 +244,7 @@ export const classRoutes: FastifyPluginCallback = (app, _opts, done) => {
       settings,
       createdAt: new Date().toISOString(),
       homeCode: null as string | null,
+      programId: null as string | null,
     };
     db.transaction((tx) => {
       tx.insert(schema.classes).values(row).run();

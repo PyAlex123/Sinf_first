@@ -6,7 +6,13 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
-import type { AuthoredLessonDoc, CheckReport, ClassSettings, PracticeMarks } from '@sinf/shared';
+import type {
+  AuthoredLessonDoc,
+  CheckReport,
+  ClassSettings,
+  PracticeMarks,
+  ProgramItem,
+} from '@sinf/shared';
 
 /**
  * Stage 1 schema (STAGE1.md S1.3, docs/stage1-architecture.md §3). Portable to PostgreSQL:
@@ -144,6 +150,8 @@ export const classes = sqliteTable(
      * the platform, carried to school computers with the roster.
      */
     homeCode: text('home_code'),
+    /** The programme the class follows (stage 4, W7); it says which lesson comes next. */
+    programId: text('program_id'),
   },
   (t) => [
     index('classes_school_idx').on(t.schoolId),
@@ -511,8 +519,35 @@ export const authoredLessons = sqliteTable(
   (t) => [index('authored_lessons_owner_idx').on(t.ownerId)],
 );
 
+/**
+ * A programme: lessons for a class by quarters (PLAN.md 3.8; stage 4, W7). Made on the platform;
+ * the school computer keeps the programmes of its classes with the roster.
+ */
+export const programs = sqliteTable(
+  'programs',
+  {
+    id: id(),
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => users.id),
+    title: text('title').notNull(),
+    grade: integer('grade').notNull(),
+    visibility: text('visibility', { enum: ['private', 'school', 'public'] })
+      .notNull()
+      .default('private'),
+    items: text('items', { mode: 'json' }).$type<ProgramItem[]>().notNull(),
+    version: integer('version').notNull().default(1),
+    sourceId: text('source_id'),
+    createdAt: timestamp('created_at').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [index('programs_owner_idx').on(t.ownerId)],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  programs,
   authoredLessons,
   practiceChecks,
   studentFiles,
