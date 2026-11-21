@@ -81,3 +81,5 @@ Expect (-not (Autostart)) 'автозапуска нет'
 Expect (-not (Rule 'Sinf')) 'правила Sinf нет'
 Expect (-not (Rule 'Sinf server')) 'правила сервера нет'
 Write-Host 'Установщик в порядке.'
+# The last netsh said "no such rule" with exit code 1, as it should: that is not the script's result.
+exit 0
