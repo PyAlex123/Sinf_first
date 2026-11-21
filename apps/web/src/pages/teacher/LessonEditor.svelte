@@ -266,6 +266,43 @@
 
   onDestroy(flush);
 
+  // ---------- slides from a PDF (W3)
+
+  let pdfProgress = $state<{ done: number; total: number } | null>(null);
+  async function importPdf(file: File | undefined): Promise<void> {
+    if (!file || !stage) return;
+    const target = stage;
+    error = null;
+    pdfProgress = { done: 0, total: 0 };
+    try {
+      const { pdfToPictures, PdfProblem } = await import('../../lib/pdf-slides.js');
+      try {
+        const pictures = await pdfToPictures(
+          file,
+          (done, total) => (pdfProgress = { done, total }),
+        );
+        const added: AuthoredBlock[] = [];
+        for (const picture of pictures) {
+          const asset = await api.uploadAsset(picture.blob, 'webp');
+          added.push({
+            id: newBlockId(),
+            kind: 'slide',
+            title: '',
+            text: '',
+            bullets: [],
+            image: { sha: asset.sha, ext: 'webp', width: picture.width, height: picture.height },
+          });
+        }
+        target.blocks = [...target.blocks, ...added].slice(0, 60);
+        blockId = added[0]?.id ?? blockId;
+      } catch (e) {
+        error = e instanceof PdfProblem ? t(`editor.pdf.${e.code}`) : t('editor.pdf.unreadable');
+      }
+    } finally {
+      pdfProgress = null;
+    }
+  }
+
   // ---------- preview
 
   const previewLesson = $derived(
@@ -448,7 +485,27 @@
             {/each}
           </ol>
           {#if stage.blocks.length === 0}<p class="muted small">{t('editor.noSlides')}</p>{/if}
-          <Button size="sm" variant="secondary" onclick={addSlide}>+ {t('editor.addSlide')}</Button>
+          <div class="row">
+            <Button size="sm" variant="secondary" onclick={addSlide}
+              >+ {t('editor.addSlide')}</Button
+            >
+            <label class="file ghost">
+              {pdfProgress
+                ? t('editor.pdf.progress', {
+                    done: pdfProgress.done,
+                    total: pdfProgress.total || '…',
+                  })
+                : t('editor.pdf.import')}
+              <input
+                type="file"
+                accept="application/pdf"
+                disabled={!!pdfProgress}
+                onchange={(e) => void importPdf(e.currentTarget.files?.[0])}
+                data-field="pdf"
+              />
+            </label>
+          </div>
+          <p class="muted small">{t('editor.pdf.hint')}</p>
         </section>
 
         <section class="blockbox">
@@ -709,6 +766,11 @@
   }
   .file input {
     display: none;
+  }
+  .file.ghost {
+    background: var(--c-surface);
+    color: var(--c-dark);
+    border: 1px solid var(--c-field-line);
   }
   .row {
     display: flex;

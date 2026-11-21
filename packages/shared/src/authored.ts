@@ -286,6 +286,19 @@ export function slideScreen(
   const bullets = block.bullets.map((b) => b.trim()).filter(Boolean);
   const body = block.text.trim();
   const title = block.title.trim();
+  // A page of a PDF (W3): the picture is the slide, as large as the screen allows.
+  if (!title && !body && bullets.length === 0 && block.image) {
+    const image = block.image;
+    return {
+      kind: 'slide',
+      stage: stage.key,
+      layout: 'text wide',
+      html:
+        `<div class="s-fig" style="width:min(94vw,150vh);max-width:none">` +
+        `<svg viewBox="0 0 ${image.width} ${image.height}" xmlns="http://www.w3.org/2000/svg" class="fig-svg shot" style="max-height:82vh">` +
+        `<image x="0" y="0" width="${image.width}" height="${image.height}" href="${assetUrl(image.sha, image.ext)}"></image></svg></div>`,
+    };
+  }
   // Only a title (and perhaps a picture): a title slide, as the author's first slides.
   if (!body && bullets.length === 0) {
     return {

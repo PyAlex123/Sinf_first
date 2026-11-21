@@ -70,4 +70,27 @@ describe('a teacher’s lesson in the author’s format', () => {
     }
     expect(lessonAssetFiles(doc)).toEqual([`${'b'.repeat(64)}.webp`]);
   });
+
+  it('shows a page of a PDF (a picture alone) as the whole slide', () => {
+    const doc = AuthoredLessonDocSchema.parse({
+      stages: [
+        {
+          key: 'theory',
+          title: 'Теория',
+          minutes: 10,
+          place: 'projector',
+          blocks: [
+            {
+              id: 'p1',
+              kind: 'slide',
+              image: { sha: 'c'.repeat(64), ext: 'webp', width: 1600, height: 900 },
+            },
+          ],
+        },
+      ],
+    });
+    const screen = authoredToLesson({ id, title: 'PDF', topic: '', doc }).screens[0];
+    expect(screen?.kind === 'slide' && screen.html).toContain('viewBox="0 0 1600 900"');
+    expect(screen?.kind === 'slide' && screen.html).not.toContain('<h1>');
+  });
 });

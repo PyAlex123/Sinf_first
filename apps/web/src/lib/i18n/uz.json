@@ -665,5 +665,11 @@
   "editor.up": "Yuqoriga",
   "editor.down": "Pastga",
   "editor.slideN": "Slayd {n}",
-  "editor.total90": "90 daqiqadan ko‘pi saqlanmaydi — bosqichlarni qisqartiring"
+  "editor.total90": "90 daqiqadan ko‘pi saqlanmaydi — bosqichlarni qisqartiring",
+  "editor.pdf.import": "PDF dan slaydlar",
+  "editor.pdf.progress": "Sahifa {done} / {total}…",
+  "editor.pdf.hint": "PowerPoint taqdimotini PDF sifatida saqlang: har bir sahifa rasm-slayd bo‘ladi (60 sahifagacha, 40 MB gacha).",
+  "editor.pdf.too_large": "PDF 40 MB dan katta — taqdimotni kichikroq rasmlar bilan saqlang.",
+  "editor.pdf.too_many_pages": "PDF da 60 dan ortiq sahifa bor — uni qismlarga bo‘ling.",
+  "editor.pdf.unreadable": "Bu PDF ochilmadi: ehtimol, u buzilgan yoki parol bilan himoyalangan."
 }
