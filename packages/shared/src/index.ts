@@ -21,3 +21,4 @@ export * from './screen.js';
 export * from './authored.js';
 export * from './programs.js';
 export * from './library.js';
+export * from './ktp.js';

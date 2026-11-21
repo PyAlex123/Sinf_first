@@ -20,6 +20,9 @@ import {
   AssetUploadResponseSchema,
   CourseSchema,
   ClassProgramSchema,
+  KtpListResponseSchema,
+  KtpPlanSchema,
+  ParsedTablesSchema,
   ProgramSchema,
   ProgramListResponseSchema,
   LibraryResponseSchema,
@@ -60,6 +63,7 @@ import {
   type Locale,
   type UpdateAuthoredLesson,
   type UpdateProgram,
+  type CreateKtp,
   type LibraryKind,
   type SetJournalCell,
 } from '@sinf/shared';
@@ -92,6 +96,24 @@ async function request<T>(
     init.body = JSON.stringify(body);
   }
   const res = await fetch(url, init);
+  const json: unknown = await res.json().catch(() => undefined);
+  if (!res.ok) {
+    const parsed = ApiErrorSchema.safeParse(json);
+    throw parsed.success
+      ? new ApiError(res.status, parsed.data.error, parsed.data.message, parsed.data.details)
+      : new ApiError(res.status, 'http', `HTTP ${res.status}`);
+  }
+  return schema.parse(json);
+}
+
+/** A file's bytes as they are, for the server to read (lesson files, KTP). */
+async function sendBytes<T>(url: string, bytes: Blob, schema: ZodType<T>): Promise<T> {
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: bytes,
+  });
   const json: unknown = await res.json().catch(() => undefined);
   if (!res.ok) {
     const parsed = ApiErrorSchema.safeParse(json);
@@ -173,22 +195,16 @@ export const api = {
       hidden,
     }),
   /** A picture or a template of a lesson, as raw bytes (W1). */
-  uploadAsset: async (bytes: Blob, ext: AssetExtension): Promise<AssetUploadResponse> => {
-    const res = await fetch(`/api/assets?ext=${ext}`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/octet-stream' },
-      body: bytes,
-    });
-    const json: unknown = await res.json().catch(() => undefined);
-    if (!res.ok) {
-      const parsed = ApiErrorSchema.safeParse(json);
-      throw parsed.success
-        ? new ApiError(res.status, parsed.data.error, parsed.data.message, parsed.data.details)
-        : new ApiError(res.status, 'http', `HTTP ${res.status}`);
-    }
-    return AssetUploadResponseSchema.parse(json);
-  },
+  uploadAsset: (bytes: Blob, ext: AssetExtension): Promise<AssetUploadResponse> =>
+    sendBytes(`/api/assets?ext=${ext}`, bytes, AssetUploadResponseSchema),
+  /** The KTP (W10): the file's tables, then the rows the teacher mapped. */
+  parseKtp: (bytes: Blob, name: string) =>
+    sendBytes(`/api/ktp/parse?name=${encodeURIComponent(name)}`, bytes, ParsedTablesSchema),
+  ktpList: () => request('GET', '/api/ktp', KtpListResponseSchema),
+  ktp: (id: string) => request('GET', `/api/ktp/${encodeURIComponent(id)}`, KtpPlanSchema),
+  createKtp: (body: CreateKtp) => request('POST', '/api/ktp', KtpPlanSchema, body),
+  deleteKtp: (id: string) =>
+    request('DELETE', `/api/ktp/${encodeURIComponent(id)}`, KtpListResponseSchema),
   createSession: (body: CreateSession) =>
     request('POST', '/api/sessions', SessionResponseSchema, body),
   session: (id: string) =>

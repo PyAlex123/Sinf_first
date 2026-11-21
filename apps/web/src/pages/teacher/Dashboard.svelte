@@ -277,6 +277,8 @@
         <Button variant="ghost" block href="/teacher/practice">{t('teacher.practice')}</Button>
         <!-- Lessons and programmes other teachers made public (PLAN.md 3.9, W8). -->
         <Button variant="ghost" block href="/teacher/library">{t('library.title')}</Button>
+        <!-- The year's plan of each class, imported from Excel or Word (PLAN.md 5.2, W10). -->
+        <Button variant="ghost" block href="/teacher/ktp">{t('ktp.title')}</Button>
 
         <!-- Where this teacher belongs: their school, or the way to ask for one. -->
         <Card muted>

@@ -17,6 +17,7 @@ import { withAuthoredLessons } from './content/authored.js';
 import { authoredLessonRoutes } from './routes/authored-lessons.js';
 import { programRoutes } from './routes/programs.js';
 import { libraryRoutes } from './routes/library.js';
+import { ktpRoutes } from './routes/ktp.js';
 import { demoRoutes } from './routes/demo.js';
 import { buildContentManifest } from './content/manifest.js';
 import { contentSyncRoutes } from './routes/content-sync.js';
@@ -168,6 +169,7 @@ export async function buildApp(
   await app.register(authoredLessonRoutes);
   await app.register(programRoutes, { prefix: '/api' });
   await app.register(libraryRoutes, { prefix: '/api' });
+  await app.register(ktpRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api', store, virtual });
   await app.register(classRoutes, { prefix: '/api' });
   await app.register(schoolRoutes, { prefix: '/api' });

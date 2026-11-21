@@ -2,6 +2,7 @@ import {
   index,
   integer,
   primaryKey,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -596,8 +597,63 @@ export const libraryReports = sqliteTable(
   (t) => [index('library_reports_item_idx').on(t.kind, t.itemId)],
 );
 
+/**
+ * The teacher's calendar-thematic plan for a class (PLAN.md 5.2–5.3; W10–W11; ADR-020). It lives on
+ * the platform only: it is the teacher's paperwork, not part of a lesson in the classroom.
+ */
+export const ktpPlans = sqliteTable(
+  'ktp_plans',
+  {
+    id: id(),
+    teacherId: text('teacher_id')
+      .notNull()
+      .references(() => users.id),
+    classId: text('class_id')
+      .notNull()
+      .references(() => classes.id),
+    title: text('title').notNull(),
+    sourceFile: text('source_file').notNull().default(''),
+    createdAt: timestamp('created_at').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+  },
+  (t) => [
+    index('ktp_plans_teacher_idx').on(t.teacherId),
+    index('ktp_plans_class_idx').on(t.classId),
+  ],
+);
+
+/**
+ * One topic of a KTP. `originalTopic` / `originalWeekOrDate` keep what the file said, to count the
+ * share of changes the school allows (W11); a row added by hand has none; a removed one stays with
+ * `deletedAt` for the same count.
+ */
+export const ktpRows = sqliteTable(
+  'ktp_rows',
+  {
+    id: id(),
+    planId: text('plan_id')
+      .notNull()
+      .references(() => ktpPlans.id),
+    position: integer('position').notNull(),
+    number: text('number').notNull().default(''),
+    topic: text('topic').notNull(),
+    hours: real('hours'),
+    weekOrDate: text('week_or_date').notNull().default(''),
+    note: text('note').notNull().default(''),
+    originalTopic: text('original_topic'),
+    originalWeekOrDate: text('original_week_or_date'),
+    lessonId: text('lesson_id'),
+    isDone: integer('is_done', { mode: 'boolean' }).notNull().default(false),
+    doneAt: timestamp('done_at'),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [index('ktp_rows_plan_idx').on(t.planId, t.position)],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  ktpRows,
+  ktpPlans,
   journalColumns,
   libraryReports,
   programs,

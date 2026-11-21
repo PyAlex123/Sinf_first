@@ -9,6 +9,9 @@ export const routes: RouteDef[] = [
   { pattern: '/teacher/lesson/:id', load: () => import('./pages/teacher/Lesson.svelte') },
   { pattern: '/teacher/programs', load: () => import('./pages/teacher/Programs.svelte') },
   { pattern: '/teacher/library', load: () => import('./pages/teacher/Library.svelte') },
+  { pattern: '/teacher/ktp', load: () => import('./pages/teacher/Ktp.svelte') },
+  { pattern: '/teacher/ktp/import', load: () => import('./pages/teacher/KtpImport.svelte') },
+  { pattern: '/teacher/ktp/:id', load: () => import('./pages/teacher/KtpPlan.svelte') },
   { pattern: '/teacher/programs/:id', load: () => import('./pages/teacher/ProgramEditor.svelte') },
   {
     pattern: '/teacher/lessons/:id/edit',
