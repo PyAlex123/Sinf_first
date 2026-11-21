@@ -10,3 +10,6 @@ pnpm-lock.yaml
 **/bin
 **/obj
 **/TestResults
+
+# Эталонные файлы проверщиков: байты должны остаться как есть (tools/fixtures)
+packages/checkers/fixtures

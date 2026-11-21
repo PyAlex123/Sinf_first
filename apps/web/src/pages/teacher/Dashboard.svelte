@@ -262,6 +262,8 @@
             {t('class.create.open')}
           </Button>
         {/if}
+        <!-- Practice tasks in real programs and their reference files (PLAN.md 3.7, H13). -->
+        <Button variant="ghost" block href="/teacher/practice">{t('teacher.practice')}</Button>
 
         <!-- Where this teacher belongs: their school, or the way to ask for one. -->
         <Card muted>

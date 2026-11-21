@@ -25,6 +25,7 @@ import { screenshotRoutes } from './routes/screenshots.js';
 import { sessionRoutes } from './routes/sessions.js';
 import { syncRoutes } from './routes/sync.js';
 import { fileRoutes } from './routes/files.js';
+import { practiceRoutes } from './routes/practice.js';
 import { ensureHomeCodes } from './services/student-files.js';
 import { clearUploadLeftovers } from './sync/files.js';
 import { SyncWorker } from './sync/worker.js';
@@ -146,6 +147,7 @@ export async function buildApp(
   await app.register(screenshotRoutes, { prefix: '/api', store });
   await app.register(joinRoutes, { prefix: '/api', store });
   await app.register(fileRoutes, { prefix: '/api', store });
+  await app.register(practiceRoutes, { prefix: '/api' });
   await app.register(realtimePlugin, { store });
 
   // Built web client (single-page app). In development Vite serves it and proxies /api, /ws, /content here.
