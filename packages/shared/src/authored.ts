@@ -84,7 +84,28 @@ export const SlideBlockSchema = z.strictObject({
 });
 export type SlideBlock = z.infer<typeof SlideBlockSchema>;
 
-export const AuthoredBlockSchema = z.discriminatedUnion('kind', [SlideBlockSchema]);
+/**
+ * A question of the lesson's test (PLAN.md 3.5; W4): one right choice, several, or a typed answer.
+ * The questions of a stage, one after another, are the test; the stage's minutes are its time.
+ */
+export const QuestionBlockSchema = z.strictObject({
+  id: blockId,
+  kind: z.literal('question'),
+  text: text(300).default(''),
+  mode: z.enum(['single', 'multi', 'input']).default('single'),
+  options: z
+    .array(z.strictObject({ text: text(120), correct: z.boolean().default(false) }))
+    .max(6)
+    .default([]),
+  /** Accepted forms of a typed answer: "Enter", "энтер". */
+  answers: z.array(text(60)).max(10).default([]),
+});
+export type QuestionBlock = z.infer<typeof QuestionBlockSchema>;
+
+export const AuthoredBlockSchema = z.discriminatedUnion('kind', [
+  SlideBlockSchema,
+  QuestionBlockSchema,
+]);
 export type AuthoredBlock = z.infer<typeof AuthoredBlockSchema>;
 
 // ---------- stages and the document
@@ -355,9 +376,51 @@ export interface AuthoredSource {
   doc: AuthoredLessonDoc;
 }
 
-/** Screens per block: one, for now (tests and the like come with W4). */
-function screensOf(stage: AuthoredStage): Screen[] {
-  const out: Screen[] = stage.blocks.map((block) => slideScreen(stage, block));
+/** Why a question cannot be asked yet; null when it can. The constructor shows it beside the block. */
+export function questionProblem(
+  q: QuestionBlock,
+): 'text' | 'options' | 'correct' | 'answers' | null {
+  if (!q.text.trim()) return 'text';
+  if (q.mode === 'input') return q.answers.some((a) => a.trim()) ? null : 'answers';
+  const options = q.options.filter((o) => o.text.trim());
+  if (options.length < 2) return 'options';
+  const right = options.filter((o) => o.correct).length;
+  if (right === 0 || (q.mode === 'single' && right > 1)) return 'correct';
+  return null;
+}
+
+/** A question as a screen; one not finished yet is shown as a slide saying so, never half-asked. */
+function questionScreen(stage: AuthoredStage, q: QuestionBlock, n: number, of: number): Screen {
+  if (questionProblem(q)) {
+    return slideScreen(stage, {
+      id: q.id,
+      kind: 'slide',
+      title: q.text.trim() || stage.title,
+      text: '',
+      bullets: [],
+      image: null,
+    });
+  }
+  const options = q.options.filter((o) => o.text.trim());
+  return {
+    kind: 'question',
+    stage: stage.key,
+    n,
+    of,
+    text: q.text.trim(),
+    mode: q.mode,
+    options: q.mode === 'input' ? [] : options.map((o) => o.text.trim()),
+    correct: q.mode === 'input' ? [] : options.flatMap((o, i) => (o.correct ? [i] : [])),
+    answers: q.mode === 'input' ? q.answers.map((a) => a.trim()).filter(Boolean) : [],
+  };
+}
+
+function screensOf(stage: AuthoredStage, numbering: { n: number; of: number }): Screen[] {
+  const out: Screen[] = stage.blocks.map((block) => {
+    if (block.kind === 'slide') return slideScreen(stage, block);
+    numbering.n += 1;
+    return questionScreen(stage, block, numbering.n, numbering.of);
+  });
   return out.length > 0 ? out : [stageCover(stage)];
 }
 
@@ -378,7 +441,12 @@ export function authoredToLesson(source: AuthoredSource): Lesson {
     at += s.minutes;
     return stage;
   });
-  const screens = source.doc.stages.flatMap(screensOf);
+  const of = source.doc.stages.reduce(
+    (sum, s) => sum + s.blocks.filter((b) => b.kind === 'question').length,
+    0,
+  );
+  const numbering = { n: 0, of: Math.max(1, of) };
+  const screens = source.doc.stages.flatMap((s) => screensOf(s, numbering));
   const media = new Set<string>();
   for (const s of source.doc.stages) {
     for (const b of s.blocks)

@@ -12,6 +12,7 @@ import {
   realMsUntilStageEnd,
   reduce,
   SessionStateSchema,
+  screenMaxStars,
   type ActivityRecord,
   type LessonPlan,
   type Participant,
@@ -721,6 +722,7 @@ export class SessionStore {
       screenStages: lesson.screens.map((screen) => screen.stage),
       stepScreens: lesson.screens.flatMap((screen, i) => (screen.kind === 'step' ? [i] : [])),
       quiz: this.content.getQuiz(lessonId) ?? null,
+      screenMaxStars: lesson.screens.map(screenMaxStars),
     };
   }
 

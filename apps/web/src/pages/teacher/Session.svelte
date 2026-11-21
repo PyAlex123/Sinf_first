@@ -123,6 +123,14 @@
     bundle ? bundle.lesson.screens.flatMap((screen, i) => (screen.kind === 'step' ? [i] : [])) : [],
   );
   const practiceStage = $derived(stages.findIndex((stage) => stage.key === 'practice'));
+  /** Questions of a teacher's test (W4): how far each child is (PLAN.md 4.4). */
+  const questionScreens = $derived(
+    bundle
+      ? bundle.lesson.screens.flatMap((screen, i) => (screen.kind === 'question' ? [i] : []))
+      : [],
+  );
+  const answeredOf = (p: { doneScreens: number[] }): number =>
+    questionScreens.filter((i) => p.doneScreens.includes(i)).length;
   const showStars = $derived(
     stepScreens.length > 0 && practiceStage >= 0 && (session?.stage.index ?? 0) >= practiceStage,
   );
@@ -672,6 +680,16 @@
                     </span>
                     <span class="stars">{t('session.stars', { count: p.stars })}</span>
                   </div>
+                  {#if questionScreens.length > 0}
+                    <div class="tmeta">
+                      <span data-test={`${answeredOf(p)}/${questionScreens.length}`}>
+                        {t('session.test', {
+                          answered: answeredOf(p),
+                          total: questionScreens.length,
+                        })}
+                      </span>
+                    </div>
+                  {/if}
                   {#if quiz}
                     <div class="tmeta">
                       <span class="stars">

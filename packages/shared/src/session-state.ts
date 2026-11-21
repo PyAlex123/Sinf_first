@@ -41,6 +41,11 @@ export interface LessonPlan {
   stepScreens: readonly number[];
   /** The live quiz of this lesson, if it has one (S1.12). It runs in the reflection stage. */
   quiz: Quiz | null;
+  /**
+   * The most stars each screen can give (W4): a child's page cannot claim three stars for a slide.
+   * Absent in older callers: then any 0–3 is taken, as before.
+   */
+  screenMaxStars?: readonly number[];
 }
 
 export const EMPTY_PLAN: LessonPlan = {
@@ -638,15 +643,16 @@ function studentCommand(
     case 'student.screen.done': {
       const index = clampScreen(r.state, m.index);
       if (p.doneScreens.includes(index)) return r;
+      const stars = Math.min(m.stars, plan.screenMaxStars?.[index] ?? 3);
       return updateParticipant(
         r,
         {
           ...p,
-          stars: p.stars + m.stars,
+          stars: p.stars + stars,
           doneScreens: [...p.doneScreens, index],
           lastSeenAt: e.now,
         },
-        { type: 'screen_done', participantId: p.id, data: { index, stars: m.stars } },
+        { type: 'screen_done', participantId: p.id, data: { index, stars } },
       );
     }
     case 'student.step.done': {

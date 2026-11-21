@@ -208,7 +208,10 @@ describe('websocket room', () => {
     expect(await s1.until('error')).toMatchObject({ code: 'forbidden' });
 
     // stars and hands reach the teacher
+    // A three-star trainer level gives three; a slide gives none, whatever the page claims (W4).
     s1.send({ v: 1, type: 'student.screen.done', index: 5, stars: 3 });
+    expect((await teacher.untilParticipant('student-01')).participant).toMatchObject({ stars: 0 });
+    s1.send({ v: 1, type: 'student.screen.done', index: 22, stars: 3 });
     expect((await teacher.untilParticipant('student-01')).participant).toMatchObject({ stars: 3 });
     s2.send({ v: 1, type: 'student.hand', up: true });
     expect((await teacher.untilParticipant('student-02')).participant).toMatchObject({

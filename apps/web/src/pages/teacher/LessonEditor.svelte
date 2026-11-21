@@ -3,6 +3,7 @@
     authoredToLesson,
     defaultStage,
     newBlockId,
+    questionProblem,
     STAGE_KEYS,
     type AuthoredBlock,
     type AuthoredLesson,
@@ -197,6 +198,53 @@
     blockId = fresh.id;
   }
 
+  function addQuestion(): void {
+    if (!stage) return;
+    const fresh: AuthoredBlock = {
+      id: newBlockId(),
+      kind: 'question',
+      text: '',
+      mode: 'single',
+      options: [
+        { text: '', correct: true },
+        { text: '', correct: false },
+        { text: '', correct: false },
+      ],
+      answers: [],
+    };
+    stage.blocks = [...stage.blocks, fresh];
+    blockId = fresh.id;
+  }
+
+  /** One right choice in a "single" question: picking one takes the mark from the others. */
+  function markCorrect(i: number, on: boolean): void {
+    if (block?.kind !== 'question') return;
+    const single = block.mode === 'single';
+    block.options = block.options.map((o, j) =>
+      j === i ? { ...o, correct: on } : single && on ? { ...o, correct: false } : o,
+    );
+  }
+
+  function addOption(): void {
+    if (block?.kind !== 'question' || block.options.length >= 6) return;
+    block.options = [...block.options, { text: '', correct: false }];
+  }
+
+  function removeOption(i: number): void {
+    if (block?.kind !== 'question') return;
+    block.options = block.options.filter((_, j) => j !== i);
+  }
+
+  const answersText = $derived(block?.kind === 'question' ? block.answers.join('\n') : '');
+  function setAnswers(value: string): void {
+    if (block?.kind !== 'question') return;
+    block.answers = value
+      .split('\n')
+      .slice(0, 10)
+      .map((l) => l.slice(0, 60));
+  }
+  const problem = $derived(block?.kind === 'question' ? questionProblem(block) : null);
+
   function removeBlock(id: string): void {
     if (!stage) return;
     const i = stage.blocks.findIndex((b) => b.id === id);
@@ -337,7 +385,9 @@
   }
 
   const blockLabel = (b: AuthoredBlock, i: number): string =>
-    b.title.trim() || b.text.trim().slice(0, 40) || t('editor.slideN', { n: i + 1 });
+    b.kind === 'question'
+      ? `? ${b.text.trim().slice(0, 40) || t('editor.questionN', { n: i + 1 })}`
+      : b.title.trim() || b.text.trim().slice(0, 40) || t('editor.slideN', { n: i + 1 });
 </script>
 
 <svelte:window onkeydown={closeOnEscape} onbeforeunload={flush} />
@@ -489,6 +539,9 @@
             <Button size="sm" variant="secondary" onclick={addSlide}
               >+ {t('editor.addSlide')}</Button
             >
+            <Button size="sm" variant="secondary" onclick={addQuestion}
+              >+ {t('editor.addQuestion')}</Button
+            >
             <label class="file ghost">
               {pdfProgress
                 ? t('editor.pdf.progress', {
@@ -566,6 +619,73 @@
               >
               <Button size="sm" variant="ghost" onclick={() => block && removeBlock(block.id)}
                 >{t('editor.removeSlide')}</Button
+              >
+            </div>
+          {:else if block?.kind === 'question'}
+            <h2>{t('editor.question')}</h2>
+            <label>
+              <span>{t('editor.questionText')}</span>
+              <textarea bind:value={block.text} maxlength="300" rows="3" data-field="question-text"
+              ></textarea>
+            </label>
+            <label>
+              <span>{t('editor.questionMode')}</span>
+              <select bind:value={block.mode} data-field="question-mode">
+                <option value="single">{t('editor.mode.single')}</option>
+                <option value="multi">{t('editor.mode.multi')}</option>
+                <option value="input">{t('editor.mode.input')}</option>
+              </select>
+            </label>
+            {#if block.mode === 'input'}
+              <label>
+                <span>{t('editor.answers')}</span>
+                <textarea
+                  value={answersText}
+                  oninput={(e) => setAnswers(e.currentTarget.value)}
+                  rows="3"
+                  data-field="question-answers"
+                ></textarea>
+              </label>
+              <p class="muted small">{t('editor.answersHint')}</p>
+            {:else}
+              <div class="options">
+                <span class="muted small">{t('editor.options')}</span>
+                {#each block.options as option, i (i)}
+                  <div class="option">
+                    <input
+                      type={block.mode === 'single' ? 'radio' : 'checkbox'}
+                      name="correct"
+                      checked={option.correct}
+                      onchange={(e) => markCorrect(i, e.currentTarget.checked)}
+                      aria-label={t('editor.correct')}
+                      title={t('editor.correct')}
+                      data-correct={i}
+                    />
+                    <input bind:value={option.text} maxlength="120" data-option={i} />
+                    <button
+                      type="button"
+                      class="x"
+                      aria-label={t('editor.removeOption')}
+                      onclick={() => removeOption(i)}>×</button
+                    >
+                  </div>
+                {/each}
+                {#if block.options.length < 6}
+                  <Button size="sm" variant="ghost" onclick={addOption}
+                    >+ {t('editor.addOption')}</Button
+                  >
+                {/if}
+              </div>
+            {/if}
+            {#if problem}<p class="warn" data-problem={problem}>
+                {t(`editor.problem.${problem}`)}
+              </p>{/if}
+            <div class="row">
+              <Button size="sm" variant="secondary" onclick={() => block && duplicate(block.id)}
+                >{t('editor.duplicate')}</Button
+              >
+              <Button size="sm" variant="ghost" onclick={() => block && removeBlock(block.id)}
+                >{t('editor.removeQuestion')}</Button
               >
             </div>
           {:else}
@@ -775,6 +895,28 @@
   .row {
     display: flex;
     gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+  .options {
+    display: grid;
+    gap: var(--space-2);
+  }
+  .option {
+    display: grid;
+    grid-template-columns: 24px 1fr 32px;
+    gap: var(--space-2);
+    align-items: center;
+  }
+  .x {
+    border: 0;
+    background: none;
+    font-size: var(--text-lg);
+    cursor: pointer;
+  }
+  .warn {
+    margin: 0;
+    color: var(--c-danger);
+    font-size: var(--text-sm);
   }
   .muted {
     color: var(--c-muted);

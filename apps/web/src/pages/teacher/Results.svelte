@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    isAuthoredLessonId,
     PRACTICE_MAX_STARS,
     registerDate,
     type ResultRow,
@@ -148,7 +149,11 @@
             <th class="num">№</th>
             <th>{t('results.col.student')}</th>
             <th>{t('results.col.presence')}</th>
-            {#if hasTrainer}<th class="n">{t('results.col.trainer')}</th>{/if}
+            {#if hasTrainer}<th class="n"
+                >{isAuthoredLessonId(results.lessonId)
+                  ? t('results.col.test')
+                  : t('results.col.trainer')}</th
+              >{/if}
             {#if hasPractice}<th class="n">{t('results.col.drawing')}</th>{/if}
             {#if hasQuiz}<th>{t('results.col.quiz')}</th>{/if}
             {#if results.practice}<th class="n">{t('results.col.practice')}</th>{/if}

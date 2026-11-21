@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Lesson } from './lesson.js';
+import { screenMaxStars, type Lesson } from './lesson.js';
 
 /**
  * Lesson results and the class journal (STAGE1 S1.13, ADR-012).
@@ -44,10 +44,7 @@ export const PRACTICE_MAX_STARS = 3;
  */
 export function trainerMaxStars(lesson: Pick<Lesson, 'screens'>): number {
   let max = 0;
-  for (const screen of lesson.screens) {
-    if (screen.kind === 'game') max += screen.level.stars;
-    if (screen.kind === 'type') max += 1;
-  }
+  for (const screen of lesson.screens) max += screenMaxStars(screen);
   return max;
 }
 

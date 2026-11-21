@@ -296,8 +296,19 @@ export class VirtualStudents {
   ): void {
     const index = state.mode === 'presentation' ? state.screenIndex : p.screenIndex;
     const screen = lesson.screens[index];
-    const trainer = screen && (screen.kind === 'game' || screen.kind === 'type');
+    const trainer =
+      screen && (screen.kind === 'game' || screen.kind === 'type' || screen.kind === 'question');
     if (screen && trainer && !p.doneScreens.includes(index) && !bot.gaveUp.has(index)) {
+      if (screen.kind === 'question') {
+        // A test has one try: a weaker child answers it too, and is wrong more often (W4).
+        this.send(sessionId, bot, now, {
+          v: PROTOCOL_VERSION,
+          type: 'student.screen.done',
+          index,
+          stars: this.random() < bot.profile.skill ? 1 : 0,
+        });
+        return;
+      }
       if (this.random() < bot.profile.skill) {
         const stars = screen.kind === 'game' ? screen.level.stars : 1;
         this.send(sessionId, bot, now, {
