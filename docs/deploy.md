@@ -175,8 +175,8 @@ sudo systemctl reload caddy
 Alt+F4 и подобными. Выход для администратора — **Ctrl+Alt+Shift+F12** и пароль учеников. Пароль
 задаётся **на ПК учителя** (Sinf спросит при запуске; сменить — кнопка «Пароль учеников») и сам
 доходит до ПК учеников, когда они находят учителя. `Sinf.exe --setup` и `Sinf.exe --dev` (окно без
-киоска) на ПК ученика тоже просят этот пароль. Ctrl+Alt+Del и Win+L пока открыты — их закроет служба
-Windows (шаг 6.4); полный список — `docs/escape-checklist.md`.
+киоска) на ПК ученика тоже просят этот пароль. Ctrl+Alt+Del и Win+L закрывает только агент (ниже);
+полный список — `docs/escape-checklist.md`.
 
 **Где данные.** `%LOCALAPPDATA%\Sinf`: база `sinf.db`, настройки `config.json`, журнал `logs\server.log`. Папку программы можно носить на флешке. Сброс демо — «Демо» → «Сбросить демо» у демо-учителя; полный сброс — удалить `sinf.db` при закрытой программе.
 
@@ -197,7 +197,22 @@ Windows (шаг 6.4); полный список — `docs/escape-checklist.md`.
 
 Без параметров установщик спросит роль и имя ПК сам. ПК ученика запускает Sinf вместе с Windows для
 любого пользователя. Удаление — «Приложения» Windows или `C:\Program Files\Sinf\unins000.exe
-/VERYSILENT`; данные в `%LOCALAPPDATA%\Sinf` остаются.
+/VERYSILENT`; данные в `%LOCALAPPDATA%\Sinf` остаются. Повторная установка без `/ROLE` (так ставит
+обновление) оставляет роль и имя ПК прежними.
+
+**Автообновление (этап 6, B6, ADR-023).** Установщик создаёт задачу Windows «Sinf\Update» (от
+SYSTEM, каждые 30 минут и после запуска Windows): `Sinf.Updater.exe` спрашивает новую версию у
+сервера класса, потом у сайта, и ставит её тихо, когда нет урока. Новую версию на сайт кладёт
+суперадмин: `/admin` → «Обновления Windows-приложения» → `update.json` и `Sinf-update-….exe` из
+артефакта `Sinf-update-x64`. Подпись ключом проекта обязательна — как завести ключи, в
+`docs/pc-test.md`, раздел 6. Журнал — `C:\Program Files\Sinf\updates\updater.log`;
+`Sinf.Updater.exe --status` — что программа решила бы сейчас.
+
+**Агент — закрытая среда (этап 6, B7, ADR-024).** Только по выбору, на ПК ученика: галочка
+«Включить закрытую среду» в установщике или `/AGENT=1`. Учётка «Ученик» с автовходом, Sinf вместо
+рабочего стола, политики (диспетчер задач, блокировка, выход, командная строка), сторож, который
+поднимает Sinf. Выключить: `"C:\Program Files\Sinf\Sinf.Agent.exe" disable` или удалить Sinf
+(`/REMOVEACCOUNT=1` — вместе с учёткой). Первый раз — на запасном ПК: `docs/pc-test.md`, раздел 7.
 
 **Собрать самому** (нужен Windows, Node 22, .NET 10 SDK):
 
@@ -205,6 +220,8 @@ Windows (шаг 6.4); полный список — `docs/escape-checklist.md`.
 pnpm install
 pnpm build
 dotnet publish apps/desktop/Sinf.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish apps/updater/Sinf.Updater.csproj -c Release -r win-x64
+dotnet publish apps/agent/Sinf.Agent.csproj -c Release -r win-x64
 ./tools/package-windows.ps1
 # установщик (Inno Setup 6); WebView2 кладётся в tools/installer/redist/ заранее
 iscc tools/installer/sinf.iss

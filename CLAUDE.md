@@ -510,8 +510,12 @@ Windows-приложение (`apps/desktop`, своё окно на WebView2, �
 ```powershell
 pnpm build
 dotnet publish apps/desktop/Sinf.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish apps/updater/Sinf.Updater.csproj -c Release -r win-x64
+dotnet publish apps/agent/Sinf.Agent.csproj -c Release -r win-x64
 ./tools/package-windows.ps1
 ```
+
+Тест на ПК после этапа 6 (сайт на ноутбуке, установка, урок онлайн и офлайн, обновление, агент) — `docs/pc-test.md`.
 
 Установщик (Inno Setup, ADR-018) собирается там же, после комплекта: `iscc tools/installer/sinf.iss` (артефакт `Sinf-setup-x64`); тихая установка — `Sinf-setup-….exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05` (или `/ROLE=teacher`). CI ставит, переставляет и удаляет его на раннере (`tools/installer/smoke.ps1`).
 
