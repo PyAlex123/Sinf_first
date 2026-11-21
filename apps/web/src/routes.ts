@@ -35,6 +35,7 @@ export const routes: RouteDef[] = [
   { pattern: '/teacher/demo', load: () => import('./pages/teacher/Demo.svelte') },
   { pattern: '/present/:id', load: () => import('./pages/Present.svelte') },
   { pattern: '/join', load: () => import('./pages/Join.svelte') },
+  { pattern: '/invite/:token', load: () => import('./pages/Invite.svelte') },
   { pattern: '/s/:id', load: () => import('./pages/Student.svelte') },
   { pattern: '/my', load: () => import('./pages/MyFiles.svelte') },
   { pattern: '/teacher/practice', load: () => import('./pages/teacher/Practice.svelte') },

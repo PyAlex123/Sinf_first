@@ -670,8 +670,36 @@ export const emaktabMarks = sqliteTable(
   (t) => [primaryKey({ columns: [t.classId, t.columnId] })],
 );
 
+/**
+ * A link that lets a teacher into a school (PLAN.md 2.3; stage 5, A6; ADR-021). Many teachers may use
+ * one link until it expires or is revoked; only the hash of its secret is kept.
+ */
+export const schoolInvites = sqliteTable(
+  'school_invites',
+  {
+    id: id(),
+    schoolId: text('school_id')
+      .notNull()
+      .references(() => schools.id),
+    tokenHash: text('token_hash').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at').notNull(),
+    expiresAt: timestamp('expires_at').notNull(),
+    revokedAt: timestamp('revoked_at'),
+    /** How many teachers came in by it. */
+    used: integer('used').notNull().default(0),
+  },
+  (t) => [
+    uniqueIndex('school_invites_token_idx').on(t.tokenHash),
+    index('school_invites_school_idx').on(t.schoolId),
+  ],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  schoolInvites,
   emaktabMarks,
   ktpRows,
   ktpPlans,

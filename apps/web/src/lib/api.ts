@@ -22,6 +22,10 @@ import {
   ClassProgramSchema,
   EmaktabRemindersResponseSchema,
   SchoolSettingsResponseSchema,
+  SchoolInvitesResponseSchema,
+  CreatedInviteResponseSchema,
+  InviteInfoResponseSchema,
+  InviteAcceptResponseSchema,
   KtpLessonsResponseSchema,
   KtpListResponseSchema,
   KtpPlanSchema,
@@ -376,6 +380,29 @@ export const api = {
       SchoolDetailsResponseSchema,
       { userIds },
     ),
+  /** Links into the school (A6). */
+  invites: (schoolId: string) =>
+    request(
+      'GET',
+      `/api/schools/${encodeURIComponent(schoolId)}/invites`,
+      SchoolInvitesResponseSchema,
+    ),
+  createInvite: (schoolId: string) =>
+    request(
+      'POST',
+      `/api/schools/${encodeURIComponent(schoolId)}/invites`,
+      CreatedInviteResponseSchema,
+    ),
+  revokeInvite: (schoolId: string, inviteId: string) =>
+    request(
+      'DELETE',
+      `/api/schools/${encodeURIComponent(schoolId)}/invites/${encodeURIComponent(inviteId)}`,
+      SchoolInvitesResponseSchema,
+    ),
+  invite: (token: string) =>
+    request('GET', `/api/invites/${encodeURIComponent(token)}`, InviteInfoResponseSchema),
+  acceptInvite: (token: string) =>
+    request('POST', `/api/invites/${encodeURIComponent(token)}/accept`, InviteAcceptResponseSchema),
   updateSchool: (id: string, body: UpdateSchool) =>
     request('PATCH', `/api/schools/${encodeURIComponent(id)}`, SchoolDetailsResponseSchema, body),
   devices: (schoolId: string) =>

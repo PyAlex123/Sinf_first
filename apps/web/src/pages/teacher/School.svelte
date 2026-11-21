@@ -13,6 +13,7 @@
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
   import Table from '../../lib/ui/Table.svelte';
+  import SchoolInvites from './SchoolInvites.svelte';
   import SchoolSettings from './SchoolSettings.svelte';
 
   /**
@@ -336,6 +337,11 @@
           </tbody>
         </Table>
       </Card>
+    {/if}
+
+    {#if tab === 'teachers' && isAdmin}
+      <!-- A link into the school for the staff's chat (A6). -->
+      <SchoolInvites {schoolId} />
     {/if}
 
     {#if tab === 'teachers'}

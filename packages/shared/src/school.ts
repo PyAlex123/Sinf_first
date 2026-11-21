@@ -88,3 +88,47 @@ export const SchoolSettingsResponseSchema = z.strictObject({
   retention: RetentionPreviewSchema.optional(),
 });
 export type SchoolSettingsResponse = z.infer<typeof SchoolSettingsResponseSchema>;
+
+// ---------- invitations by link (PLAN.md 2.3; A6)
+
+export const SchoolInviteSchema = z.strictObject({
+  id: z.string().min(1),
+  createdAt: z.string().min(1),
+  expiresAt: z.string().min(1),
+  createdByName: z.string().min(1),
+  /** How many teachers came in by it. */
+  used: z.number().int().nonnegative(),
+});
+export type SchoolInvite = z.infer<typeof SchoolInviteSchema>;
+
+export const SchoolInvitesResponseSchema = z.strictObject({ invites: z.array(SchoolInviteSchema) });
+export type SchoolInvitesResponse = z.infer<typeof SchoolInvitesResponseSchema>;
+
+/** The secret is shown once, when the link is made; the platform keeps only its hash. */
+export const CreatedInviteResponseSchema = z.strictObject({
+  invite: SchoolInviteSchema,
+  token: z.string().min(1),
+});
+export type CreatedInviteResponse = z.infer<typeof CreatedInviteResponseSchema>;
+
+/** What the link says to whoever opens it, signed in or not. */
+export const InviteInfoResponseSchema = z.strictObject({
+  school: z.strictObject({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    city: z.string().min(1).nullable(),
+  }),
+  expiresAt: z.string().min(1),
+  /** Who opens it: `guest` — not signed in, `member` — already a teacher of the school. */
+  visitor: z.enum(['guest', 'teacher', 'member']),
+});
+export type InviteInfoResponse = z.infer<typeof InviteInfoResponseSchema>;
+
+export const InviteAcceptResponseSchema = z.strictObject({
+  schoolId: z.string().min(1),
+  /** Was a teacher of the school before the link. */
+  already: z.boolean(),
+});
+export type InviteAcceptResponse = z.infer<typeof InviteAcceptResponseSchema>;
+
+export const INVITE_DAYS = 7;

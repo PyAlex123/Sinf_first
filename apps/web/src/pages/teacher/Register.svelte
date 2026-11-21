@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, ApiError } from '../../lib/api.js';
   import { t } from '../../lib/i18n/index.svelte.js';
+  import { nextPath, withNext } from '../../lib/next.js';
   import { router, type PageProps } from '../../lib/router.svelte.js';
   import Button from '../../lib/ui/Button.svelte';
   import Card from '../../lib/ui/Card.svelte';
@@ -21,7 +22,7 @@
     error = null;
     try {
       await api.register({ fullName, email, password });
-      router.navigate('/teacher', { replace: true });
+      router.navigate(nextPath() ?? '/teacher', { replace: true });
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) error = t('register.emailTaken');
       else if (e instanceof ApiError && e.status === 400) error = t('register.weakPassword');
@@ -58,7 +59,7 @@
     </form>
     <p class="muted small alt">
       {t('register.haveAccount')}
-      <a href="/teacher/login">{t('login.submit')}</a>
+      <a href={withNext('/teacher/login')}>{t('login.submit')}</a>
     </p>
   </Card>
 </main>
