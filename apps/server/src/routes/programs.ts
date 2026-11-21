@@ -46,10 +46,12 @@ export const programRoutes: FastifyPluginCallback = (app, _opts, done) => {
       .where(eq(schema.users.id, id))
       .get()?.name ?? '—';
 
+  /** A lesson hidden by the superadmin (W8) is its author's only. */
   const canSee = (teacher: Teacher, row: Row): boolean =>
     row.ownerId === teacher.id ||
-    row.visibility === 'public' ||
-    (row.visibility === 'school' && colleaguesOf(db, teacher.id).includes(row.ownerId));
+    (!row.hiddenAt &&
+      (row.visibility === 'public' ||
+        (row.visibility === 'school' && colleaguesOf(db, teacher.id).includes(row.ownerId))));
 
   const summary = (teacher: Teacher, row: Row): ProgramSummary => ({
     id: row.id,
@@ -138,6 +140,7 @@ export const programRoutes: FastifyPluginCallback = (app, _opts, done) => {
       createdAt: at,
       updatedAt: at,
       deletedAt: null,
+      hiddenAt: null,
     };
     db.insert(schema.programs).values(row).run();
     return full(teacher, row);
@@ -222,6 +225,7 @@ export const programRoutes: FastifyPluginCallback = (app, _opts, done) => {
       createdAt: at,
       updatedAt: at,
       deletedAt: null,
+      hiddenAt: null,
     };
     db.insert(schema.programs).values(row).run();
     return full(teacher, row);

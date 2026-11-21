@@ -275,6 +275,8 @@
         {/if}
         <!-- Practice tasks in real programs and their reference files (PLAN.md 3.7, H13). -->
         <Button variant="ghost" block href="/teacher/practice">{t('teacher.practice')}</Button>
+        <!-- Lessons and programmes other teachers made public (PLAN.md 3.9, W8). -->
+        <Button variant="ghost" block href="/teacher/library">{t('library.title')}</Button>
 
         <!-- Where this teacher belongs: their school, or the way to ask for one. -->
         <Card muted>

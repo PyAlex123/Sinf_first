@@ -515,6 +515,8 @@ export const authoredLessons = sqliteTable(
     createdAt: timestamp('created_at').notNull(),
     updatedAt: timestamp('updated_at').notNull(),
     deletedAt: timestamp('deleted_at'),
+    /** Hidden from the library by the superadmin (W8); the author still has it. */
+    hiddenAt: timestamp('hidden_at'),
   },
   (t) => [index('authored_lessons_owner_idx').on(t.ownerId)],
 );
@@ -541,12 +543,31 @@ export const programs = sqliteTable(
     createdAt: timestamp('created_at').notNull(),
     updatedAt: timestamp('updated_at').notNull(),
     deletedAt: timestamp('deleted_at'),
+    hiddenAt: timestamp('hidden_at'),
   },
   (t) => [index('programs_owner_idx').on(t.ownerId)],
 );
 
+/** A teacher's complaint about a library item (PLAN.md 3.9; W8), until the superadmin acts. */
+export const libraryReports = sqliteTable(
+  'library_reports',
+  {
+    id: id(),
+    kind: text('kind', { enum: ['lesson', 'program'] }).notNull(),
+    itemId: text('item_id').notNull(),
+    reporterId: text('reporter_id')
+      .notNull()
+      .references(() => users.id),
+    reason: text('reason').notNull(),
+    createdAt: timestamp('created_at').notNull(),
+    resolvedAt: timestamp('resolved_at'),
+  },
+  (t) => [index('library_reports_item_idx').on(t.kind, t.itemId)],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  libraryReports,
   programs,
   authoredLessons,
   practiceChecks,

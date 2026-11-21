@@ -22,6 +22,8 @@ import {
   ClassProgramSchema,
   ProgramSchema,
   ProgramListResponseSchema,
+  LibraryResponseSchema,
+  LibraryReportsResponseSchema,
   PracticeResponseSchema,
   SessionResponseSchema,
   SessionStateSchema,
@@ -58,6 +60,7 @@ import {
   type Locale,
   type UpdateAuthoredLesson,
   type UpdateProgram,
+  type LibraryKind,
 } from '@sinf/shared';
 import { z } from 'zod';
 
@@ -151,6 +154,22 @@ export const api = {
   setClassProgram: (classId: string, programId: string | null) =>
     request('PUT', `/api/classes/${encodeURIComponent(classId)}/program`, ClassProgramSchema, {
       programId,
+    }),
+  /** The library (W8): public lessons and programmes. */
+  library: (kind: LibraryKind, grade: number | null, q: string) => {
+    const params = new URLSearchParams({
+      kind,
+      ...(grade ? { grade: String(grade) } : {}),
+      ...(q ? { q } : {}),
+    });
+    return request('GET', `/api/library?${params.toString()}`, LibraryResponseSchema);
+  },
+  reportItem: (kind: LibraryKind, id: string, reason: string) =>
+    request('POST', '/api/library/report', OkSchema, { kind, id, reason }),
+  libraryReports: () => request('GET', '/api/admin/library/reports', LibraryReportsResponseSchema),
+  moderate: (kind: LibraryKind, id: string, hidden: boolean) =>
+    request('POST', `/api/admin/library/${kind}/${encodeURIComponent(id)}/moderate`, OkSchema, {
+      hidden,
     }),
   /** A picture or a template of a lesson, as raw bytes (W1). */
   uploadAsset: async (bytes: Blob, ext: AssetExtension): Promise<AssetUploadResponse> => {

@@ -71,10 +71,12 @@ export const authoredLessonRoutes: FastifyPluginCallback = (app, _opts, done) =>
 
   const colleagues = (teacher: Teacher): string[] => colleaguesOf(db, teacher.id);
 
+  /** A lesson hidden by the superadmin (W8) is its author's only. */
   const canSee = (teacher: Teacher, row: Row): boolean =>
     row.ownerId === teacher.id ||
-    row.visibility === 'public' ||
-    (row.visibility === 'school' && colleagues(teacher).includes(row.ownerId));
+    (!row.hiddenAt &&
+      (row.visibility === 'public' ||
+        (row.visibility === 'school' && colleagues(teacher).includes(row.ownerId))));
 
   const summary = (teacher: Teacher, row: Row): AuthoredLessonSummary => {
     const doc = AuthoredLessonDocSchema.parse(row.doc);
@@ -175,6 +177,7 @@ export const authoredLessonRoutes: FastifyPluginCallback = (app, _opts, done) =>
       createdAt: at,
       updatedAt: at,
       deletedAt: null,
+      hiddenAt: null,
     };
     db.insert(schema.authoredLessons).values(row).run();
     request.log.info({ lessonId: row.id }, 'lesson created');
@@ -271,6 +274,7 @@ export const authoredLessonRoutes: FastifyPluginCallback = (app, _opts, done) =>
         createdAt: at,
         updatedAt: at,
         deletedAt: null,
+        hiddenAt: null,
       };
       db.insert(schema.authoredLessons).values(row).run();
       return full(teacher, row);
