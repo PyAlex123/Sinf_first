@@ -3,6 +3,8 @@ import {
   DEFAULT_SCHOOL_SETTINGS,
   readSchoolSettings,
   SchoolSettingsResponseSchema,
+  SessionResponseSchema,
+  SessionStateSchema,
 } from '@sinf/shared';
 import { DEMO } from '../src/db/seed.js';
 import { applySchoolSnapshot } from '../src/sync/mirror.js';
@@ -21,10 +23,14 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  for (const id of t.app.sessions.liveSessionIds()) t.app.sessions.end(id);
   await t.close();
 });
 
 const url = `/api/schools/${DEMO.schoolId}/settings`;
+const SessionWithStateSchema = SessionResponseSchema.extend({
+  state: SessionStateSchema.nullable(),
+});
 const settings = (res: { json: () => unknown }) =>
   SchoolSettingsResponseSchema.parse(res.json()).settings;
 
@@ -107,5 +113,26 @@ describe('the rules of a school', () => {
     } finally {
       pc.close();
     }
+  });
+
+  it('give a lesson the school’s programs, fixed when it starts (A3)', async () => {
+    await t.app.inject({ method: 'PATCH', url, headers: { cookie }, payload: { apps: ['word'] } });
+    const started = await t.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      headers: { cookie },
+      payload: { classId: 'class-1a', lessonId: 'g10' },
+    });
+    const { session } = SessionResponseSchema.parse(started.json());
+    const live = SessionWithStateSchema.parse(
+      (
+        await t.app.inject({
+          method: 'GET',
+          url: `/api/sessions/${session.id}`,
+          headers: { cookie },
+        })
+      ).json(),
+    );
+    expect(live.state?.apps.allowed).toEqual(['word']);
   });
 });

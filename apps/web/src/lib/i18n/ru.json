@@ -968,5 +968,7 @@
   "schoolSettings.ktp": "КТП",
   "schoolSettings.saved": "Сохранено",
   "schoolSettings.onPlatform": "Правила школы меняются на сайте платформы.",
-  "files.bad.tooLarge": "файл слишком большой"
+  "files.bad.tooLarge": "файл слишком большой",
+  "session.apps.school": "Школа разрешила только: {list}",
+  "session.apps.practiceBlocked": "Практика этого урока — в {app}, а школа эту программу не разрешила: ученики не смогут её открыть."
 }

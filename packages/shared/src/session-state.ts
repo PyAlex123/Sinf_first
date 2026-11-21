@@ -15,6 +15,7 @@ import type { PracticeCheckState } from './practice.js';
 import {
   PROTOCOL_VERSION,
   type ClientMessage,
+  type LessonApp,
   type LockTargets,
   type Participant,
   type Role,
@@ -131,6 +132,8 @@ export interface NewSessionInput {
   /** 1 = real time, 10 = demo speed (one lesson minute in six seconds). */
   demoSpeed?: number;
   plan?: LessonPlan;
+  /** The programs the class's school allows (A3); absent — every one. */
+  allowedApps?: readonly LessonApp[] | null;
 }
 
 export function createSessionState(input: NewSessionInput): SessionState {
@@ -149,7 +152,11 @@ export function createSessionState(input: NewSessionInput): SessionState {
     lock: { all: null, byParticipant: {} },
     quiz: null,
     demo: null,
-    apps: { all: null, byParticipant: {} },
+    apps: {
+      all: null,
+      byParticipant: {},
+      allowed: input.allowedApps ? [...input.allowedApps] : null,
+    },
     participants: {},
   };
 }
@@ -252,7 +259,7 @@ function goToStage(r: ReduceResult, index: number, now: number, plan: LessonPlan
   }
   // A new stage brings its own programs back (H15).
   if (r.state.apps.all !== null || Object.keys(r.state.apps.byParticipant).length > 0) {
-    r.state = { ...r.state, apps: { all: null, byParticipant: {} } };
+    r.state = { ...r.state, apps: { ...r.state.apps, all: null, byParticipant: {} } };
     r.broadcast.push({ v, type: 'apps.changed', apps: r.state.apps });
   }
   r.activity.push({
@@ -479,18 +486,23 @@ function command(
     }
     case 'teacher.apps.set': {
       const apps = r.state.apps;
+      // Only what the school allows (A3): anything else is dropped from the teacher's choice.
+      const chosen =
+        m.apps === null || apps.allowed === null
+          ? m.apps
+          : m.apps.filter((a) => apps.allowed?.includes(a));
       let next: SessionState['apps'];
       if (m.targets === 'all') {
         // For everybody: individual sets give way to it.
-        next = { all: m.apps, byParticipant: {} };
+        next = { all: chosen, byParticipant: {}, allowed: apps.allowed };
       } else {
         const byParticipant = { ...apps.byParticipant };
         for (const pid of m.targets) {
           if (!r.state.participants[pid]) continue;
-          if (m.apps === null) delete byParticipant[pid];
-          else byParticipant[pid] = m.apps;
+          if (chosen === null) delete byParticipant[pid];
+          else byParticipant[pid] = chosen;
         }
-        next = { all: apps.all, byParticipant };
+        next = { all: apps.all, byParticipant, allowed: apps.allowed };
       }
       r.state = { ...r.state, apps: next };
       r.broadcast.push({ v, type: 'apps.changed', apps: next });

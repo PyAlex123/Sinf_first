@@ -25,6 +25,7 @@ import {
 } from '@sinf/shared';
 import type { ContentStore } from '../content/index.js';
 import { schema, type Db } from '../db/index.js';
+import { settingsForClass } from '../services/school-settings.js';
 import { ApiHttpError, notFound } from '../errors.js';
 
 /**
@@ -145,6 +146,8 @@ export class SessionStore {
       now,
       demoSpeed,
       plan,
+      // The school's programs (A3): fixed for this lesson.
+      allowedApps: settingsForClass(this.db, input.classId).apps,
     });
     const joinCode = this.freeJoinCode();
     this.db
