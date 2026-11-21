@@ -39,6 +39,19 @@
         step = 'files';
       } catch {
         step = 'class';
+        // The QR of the child's card (stage 5, A8): the class code and who it is, ready.
+        const query = new URLSearchParams(location.search);
+        const card = (query.get('c') ?? '').replace(/\D/g, '').slice(0, 6);
+        if (card.length === 6) {
+          classCode = card;
+          await findClass();
+          const who = query.get('s');
+          // `findClass` moved on to the names only when the class was found.
+          if (lookup && who && lookup.students.some((s) => s.id === who)) {
+            studentId = who;
+            step = 'code';
+          }
+        }
       }
     })();
   });

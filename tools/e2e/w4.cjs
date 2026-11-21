@@ -170,10 +170,12 @@ const check = (name, pass, extra = '') => {
   await kid.waitForSelector('button:has-text("Начать")');
   await kid.locator('button:has-text("Начать")').first().click();
   await kid.waitForSelector('.question');
-  check(
-    'после перезагрузки ответ не дать второй раз',
-    (await kid.locator('.said:has-text("уже принят")').count()) === 1,
-  );
+  // What was answered comes with the lesson's state a moment after the question is drawn.
+  const stays = await kid
+    .waitForSelector('.said:has-text("уже принят")', { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  check('после перезагрузки ответ не дать второй раз', stays);
 
   await teacher.locator('button:has-text("Завершить урок")').click();
   await teacher.waitForTimeout(500);

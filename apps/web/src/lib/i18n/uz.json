@@ -967,5 +967,6 @@
   "reset.giveLink": "Parol uchun havola",
   "reset.linkUntil": "{time} gacha, bir marta amal qiladi — o‘qituvchiga yuboring",
   "reset.adminTitle": "O‘qituvchi parolni unutdi",
-  "reset.noSuchTeacher": "Bunday manzilli o‘qituvchi yo‘q"
+  "reset.noSuchTeacher": "Bunday manzilli o‘qituvchi yo‘q",
+  "cards.qrHint": "Kartochkadagi QR: raqamli sinfda — uydan «Mening ishlarim», sinf va ism tanlangan; rasmli sinfda — darsga kirish, dars kodidan keyin bola darhol o‘z rasmlarini ko‘radi."
 }
