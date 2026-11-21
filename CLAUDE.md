@@ -515,6 +515,8 @@ dotnet publish apps/desktop/Sinf.Desktop.csproj -c Release -r win-x64 --self-con
 
 Установщик (Inno Setup, ADR-018) собирается там же, после комплекта: `iscc tools/installer/sinf.iss` (артефакт `Sinf-setup-x64`); тихая установка — `Sinf-setup-….exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05` (или `/ROLE=teacher`). CI ставит, переставляет и удаляет его на раннере (`tools/installer/smoke.ps1`).
 
+Автообновление (ADR-023): CI собирает ещё `Sinf-update-…exe` (без WebView2) и, если есть секрет `SINF_UPDATE_KEY`, подписывает его (`tools/sign-update.mjs`, артефакт `Sinf-update-x64`); пара ключей — `node tools/update-key.mjs`, открытый ключ — переменная GitHub `SINF_UPDATE_PUBLIC_KEY` (вшивается в `apps/updater`). Суперадмин загружает обновление в `/admin`, ПК учителя копирует его с сайта, `Sinf.Updater.exe` (задача SYSTEM) ставит его вне урока; путь обновления проверяет `tools/installer/update-smoke.ps1`.
+
 В облачном контейнере Windows-приложение **собирается** (`dotnet build apps/desktop/Sinf.Desktop.csproj`, нужен .NET 10 SDK: `apt-get install -y dotnet-sdk-10.0`), но не запускается. Чистая логика C# живёт в `apps/desktop-core` (без Windows), её тесты — `dotnet test apps/desktop-core.Tests` — идут и здесь, и в CI.
 
 Агент (служба Windows) пока не делается (ADR-014): он вне первого MVP этапа 3.

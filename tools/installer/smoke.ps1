@@ -9,7 +9,8 @@
        Windows for every user, the firewall rule for Sinf.exe and none for the server;
     2. the same computer again as the teacher's: setup.json says teacher, no start with Windows, the
        server is let through the firewall too;
-    3. removal: no program, no start with Windows, no firewall rules.
+    3. an update over it (no /ROLE, as the updater runs it, B6): still the teacher's computer;
+    4. removal: no program, no start with Windows, no firewall rules, no update tasks.
 
 .PARAMETER Setup
   The installer to test; by default the newest one in out/installer.
@@ -42,6 +43,11 @@ function Autostart {
     return (Get-ItemProperty -Path $runKey -ErrorAction SilentlyContinue).Sinf
 }
 
+function Task([string]$Name) {
+    & schtasks /Query /TN $Name *> $null
+    return $LASTEXITCODE -eq 0
+}
+
 function Expect([bool]$Ok, [string]$What) {
     if (-not $Ok) { throw "НЕ ТАК: $What" }
     Write-Host "  ok: $What"
@@ -57,6 +63,12 @@ Expect ($setupJson.role -eq 'student' -and $setupJson.pc -eq 'ПК-05') "setup.j
 Expect ((Autostart) -eq "`"$app\Sinf.exe`"") "запуск с Windows для всех: $(Autostart)"
 Expect (Rule 'Sinf') 'брандмауэр пускает Sinf.exe'
 Expect (-not (Rule 'Sinf server')) 'сервер урока на ПК ученика не открыт'
+Expect (Test-Path (Join-Path $app 'Sinf.Updater.exe')) 'программа обновления на месте'
+Expect (Task 'Sinf\Update') 'задача обновления каждые 30 минут'
+Expect (Task 'Sinf\Update at start') 'задача обновления после запуска Windows'
+$status = & (Join-Path $app 'Sinf.Updater.exe') --status | Out-String
+Write-Host "  Sinf.Updater --status: $($status.Trim())"
+Expect ($status -match 'installed 0\.') 'программа обновления видит установленную версию'
 
 Write-Host '2. Тот же компьютер — учителя'
 Install @('/ROLE=teacher') 'teacher.log'
@@ -66,7 +78,14 @@ Expect (-not (Autostart)) 'с Windows больше не запускается'
 Expect (Rule 'Sinf') 'брандмауэр пускает Sinf.exe'
 Expect (Rule 'Sinf server') 'брандмауэр пускает сервер урока'
 
-Write-Host '3. Удаление'
+Write-Host '3. Обновление поверх, без /ROLE (так его запускает программа обновления)'
+Install @('/UPDATE=1') 'update.log'
+$setupJson = Get-Content (Join-Path $app 'setup.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+Expect ($setupJson.role -eq 'teacher') 'роль компьютера сохранилась: учитель'
+Expect (-not (Autostart)) 'с Windows по-прежнему не запускается'
+Expect (Task 'Sinf\Update') 'задача обновления на месте'
+
+Write-Host '4. Удаление'
 $uninstaller = Join-Path $app 'unins000.exe'
 Expect (Test-Path $uninstaller) 'есть программа удаления'
 Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
@@ -80,6 +99,8 @@ Expect (-not (Test-Path (Join-Path $app 'setup.json'))) 'setup.json удалён
 Expect (-not (Autostart)) 'автозапуска нет'
 Expect (-not (Rule 'Sinf')) 'правила Sinf нет'
 Expect (-not (Rule 'Sinf server')) 'правила сервера нет'
+Expect (-not (Task 'Sinf\Update')) 'задачи обновления нет'
+Expect (-not (Task 'Sinf\Update at start')) 'задачи обновления при запуске нет'
 Write-Host 'Установщик в порядке.'
 # The last netsh said "no such rule" with exit code 1, as it should: that is not the script's result.
 exit 0

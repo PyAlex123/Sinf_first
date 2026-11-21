@@ -1056,5 +1056,22 @@
   "license.needed": "Maktabning amaldagi litsenziyasi yo‘q: maktabning yangi sinflari va sinf kompyuterlaridagi darslar mavjud emas. Maktab administratoriga murojaat qiling.",
   "license.limit": "Maktab litsenziya bo‘yicha barcha {limit} ta sinfni egallagan. Sinf qo‘shish uchun administrator litsenziyani kengaytirishi kerak.",
   "license.personal": "Shaxsiy sinf saytda ishlaydi: sinf kompyuterlaridagi dars — maktab sinflari uchun.",
-  "license.free": "Bepul — bitta shaxsiy sinf. Ko‘proq sinf yuritish uchun maktabga qo‘shiling."
+  "license.free": "Bepul — bitta shaxsiy sinf. Ko‘proq sinf yuritish uchun maktabga qo‘shiling.",
+  "updates.title": "Windows ilovasi yangilanishlari",
+  "updates.hint": "GitHub Actions’dan: Sinf-update-x64 artefakti — o‘rnatuvchi va update.json. O‘qituvchi kompyuterlari yangi versiyani saytdan, o‘quvchilar kompyuterlari esa o‘qituvchi kompyuteridan oladi va darslar orasida o‘zi o‘rnatadi.",
+  "updates.noKey": "Sayt ochiq kalitni (UPDATE_PUBLIC_KEY) bilmaydi, shuning uchun imzoni faqat kompyuterlarning o‘zi tekshiradi.",
+  "updates.none": "Hali yangilanish yuklanmagan.",
+  "updates.current": "hozir tarqatilmoqda",
+  "updates.delete": "O‘chirish",
+  "updates.confirmDelete": "{version} versiyasini o‘chirasizmi? Uni hali yuklab olmagan kompyuterlar oldingisini oladi.",
+  "updates.manifest": "update.json",
+  "updates.installer": "O‘rnatuvchi (Sinf-update-….exe)",
+  "updates.upload": "Yuklash",
+  "updates.uploading": "Yuklanmoqda…",
+  "updates.uploaded": "{version} versiyasi yuklandi: kompyuterlar uni yarim soat ichida oladi.",
+  "updates.badManifest": "Bu yig‘ilmadagi update.json emas.",
+  "updates.otherFile": "Hajmi update.json bilan mos emas: {file} fayli kerak.",
+  "updates.bad_signature": "Imzo sayt kalitiga mos emas: kompyuterlar bu yig‘ilmani qabul qilmaydi.",
+  "updates.bad_hash": "Fayl update.json’da tasvirlangan fayl emas.",
+  "updates.bad_size": "Fayl hajmi update.json bilan mos emas."
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import AdminLicense from './AdminLicense.svelte';
   import AdminReports from './AdminReports.svelte';
+  import AdminUpdates from './AdminUpdates.svelte';
   import type { AdminSchool } from '@sinf/shared';
   import { onMount } from 'svelte';
   import type { ResetLinkResponse } from '@sinf/shared';
@@ -126,6 +127,9 @@
       </form>
       {#if resetLink}<ResetLink link={resetLink} />{/if}
     </Card>
+
+    <!-- New versions of the Windows app for every school's computers (B6). -->
+    <AdminUpdates />
 
     <Card>
       <h2>{t('admin.list')}</h2>

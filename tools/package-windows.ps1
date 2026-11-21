@@ -26,6 +26,8 @@
 param(
     [string]$Out = 'out/Sinf',
     [string]$DesktopPublish = 'apps/desktop/bin/Release/net10.0-windows/win-x64/publish',
+    # The updater (B6): one small file, published on its own (`dotnet publish apps/updater -r win-x64`).
+    [string]$UpdaterPublish = 'apps/updater/bin/Release/net10.0-windows/win-x64/publish',
     [string]$NodeVersion = '22.23.4'
 )
 
@@ -44,6 +46,12 @@ New-Item -ItemType Directory -Force -Path $Out | Out-Null
 Write-Host '1/5 our window'
 Copy-Tree $DesktopPublish $Out
 Copy-Item 'apps/desktop/sinf.ico' (Join-Path $Out 'sinf.ico') -Force
+$updater = Join-Path $UpdaterPublish 'Sinf.Updater.exe'
+if (Test-Path $updater) {
+    Copy-Item $updater (Join-Path $Out 'Sinf.Updater.exe') -Force
+} else {
+    Write-Host "   (без программы обновления: нет $updater)"
+}
 
 Write-Host '2/5 server with production dependencies'
 # pnpm writes straight into the package: the folder must not exist yet, and nothing is copied afterwards.

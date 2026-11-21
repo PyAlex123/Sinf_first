@@ -101,3 +101,6 @@ jobs:
 
       - name: The Windows app compiles
         run: dotnet build apps/desktop/Sinf.Desktop.csproj -c Release
+
+      - name: The updater compiles (B6)
+        run: dotnet build apps/updater/Sinf.Updater.csproj -c Release

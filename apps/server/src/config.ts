@@ -49,6 +49,11 @@ const EnvSchema = z.object({
   /** The site's own address for links in letters (`https://sinf.uz`); empty — the request's. */
   PUBLIC_URL: z.string().optional(),
   CLASSROOM_MODE: z.enum(['0', '1']).default('0'),
+  /**
+   * The public half of the update signing key (B6, ADR-023): base64 SPKI, as `tools/update-key.mjs`
+   * prints it. With it the platform refuses an upload the computers would refuse anyway.
+   */
+  UPDATE_PUBLIC_KEY: z.string().optional(),
 });
 
 export interface Config {
@@ -67,6 +72,8 @@ export interface Config {
   logLevel: (typeof LOG_LEVELS)[number];
   /** Mail for password resets (A7); null — letters go to the log. */
   mail: { smtpUrl: string | null; from: string };
+  /** The update signing key's public half (B6); null — uploads are not checked against it. */
+  updatePublicKey: string | null;
   /** The site's address for links in letters; null — taken from the request. */
   publicUrl: string | null;
   /** Where to look for this computer's link to the platform; null on the platform itself. */
@@ -133,6 +140,7 @@ export function loadConfig(
     },
     publicUrl: e.PUBLIC_URL?.trim() ? e.PUBLIC_URL.trim().replace(/\/+$/, '') : null,
     hostToken: e.HOST_TOKEN.length >= 16 ? e.HOST_TOKEN : null,
+    updatePublicKey: e.UPDATE_PUBLIC_KEY?.trim() || null,
   };
 }
 

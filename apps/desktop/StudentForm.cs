@@ -81,6 +81,7 @@ internal sealed class StudentForm : Form
     private readonly System.Windows.Forms.Timer focusBack = new();
 
     private string? teacherUrl;
+    private readonly ActivityBeat beat;
     private bool webReady;
     private bool searching;
     private int failedChecks;
@@ -95,6 +96,13 @@ internal sealed class StudentForm : Form
         this.paths = paths;
         this.config = config;
         this.dev = dev;
+        // For the updater (B6): a child in a lesson here, and the teacher's server it found.
+        beat = new ActivityBeat(paths, () => new Core.Activity(
+            DateTimeOffset.UtcNow,
+            HostConfig.StudentRole,
+            InLesson: folder is not null,
+            ServerUrl: teacherUrl ?? this.config.TeacherUrl,
+            PlatformUrl: this.config.IsPaired ? this.config.PlatformUrl : null));
 
         Text = $"Sinf — {config.PcName ?? "ученик"}" + (dev ? " — РЕЖИМ РАЗРАБОТКИ" : string.Empty);
         if (dev)
@@ -581,6 +589,7 @@ internal sealed class StudentForm : Form
         folder = null;
         if (old is not null)
         {
+            beat.Write();
             await old.DisposeAsync().ConfigureAwait(true);
         }
 
@@ -596,6 +605,7 @@ internal sealed class StudentForm : Form
             lessonToken,
             name => BeginInvoke(() => PostToPage(new { type = "saved", name })));
         folder = next;
+        beat.Write();
         await next.StartAsync().ConfigureAwait(true);
     }
 
@@ -932,6 +942,7 @@ internal sealed class StudentForm : Form
         http.Dispose();
         _ = share?.DisposeAsync();
         _ = folder?.DisposeAsync();
+        beat.Dispose();
         base.OnFormClosed(e);
     }
 }

@@ -7,8 +7,9 @@
 ;   Sinf-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=teacher
 ;
 ; - /ROLE and /PC are written to {app}\setup.json; Sinf reads it at the first start of each Windows
-;   user and skips the role window (apps/desktop-core/SetupFile.cs). Without them the wizard asks;
-;   a silent install without them leaves the question to Sinf.
+;   user and skips the role window (apps/desktop-core/SetupFile.cs). Without them the wizard asks
+;   and a silent install leaves the question to Sinf — unless Sinf was installed here before: then
+;   the role and the name of that install are kept (an update, B6).
 ; - A student computer starts Sinf with Windows for every user (HKLM Run): the "Ученик" account
 ;   the kiosk runs under is not the administrator who installs.
 ; - WebView2 Runtime is installed from the bundled offline installer when it is missing (CLAUDE.md
@@ -18,8 +19,14 @@
 ; - Uninstalling removes the program, the autostart and the firewall rules. Lessons, results and the
 ;   children's files in each user's %LOCALAPPDATA%\Sinf stay: they are the school's, not the program's.
 ;
+; - Updates (stage 6, B6; ADR-023): the task "Sinf\Update" runs {app}\Sinf.Updater.exe as SYSTEM
+;   every 30 minutes and 5 minutes after Windows starts. An update is this same installer built with
+;   /DUpdateBuild (no WebView2 inside, Sinf-update-<version>.exe) and run with /UPDATE=1: silent,
+;   and the computer keeps its role and name from the previous install.
+;
 ; Build (from the repository root, after tools/package-windows.ps1):
 ;   iscc /DAppVersion=0.3.0 tools\installer\sinf.iss
+;   iscc /DAppVersion=0.3.0 /DUpdateBuild tools\installer\sinf.iss
 ; The WebView2 offline installer is taken from tools\installer\redist\ when it is there
 ; (MicrosoftEdgeWebView2RuntimeInstallerX64.exe, downloaded by CI); without it the installer is built
 ; without one and says so.
@@ -33,7 +40,14 @@
 #ifndef OutputDir
   #define OutputDir "..\..\out\installer"
 #endif
-#define WebView2Installer AddBackslash(SourcePath) + "redist\MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+#ifdef UpdateBuild
+  ; An update goes to computers that already have WebView2: tens of MB, not two hundred.
+  #define WebView2Installer AddBackslash(SourcePath) + "redist\no-webview2-in-updates.exe"
+  #define OutputName "Sinf-update-" + AppVersion
+#else
+  #define WebView2Installer AddBackslash(SourcePath) + "redist\MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+  #define OutputName "Sinf-setup-" + AppVersion
+#endif
 #define WebView2Client "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 [Setup]
@@ -50,7 +64,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#OutputDir}
-OutputBaseFilename=Sinf-setup-{#AppVersion}
+OutputBaseFilename={#OutputName}
 SetupIconFile={#SourceDir}\sinf.ico
 UninstallDisplayIcon={app}\Sinf.exe
 Compression=lzma2/max
@@ -114,16 +128,20 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=
 
 [UninstallDelete]
 Type: files; Name: "{app}\setup.json"
+Type: filesandordirs; Name: "{app}\updates"
 
 [Code]
 var
   RolePage: TInputOptionWizardPage;
   PcPage: TInputQueryWizardPage;
 
-{ "teacher", "student" or "" — from /ROLE=, as typed. }
+{ "teacher", "student" or "" — from /ROLE=, as typed; else what this computer was before (an
+  update, B6, runs with no /ROLE at all and must not forget it). }
 function RoleParam: String;
 begin
   Result := Lowercase(Trim(ExpandConstant('{param:ROLE|}')));
+  if (Result <> 'teacher') and (Result <> 'student') then
+    Result := Lowercase(GetPreviousData('Role', ''));
   if (Result <> 'teacher') and (Result <> 'student') then
     Result := '';
 end;
@@ -131,6 +149,8 @@ end;
 function PcParam: String;
 begin
   Result := Trim(ExpandConstant('{param:PC|}'));
+  if Result = '' then
+    Result := GetPreviousData('Pc', '');
 end;
 
 { The role chosen: the wizard's page, or /ROLE in a silent install. }
@@ -175,6 +195,38 @@ begin
   else if RegQueryStringValue(HKCU, 'Software\Microsoft\EdgeUpdate\Clients\{#WebView2Client}', 'pv', Version)
     and (Version <> '') and (Version <> '0.0.0.0') then
     Result := False;
+end;
+
+procedure RegisterPreviousData(PreviousDataKey: Integer);
+begin
+  SetPreviousData(PreviousDataKey, 'Role', ChosenRole);
+  SetPreviousData(PreviousDataKey, 'Pc', ChosenPc);
+end;
+
+{ The updater's tasks (B6): as SYSTEM, every 30 minutes and 5 minutes after Windows starts. Made
+  afresh on every install, so a reinstall into another folder points them at the new one. }
+procedure CreateUpdateTasks;
+var
+  Run: String;
+  Code: Integer;
+begin
+  Run := '\"' + ExpandConstant('{app}\Sinf.Updater.exe') + '\"';
+  Exec(ExpandConstant('{sys}\schtasks.exe'),
+    '/Create /F /TN "Sinf\Update" /SC MINUTE /MO 30 /RU SYSTEM /RL HIGHEST /TR "' + Run + '"',
+    '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Log('schtasks Sinf\Update: ' + IntToStr(Code));
+  Exec(ExpandConstant('{sys}\schtasks.exe'),
+    '/Create /F /TN "Sinf\Update at start" /SC ONSTART /DELAY 0005:00 /RU SYSTEM /RL HIGHEST /TR "' + Run + '"',
+    '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Log('schtasks Sinf\Update at start: ' + IntToStr(Code));
+end;
+
+procedure DeleteUpdateTasks;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /F /TN "Sinf\Update"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /F /TN "Sinf\Update at start"', '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
 procedure InitializeWizard;
@@ -239,6 +291,7 @@ end;
 function InitializeUninstall: Boolean;
 begin
   CloseSinf;
+  DeleteUpdateTasks;
   Result := True;
 end;
 
@@ -268,6 +321,7 @@ var
 begin
   if CurStep <> ssPostInstall then
     Exit;
+  CreateUpdateTasks;
   Role := ChosenRole;
   if Role = '' then
   begin

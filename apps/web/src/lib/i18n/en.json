@@ -1076,5 +1076,22 @@
   "license.needed": "The school has no active license: new school classes and lessons on classroom computers are unavailable. Contact your school admin.",
   "license.limit": "The school has used all {limit} classes of its license. To add a class, the school admin needs to extend the license.",
   "license.personal": "A personal class works on the website: lessons on classroom computers are for school classes.",
-  "license.free": "Free — one personal class. To run more classes, join a school."
+  "license.free": "Free — one personal class. To run more classes, join a school.",
+  "updates.title": "Windows app updates",
+  "updates.hint": "From GitHub Actions: the Sinf-update-x64 artifact — the installer and update.json. Teachers’ computers take the new version from the site, students’ computers from their teacher’s computer, and install it by themselves between lessons.",
+  "updates.noKey": "The site does not know the public key (UPDATE_PUBLIC_KEY), so only the computers themselves check the signature.",
+  "updates.none": "No updates uploaded yet.",
+  "updates.current": "being handed out",
+  "updates.delete": "Delete",
+  "updates.confirmDelete": "Delete version {version}? Computers that have not downloaded it yet will get the previous one.",
+  "updates.manifest": "update.json",
+  "updates.installer": "Installer (Sinf-update-….exe)",
+  "updates.upload": "Upload",
+  "updates.uploading": "Uploading…",
+  "updates.uploaded": "Version {version} uploaded: computers will take it within half an hour.",
+  "updates.badManifest": "This is not an update.json from a build.",
+  "updates.otherFile": "The size does not match update.json: the file {file} is needed.",
+  "updates.bad_signature": "The signature does not match the site’s key: computers would not accept this build.",
+  "updates.bad_hash": "The file is not the one update.json describes.",
+  "updates.bad_size": "The file size does not match update.json."
 }

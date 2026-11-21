@@ -24,6 +24,9 @@ import {
   SchoolSettingsResponseSchema,
   SchoolReportSchema,
   SuperadminLicensesResponseSchema,
+  AdminUpdatesResponseSchema,
+  StoredUpdateSchema,
+  type UpdateManifest,
   ClassReportSchema,
   ResetLinkResponseSchema,
   SchoolInvitesResponseSchema,
@@ -447,6 +450,32 @@ export const api = {
     request('GET', `/api/invites/${encodeURIComponent(token)}`, InviteInfoResponseSchema),
   acceptInvite: (token: string) =>
     request('POST', `/api/invites/${encodeURIComponent(token)}/accept`, InviteAcceptResponseSchema),
+  /** Updates of the Windows app, the superadmin's (B6). */
+  adminUpdates: () => request('GET', '/api/admin/updates', AdminUpdatesResponseSchema),
+  deleteUpdate: (version: string) =>
+    request('DELETE', `/api/admin/updates/${encodeURIComponent(version)}`, OkSchema),
+  /** The installer as the body, its `update.json` in the address: streamed, never parsed. */
+  uploadUpdate: async (manifest: UpdateManifest, installer: Blob) => {
+    const { version, ...rest } = manifest;
+    const query = new URLSearchParams({ ...rest, size: String(rest.size) });
+    const res = await fetch(
+      `/api/admin/updates/${encodeURIComponent(version)}?${query.toString()}`,
+      {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: installer,
+      },
+    );
+    const json: unknown = await res.json().catch(() => undefined);
+    if (!res.ok) {
+      const parsed = ApiErrorSchema.safeParse(json);
+      throw parsed.success
+        ? new ApiError(res.status, parsed.data.error, parsed.data.message, parsed.data.details)
+        : new ApiError(res.status, 'http', `HTTP ${res.status}`);
+    }
+    return z.object({ update: StoredUpdateSchema }).parse(json).update;
+  },
   /** A school's licenses, the superadmin's (B2). */
   licenses: (schoolId: string) =>
     request(

@@ -39,6 +39,7 @@ internal sealed class MainForm : Form
     private HostConfig config;
     private readonly Platform platform;
     private ServerProcess? server;
+    private ActivityBeat? beat;
     /// <summary>"Мой экран" (H14): this computer's screen for the class, while the teacher shows it.</summary>
     private ScreenShare? share;
     /// <summary>Answers student computers that look for this lesson on the network (ADR-014 §3).</summary>
@@ -147,6 +148,15 @@ internal sealed class MainForm : Form
             ShowFailure(error.Message);
             return;
         }
+
+        // For the updater (B6): this computer's own lesson server, which also says when a lesson is on.
+        var local = server.LocalUrl;
+        beat = new ActivityBeat(paths, () => new Core.Activity(
+            DateTimeOffset.UtcNow,
+            HostConfig.TeacherRole,
+            InLesson: false,
+            ServerUrl: local,
+            PlatformUrl: config.IsPaired ? config.PlatformUrl : null));
 
         var lan = LanAddress.Find();
         var lanUrl = lan is null ? null : $"http://{lan}:{server.Port}";
@@ -545,6 +555,8 @@ internal sealed class MainForm : Form
 
         beacon?.Dispose();
         beacon = null;
+        beat?.Dispose();
+        beat = null;
         identity?.Dispose();
         identity = null;
         await stopping.DisposeAsync().ConfigureAwait(true);
