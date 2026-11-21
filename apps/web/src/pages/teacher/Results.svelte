@@ -18,6 +18,7 @@
   import Notice from '../../lib/ui/Notice.svelte';
   import PageHeader from '../../lib/ui/PageHeader.svelte';
   import Table from '../../lib/ui/Table.svelte';
+  import KtpSessionBox from './KtpSessionBox.svelte';
   import PracticeWorks from './PracticeWorks.svelte';
 
   /**
@@ -131,6 +132,9 @@
 
     {#if results.status === 'active'}
       <Notice>{t('results.live')}</Notice>
+    {:else}
+      <!-- The KTP topic of this lesson, marked done with one click (PLAN.md 5.3, W11). -->
+      <KtpSessionBox sessionId={results.sessionId} lessonId={results.lessonId} />
     {/if}
     {#if error}<Notice kind="error">{error}</Notice>{/if}
     {#if canGrade && toConfirm.length > 0}

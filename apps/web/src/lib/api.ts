@@ -20,8 +20,10 @@ import {
   AssetUploadResponseSchema,
   CourseSchema,
   ClassProgramSchema,
+  KtpLessonsResponseSchema,
   KtpListResponseSchema,
   KtpPlanSchema,
+  SessionKtpResponseSchema,
   ParsedTablesSchema,
   ProgramSchema,
   ProgramListResponseSchema,
@@ -63,7 +65,10 @@ import {
   type Locale,
   type UpdateAuthoredLesson,
   type UpdateProgram,
+  type AddKtpRow,
   type CreateKtp,
+  type LinkKtpRows,
+  type UpdateKtpRow,
   type LibraryKind,
   type SetJournalCell,
 } from '@sinf/shared';
@@ -205,6 +210,28 @@ export const api = {
   createKtp: (body: CreateKtp) => request('POST', '/api/ktp', KtpPlanSchema, body),
   deleteKtp: (id: string) =>
     request('DELETE', `/api/ktp/${encodeURIComponent(id)}`, KtpListResponseSchema),
+  /** The KTP by hand and with lessons (W11). */
+  updateKtpRow: (id: string, rowId: string, body: UpdateKtpRow) =>
+    request(
+      'PATCH',
+      `/api/ktp/${encodeURIComponent(id)}/rows/${encodeURIComponent(rowId)}`,
+      KtpPlanSchema,
+      body,
+    ),
+  addKtpRow: (id: string, body: AddKtpRow) =>
+    request('POST', `/api/ktp/${encodeURIComponent(id)}/rows`, KtpPlanSchema, body),
+  deleteKtpRow: (id: string, rowId: string) =>
+    request(
+      'DELETE',
+      `/api/ktp/${encodeURIComponent(id)}/rows/${encodeURIComponent(rowId)}`,
+      KtpPlanSchema,
+    ),
+  linkKtp: (id: string, body: LinkKtpRows) =>
+    request('POST', `/api/ktp/${encodeURIComponent(id)}/links`, KtpPlanSchema, body),
+  ktpLessons: (id: string) =>
+    request('GET', `/api/ktp/${encodeURIComponent(id)}/lessons`, KtpLessonsResponseSchema),
+  sessionKtp: (sessionId: string) =>
+    request('GET', `/api/sessions/${encodeURIComponent(sessionId)}/ktp`, SessionKtpResponseSchema),
   createSession: (body: CreateSession) =>
     request('POST', '/api/sessions', SessionResponseSchema, body),
   session: (id: string) =>

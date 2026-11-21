@@ -4,8 +4,12 @@ import { strFromU8, unzipSync } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   guessKtpMapping,
+  KtpLessonsResponseSchema,
   KtpListResponseSchema,
   KtpPlanSchema,
+  SchoolDetailsResponseSchema,
+  SessionKtpResponseSchema,
+  SessionResponseSchema,
   mapKtpRows,
   ParsedTablesSchema,
   type KtpRowInput,
@@ -25,6 +29,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  for (const id of t.app.sessions.liveSessionIds()) t.app.sessions.end(id);
   await t.close();
 });
 
@@ -154,5 +159,123 @@ describe('a saved KTP', () => {
       payload: { classId: 'class-1a', title: 'Пусто', rows: [{ topic: '  ' }] },
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('the KTP and the lessons (W11)', () => {
+  const topics = [
+    { topic: 'Предыдущий и последующий', weekOrDate: '01.09.2026' },
+    { topic: 'До и после', weekOrDate: '08.09.2026' },
+    { topic: 'Последовательность действий', weekOrDate: '15.09.2026' },
+    { topic: 'Повторение', weekOrDate: '2999-01-01' },
+  ];
+  const call = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) =>
+    t.app.inject({ method, url, headers: { cookie }, ...(payload ? { payload } : {}) });
+  const make = async () =>
+    KtpPlanSchema.parse(
+      (
+        await call('POST', '/api/ktp', { classId: 'class-1a', title: 'Информатика', rows: topics })
+      ).json(),
+    );
+
+  it('suggests lessons by title, links them, and knows how far the class is', async () => {
+    let plan = await make();
+    expect(plan.items.map((i) => i.suggestion?.id ?? null)).toEqual(['g10', 'g11', 'g14', null]);
+    // All three dates are behind us; the fourth is not a date at all.
+    expect(plan.planned).toBe(3);
+
+    plan = KtpPlanSchema.parse(
+      (
+        await call('POST', `/api/ktp/${plan.id}/links`, {
+          links: plan.items.flatMap((i) =>
+            i.suggestion ? [{ rowId: i.id, lessonId: i.suggestion.id }] : [],
+          ),
+        })
+      ).json(),
+    );
+    expect(plan.items.map((i) => i.lessonId)).toEqual(['g10', 'g11', 'g14', null]);
+    expect(plan.items[0]?.lessonTitle).toBe('Предыдущий — последующий');
+    // A lesson that does not exist is refused.
+    expect(
+      (
+        await call('PATCH', `/api/ktp/${plan.id}/rows/${plan.items[3]?.id}`, {
+          lessonId: 'nope',
+        })
+      ).statusCode,
+    ).toBe(400);
+
+    const catalog = KtpLessonsResponseSchema.parse(
+      (await call('GET', `/api/ktp/${plan.id}/lessons`)).json(),
+    );
+    expect(catalog.lessons.some((l) => l.id === 'g15')).toBe(true);
+  });
+
+  it('after a lesson, offers its topic to mark done; done counts', async () => {
+    let plan = await make();
+    await call('PATCH', `/api/ktp/${plan.id}/rows/${plan.items[1]?.id}`, { lessonId: 'g11' });
+
+    // A lesson of the KTP: its topic.
+    const started = await call('POST', '/api/sessions', { classId: 'class-1a', lessonId: 'g11' });
+    const { session } = SessionResponseSchema.parse(started.json());
+    await call('POST', `/api/sessions/${session.id}/end`);
+    let offer = SessionKtpResponseSchema.parse(
+      (await call('GET', `/api/sessions/${session.id}/ktp`)).json(),
+    );
+    expect(offer.ktp).toMatchObject({ planId: plan.id, linked: true });
+    expect(offer.ktp?.row?.topic).toBe('До и после');
+    plan = KtpPlanSchema.parse((await call('GET', `/api/ktp/${plan.id}`)).json());
+    expect(plan.items[1]?.heldAt?.slice(0, 10)).toBe(session.startedAt.slice(0, 10));
+    expect(plan.done).toBe(0);
+
+    plan = KtpPlanSchema.parse(
+      (
+        await call('PATCH', `/api/ktp/${plan.id}/rows/${plan.items[1]?.id}`, { isDone: true })
+      ).json(),
+    );
+    expect(plan.done).toBe(1);
+    expect(plan.items[1]?.doneAt).not.toBeNull();
+
+    // A lesson not in the KTP: the first topic not done yet.
+    const other = SessionResponseSchema.parse(
+      (await call('POST', '/api/sessions', { classId: 'class-1a', lessonId: 'g15' })).json(),
+    ).session;
+    await call('POST', `/api/sessions/${other.id}/end`);
+    offer = SessionKtpResponseSchema.parse(
+      (await call('GET', `/api/sessions/${other.id}/ktp`)).json(),
+    );
+    expect(offer.ktp).toMatchObject({ linked: false });
+    expect(offer.ktp?.row?.topic).toBe('Предыдущий и последующий');
+  });
+
+  it('counts changes against the file and the school’s allowance', async () => {
+    let plan = await make();
+    expect(plan.changes).toEqual({ base: 4, changed: 0, allowedPercent: 30 });
+    const [a, b, c] = plan.items;
+    await call('PATCH', `/api/ktp/${plan.id}/rows/${a?.id}`, { topic: 'Предыдущее и следующее' });
+    await call('PATCH', `/api/ktp/${plan.id}/rows/${b?.id}`, { note: 'с карточками' });
+    await call('DELETE', `/api/ktp/${plan.id}/rows/${c?.id}`);
+    plan = KtpPlanSchema.parse(
+      (
+        await call('POST', `/api/ktp/${plan.id}/rows`, {
+          afterId: a?.id,
+          row: { topic: 'Новая тема' },
+        })
+      ).json(),
+    );
+    // The note does not count; the new topic stands second.
+    expect(plan.items.map((i) => i.topic)).toEqual([
+      'Предыдущее и следующее',
+      'Новая тема',
+      'До и после',
+      'Повторение',
+    ]);
+    expect(plan.changes).toMatchObject({ base: 4, changed: 3 });
+
+    // The school allows more: its administrator says so.
+    const school = await call('PATCH', '/api/schools/school-demo', { ktpChangePercent: 80 });
+    expect(school.statusCode).toBe(200);
+    expect(SchoolDetailsResponseSchema.parse(school.json()).ktpChangePercent).toBe(80);
+    plan = KtpPlanSchema.parse((await call('GET', `/api/ktp/${plan.id}`)).json());
+    expect(plan.changes.allowedPercent).toBe(80);
   });
 });

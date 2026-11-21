@@ -63,6 +63,11 @@
               <b>{plan.className} · {plan.title}</b>
               <div class="muted small">
                 {t('ktp.meta', { count: plan.rows, done: plan.done })}
+                {#if plan.planned !== null && plan.done < plan.planned}
+                  · <span class="behind"
+                    >{t('ktp.where.behind', { count: plan.planned - plan.done })}</span
+                  >
+                {/if}
                 {#if plan.sourceFile}· {plan.sourceFile}{/if}
               </div>
             </div>
@@ -97,6 +102,10 @@
   }
   .muted {
     color: var(--c-muted);
+  }
+  .behind {
+    color: var(--c-danger-strong);
+    font-weight: 600;
   }
   .small {
     font-size: var(--text-sm);

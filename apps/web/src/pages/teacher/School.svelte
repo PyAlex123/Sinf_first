@@ -28,6 +28,7 @@
   let editing = $state(false);
   let name = $state('');
   let city = $state('');
+  let ktpPercent = $state(30);
 
   const isAdmin = $derived(data?.role === 'admin');
 
@@ -36,6 +37,7 @@
       data = await api.school(schoolId);
       name = data.school.name;
       city = data.school.city ?? '';
+      ktpPercent = data.ktpChangePercent;
       devices = (await api.devices(schoolId)).devices;
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
@@ -63,7 +65,13 @@
 
   async function save(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    await run('school', () => api.updateSchool(schoolId, { name, city: city.trim() || null }));
+    await run('school', () =>
+      api.updateSchool(schoolId, {
+        name,
+        city: city.trim() || null,
+        ktpChangePercent: Math.max(0, Math.min(100, Math.round(ktpPercent))),
+      }),
+    );
     editing = false;
   }
 
@@ -148,6 +156,10 @@
         </Field>
         <Field label={t('school.city')}>
           <input bind:value={city} maxlength="60" />
+        </Field>
+        <!-- CLAUDE.md §4.10: how much of a KTP its teacher may change (W11). -->
+        <Field label={t('school.ktpPercent')} hint={t('school.ktpPercent.hint')}>
+          <input type="number" min="0" max="100" bind:value={ktpPercent} data-field="ktp-percent" />
         </Field>
         <div class="row">
           <Button type="submit" disabled={busy === 'school'}>{t('common.save')}</Button>
