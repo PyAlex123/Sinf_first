@@ -6,7 +6,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
-import type { CheckReport, ClassSettings, PracticeMarks } from '@sinf/shared';
+import type { AuthoredLessonDoc, CheckReport, ClassSettings, PracticeMarks } from '@sinf/shared';
 
 /**
  * Stage 1 schema (STAGE1.md S1.3, docs/stage1-architecture.md §3). Portable to PostgreSQL:
@@ -480,8 +480,40 @@ export const practiceChecks = sqliteTable(
   ],
 );
 
+/**
+ * A teacher's own lesson (CLAUDE.md §4.3, §6 Lesson; stage 4, W1; ADR-019): its description and the
+ * document the constructor edits. The engine plays it in the author's format (`authoredToLesson`).
+ * Made and changed on the platform; a school computer holds a read-only copy of its school's.
+ * A deleted lesson stays as a row: the results of the lessons held with it still need its screens.
+ */
+export const authoredLessons = sqliteTable(
+  'authored_lessons',
+  {
+    id: id(),
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => users.id),
+    title: text('title').notNull(),
+    grade: integer('grade').notNull(),
+    topic: text('topic').notNull().default(''),
+    visibility: text('visibility', { enum: ['private', 'school', 'public'] })
+      .notNull()
+      .default('private'),
+    doc: text('doc', { mode: 'json' }).$type<AuthoredLessonDoc>().notNull(),
+    /** Grows with every save; a save made from an older one is refused (two tabs). */
+    version: integer('version').notNull().default(1),
+    /** The lesson this one was copied from (the library, W8). */
+    sourceId: text('source_id'),
+    createdAt: timestamp('created_at').notNull(),
+    updatedAt: timestamp('updated_at').notNull(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [index('authored_lessons_owner_idx').on(t.ownerId)],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  authoredLessons,
   practiceChecks,
   studentFiles,
   screenshots,

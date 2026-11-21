@@ -113,7 +113,7 @@
   const stageNumber = $derived((session?.stage.index ?? 0) + 1);
   /** The teacher scenario opens at the heading of the current stage (anchors added by the import, S1.9). */
   const scenarioUrl = $derived(
-    bundle ? `${bundle.lesson.teacherScenario}#stage-${stageNumber}` : '',
+    bundle?.lesson.teacherScenario ? `${bundle.lesson.teacherScenario}#stage-${stageNumber}` : '',
   );
   /**
    * The Paint practice of a club lesson (S1.11): which screens are its steps, where each child is,
@@ -349,15 +349,18 @@
                 {t('session.mode.free')}
               </button>
             </div>
-            <button
-              type="button"
-              class="pill"
-              class:on={scenarioOpen}
-              aria-pressed={scenarioOpen}
-              onclick={() => (scenarioOpen = !scenarioOpen)}
-            >
-              {scenarioOpen ? t('session.scenario.hide') : t('session.scenario.show')}
-            </button>
+            {#if scenarioUrl}
+              <!-- A teacher's own lesson has no scenario (ADR-019). -->
+              <button
+                type="button"
+                class="pill"
+                class:on={scenarioOpen}
+                aria-pressed={scenarioOpen}
+                onclick={() => (scenarioOpen = !scenarioOpen)}
+              >
+                {scenarioOpen ? t('session.scenario.hide') : t('session.scenario.show')}
+              </button>
+            {/if}
             <button
               type="button"
               class="pill"
@@ -404,7 +407,7 @@
             </button>
           {/if}
         </div>
-        {#if scenarioOpen}
+        {#if scenarioOpen && scenarioUrl}
           <div class="scenario">
             <div class="scenariobar">
               <strong>{t('session.scenario')}</strong>

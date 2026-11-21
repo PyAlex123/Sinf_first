@@ -85,6 +85,13 @@
       "when": 1795262446054,
       "tag": "0011_dusty_arclight",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795271455940,
+      "tag": "0012_lonely_carnage",
+      "breakpoints": true
     }
   ]
 }

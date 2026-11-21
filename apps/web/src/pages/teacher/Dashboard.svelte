@@ -27,6 +27,7 @@
   import Notice from '../../lib/ui/Notice.svelte';
   import StudentList from '../../lib/ui/StudentList.svelte';
   import SyncBox from '../../lib/ui/SyncBox.svelte';
+  import OwnLessons from './OwnLessons.svelte';
 
   let { params: _params }: PageProps = $props();
   let teacher = $state<Teacher | null>(null);
@@ -85,6 +86,7 @@
     const byNum = new Map<number, { gos?: LessonSummary; krujok?: LessonSummary }>();
     for (const course of courses) {
       for (const lesson of course.lessons) {
+        if (lesson.group === 'own') continue;
         const row = byNum.get(lesson.num) ?? {};
         row[lesson.group] = lesson;
         byNum.set(lesson.num, row);
@@ -302,6 +304,12 @@
       </aside>
 
       <section class="lessons">
+        <OwnLessons
+          canStart={!!cls}
+          busyId={busy}
+          onStart={(id: string) => void start(id)}
+          defaultGrade={cls?.grade ?? 5}
+        />
         <h2>{t('teacher.lessons')}</h2>
         <div class="ktp">
           <div class="khead">

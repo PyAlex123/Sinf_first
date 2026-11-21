@@ -238,7 +238,8 @@ export const SCREEN_KINDS = [
 
 // ---------- lesson and course
 
-export const LessonGroupSchema = z.enum(['gos', 'krujok']);
+/** The government programme, the club, or a teacher's own lesson (stage 4, ADR-019). */
+export const LessonGroupSchema = z.enum(['gos', 'krujok', 'own']);
 export type LessonGroup = z.infer<typeof LessonGroupSchema>;
 
 const contentUrl = z.string().startsWith('/content/');
@@ -254,8 +255,8 @@ export const LessonSchema = z
     icon: svg,
     stages: z.array(StageSchema).min(1),
     screens: z.array(ScreenSchema).min(1),
-    /** URL of the sanitized teacher scenario (standalone HTML document). */
-    teacherScenario: contentUrl,
+    /** URL of the sanitized teacher scenario (standalone HTML document); a teacher's own lesson has none. */
+    teacherScenario: contentUrl.nullable(),
     /** Every media URL the lesson's screens reference (and nothing else), for preloading and caching. */
     media: z.array(contentUrl),
   })

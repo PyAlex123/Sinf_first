@@ -28,6 +28,13 @@ export async function loadCourses(): Promise<Course[]> {
   return coursesPromise;
 }
 
+/** A teacher's lesson changes in the constructor: the next load must not come from this page's cache. */
+export function forgetLesson(id: string): void {
+  lessons.delete(id);
+  quizzes.delete(id);
+  practices.delete(id);
+}
+
 export async function loadLesson(id: string): Promise<Lesson> {
   let pending = lessons.get(id);
   if (!pending) {
@@ -39,8 +46,10 @@ export async function loadLesson(id: string): Promise<Lesson> {
 
 export async function loadLessonBundle(lessonId: string): Promise<LessonBundle> {
   const courses = await loadCourses();
-  const course = courses.find((c) => c.lessons.some((l) => l.id === lessonId));
-  if (!course) throw new Error(`Lesson "${lessonId}" is not in any course`);
+  // A teacher's own lesson is in no course of the list: the server makes one for it (ADR-019).
+  const course =
+    courses.find((c) => c.lessons.some((l) => l.id === lessonId)) ??
+    (await api.lessonCourse(lessonId));
   let pics = picsByUrl.get(course.pics);
   if (!pics) {
     pics = api.pics(course.pics);

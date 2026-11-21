@@ -21,6 +21,7 @@ import {
   pendingSessionIds,
 } from './outbox.js';
 import { countDirtyFiles, pullFiles, pushFiles } from './files.js';
+import { pullLessons } from './lessons.js';
 
 /**
  * The school computer's side of S2.6 (ADR-011): it pulls the school's roster down and pushes what
@@ -116,6 +117,7 @@ export class SyncWorker {
       if (this.stopped) return null;
       this.lastPullAt = Date.now();
       if (this.read(ROSTER_KEY) === snapshot.version) {
+        await this.pullLessons(link);
         this.note(LAST_SYNC_KEY, new Date().toISOString());
         this.note(LAST_ERROR_KEY, null);
         return snapshot;
@@ -126,12 +128,26 @@ export class SyncWorker {
       this.note(LAST_SYNC_KEY, new Date().toISOString());
       this.note(LAST_ERROR_KEY, null);
       this.log.info({ ...result, version: snapshot.version }, 'school roster updated');
+      // After the roster: a lesson's owner must be a known teacher here.
+      await this.pullLessons(link);
       return snapshot;
     } catch (error) {
       // No internet in the classroom is the normal case, not a fault worth shouting about.
       this.note(LAST_ERROR_KEY, OFFLINE);
       this.log.debug({ err: error }, 'roster not fetched');
       return null;
+    }
+  }
+
+  /** The school's own lessons (ADR-019); a failure here leaves the roster as it is. */
+  private async pullLessons(link: PlatformLink): Promise<void> {
+    try {
+      const result = await pullLessons(this.db, this.config.dataDir, link, this.fetchImpl);
+      if (result.updated + result.removed + result.files > 0) {
+        this.log.info(result, 'school lessons updated');
+      }
+    } catch (error) {
+      this.log.debug({ err: error }, 'school lessons not fetched');
     }
   }
 

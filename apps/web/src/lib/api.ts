@@ -15,6 +15,10 @@ import {
   LessonSchema,
   MeResponseSchema,
   PicsSchema,
+  AuthoredLessonSchema,
+  AuthoredLessonListResponseSchema,
+  AssetUploadResponseSchema,
+  CourseSchema,
   PracticeResponseSchema,
   SessionResponseSchema,
   SessionStateSchema,
@@ -45,7 +49,11 @@ import {
   DemoStatusSchema,
   DemoResetResponseSchema,
   type AddVirtual,
+  type AssetExtension,
+  type AssetUploadResponse,
+  type CreateAuthoredLesson,
   type Locale,
+  type UpdateAuthoredLesson,
 } from '@sinf/shared';
 import { z } from 'zod';
 
@@ -106,6 +114,39 @@ export const api = {
   practice: (id: string) =>
     request('GET', `/api/lessons/${encodeURIComponent(id)}/practice`, PracticeResponseSchema),
   pics: (url: string) => request('GET', url, PicsSchema),
+  /** The course a lesson plays in; a teacher's own lesson has one made for it (ADR-019). */
+  lessonCourse: (id: string) =>
+    request('GET', `/api/lessons/${encodeURIComponent(id)}/course`, CourseSchema),
+  /** Teachers' own lessons (stage 4, W1): mine, or my school's. */
+  authoredLessons: (scope: 'mine' | 'school' = 'mine') =>
+    request('GET', `/api/authored-lessons?scope=${scope}`, AuthoredLessonListResponseSchema),
+  authoredLesson: (id: string) =>
+    request('GET', `/api/authored-lessons/${encodeURIComponent(id)}`, AuthoredLessonSchema),
+  createAuthoredLesson: (body: CreateAuthoredLesson) =>
+    request('POST', '/api/authored-lessons', AuthoredLessonSchema, body),
+  saveAuthoredLesson: (id: string, body: UpdateAuthoredLesson) =>
+    request('PUT', `/api/authored-lessons/${encodeURIComponent(id)}`, AuthoredLessonSchema, body),
+  deleteAuthoredLesson: (id: string) =>
+    request('DELETE', `/api/authored-lessons/${encodeURIComponent(id)}`, OkSchema),
+  copyAuthoredLesson: (id: string) =>
+    request('POST', `/api/authored-lessons/${encodeURIComponent(id)}/copy`, AuthoredLessonSchema),
+  /** A picture or a template of a lesson, as raw bytes (W1). */
+  uploadAsset: async (bytes: Blob, ext: AssetExtension): Promise<AssetUploadResponse> => {
+    const res = await fetch(`/api/assets?ext=${ext}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: bytes,
+    });
+    const json: unknown = await res.json().catch(() => undefined);
+    if (!res.ok) {
+      const parsed = ApiErrorSchema.safeParse(json);
+      throw parsed.success
+        ? new ApiError(res.status, parsed.data.error, parsed.data.message, parsed.data.details)
+        : new ApiError(res.status, 'http', `HTTP ${res.status}`);
+    }
+    return AssetUploadResponseSchema.parse(json);
+  },
   createSession: (body: CreateSession) =>
     request('POST', '/api/sessions', SessionResponseSchema, body),
   session: (id: string) =>
