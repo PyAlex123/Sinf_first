@@ -147,8 +147,9 @@ var
   { Was the agent's service here before this install? 0 — not asked yet, 1 — yes, 2 — no. }
   AgentBefore: Integer;
 
-{ What the last install wrote into {app}\setup.json: the computer's own memory of its role and name,
-  which an update (B6) must keep. Empty before the folder is known, or when there is none. }
+{ What the last install wrote into setup.json in the program folder: the computer's own memory of
+  its role and name, which an update (B6) must keep. Empty before the folder is known, or when
+  there is none. }
 function InstalledSetupValue(const Key: String): String;
 var
   Lines: TArrayOfString;
