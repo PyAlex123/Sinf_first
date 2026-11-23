@@ -2,6 +2,7 @@
   import AdminLicense from './AdminLicense.svelte';
   import AdminReports from './AdminReports.svelte';
   import AdminUpdates from './AdminUpdates.svelte';
+  import AdminPilots from './AdminPilots.svelte';
   import type { AdminSchool } from '@sinf/shared';
   import { onMount } from 'svelte';
   import type { ResetLinkResponse } from '@sinf/shared';
@@ -127,6 +128,9 @@
       </form>
       {#if resetLink}<ResetLink link={resetLink} />{/if}
     </Card>
+
+    <!-- Schools that asked for a pilot on the landing page (B10). -->
+    <AdminPilots />
 
     <!-- New versions of the Windows app for every school's computers (B6). -->
     <AdminUpdates />

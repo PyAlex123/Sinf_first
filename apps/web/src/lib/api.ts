@@ -25,6 +25,9 @@ import {
   SchoolReportSchema,
   SuperadminLicensesResponseSchema,
   AdminUpdatesResponseSchema,
+  SiteInfoSchema,
+  PilotRequestListResponseSchema,
+  type PilotRequestInput,
   StoredUpdateSchema,
   type UpdateManifest,
   ClassReportSchema,
@@ -450,6 +453,13 @@ export const api = {
     request('GET', `/api/invites/${encodeURIComponent(token)}`, InviteInfoResponseSchema),
   acceptInvite: (token: string) =>
     request('POST', `/api/invites/${encodeURIComponent(token)}/accept`, InviteAcceptResponseSchema),
+  /** The platform or a classroom server: the landing page is the platform's only (B10). */
+  site: () => request('GET', '/api/site', SiteInfoSchema),
+  sendPilotRequest: (body: PilotRequestInput) =>
+    request('POST', '/api/pilot-requests', OkSchema, body),
+  pilotRequests: () => request('GET', '/api/admin/pilot-requests', PilotRequestListResponseSchema),
+  markPilotRequest: (id: string) =>
+    request('POST', `/api/admin/pilot-requests/${encodeURIComponent(id)}/handled`, OkSchema),
   /** Updates of the Windows app, the superadmin's (B6). */
   adminUpdates: () => request('GET', '/api/admin/updates', AdminUpdatesResponseSchema),
   deleteUpdate: (version: string) =>

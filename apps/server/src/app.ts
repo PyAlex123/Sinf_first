@@ -41,6 +41,7 @@ import { ensureHomeCodes } from './services/student-files.js';
 import { clearUploadLeftovers } from './sync/files.js';
 import { SyncWorker } from './sync/worker.js';
 import { updateRoutes } from './routes/updates.js';
+import { siteRoutes } from './routes/site.js';
 import { VirtualStudents } from './services/virtual-students.js';
 
 export interface AppContext {
@@ -211,6 +212,7 @@ export async function buildApp(
   await app.register(fileRoutes, { prefix: '/api', store });
   await app.register(practiceRoutes, { prefix: '/api' });
   await app.register(updateRoutes, { prefix: '/api' });
+  await app.register(siteRoutes, { prefix: '/api' });
   await app.register(realtimePlugin, { store, demo });
 
   // Built web client (single-page app). In development Vite serves it and proxies /api, /ws, /content here.

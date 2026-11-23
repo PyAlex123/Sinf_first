@@ -743,8 +743,32 @@ export const licenses = sqliteTable(
   (t) => [index('licenses_school_idx').on(t.schoolId)],
 );
 
+/**
+ * Requests for a pilot from the landing page (PLAN.md 8.4; stage 6, B10; ADR-026). Only on the
+ * platform; the superadmin sees them in /admin and marks the handled ones.
+ */
+export const pilotRequests = sqliteTable(
+  'pilot_requests',
+  {
+    id: id(),
+    school: text('school').notNull(),
+    city: text('city').notNull(),
+    name: text('name').notNull(),
+    contact: text('contact').notNull(),
+    classes: integer('classes'),
+    comment: text('comment').notNull().default(''),
+    locale: text('locale', { enum: ['uz', 'ru', 'en'] })
+      .notNull()
+      .default('ru'),
+    createdAt: timestamp('created_at').notNull(),
+    handledAt: timestamp('handled_at'),
+  },
+  (t) => [index('pilot_requests_created_idx').on(t.createdAt)],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  pilotRequests,
   licenses,
   passwordResets,
   schoolInvites,
