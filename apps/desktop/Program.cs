@@ -44,9 +44,18 @@ internal static class Program
         var dev = HasFlag(args, "--dev");
 
         // What the installer was told about this computer (H17): no role window on each computer.
-        if (!config.HasRole && !setup && ReadSetupFile(paths) is { } chosen)
+        // Taken at the first start and after a reinstall that says something new (finding 2).
+        var fromInstaller = ReadSetupFile(paths);
+        if (!setup
+            && SetupFile.Decide(fromInstaller, config.Role, config.PcName, config.SetupApplied) is { } decision)
         {
-            config = config with { Role = chosen.Role, PcName = chosen.PcName };
+            config = config with { Role = decision.Role, PcName = decision.PcName, SetupApplied = decision.AppliedKey };
+            if (decision.NewRole)
+            {
+                // As after `--setup`: a computer that changed its kind meets its teacher anew (H9).
+                config = config with { TeacherKey = null, TeacherUrl = null };
+            }
+
             HostConfig.Save(paths, config);
         }
 
@@ -73,6 +82,12 @@ internal static class Program
             // A student computer set up again meets its teacher anew (H9): the first signed answer is
             // remembered. The exit password stays until the new teacher hands over its own.
             config = config with { Role = dialog.Role, PcName = dialog.PcName, TeacherKey = null, TeacherUrl = null };
+            // The installer's file is taken as seen, so it does not undo this choice at the next start.
+            if (fromInstaller is not null)
+            {
+                config = config with { SetupApplied = SetupFile.Key(fromInstaller) };
+            }
+
             HostConfig.Save(paths, config);
         }
 
