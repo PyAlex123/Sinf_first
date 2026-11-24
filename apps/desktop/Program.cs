@@ -91,12 +91,9 @@ internal static class Program
             HostConfig.Save(paths, config);
         }
 
-        // A student's computer opens Sinf with Windows (H7); a teacher's starts it when the lesson needs it.
-        // The developer's window does not register itself.
-        if (!dev)
-        {
-            AutostartSetting.Apply(config.IsStudent);
-        }
+        // Whether Sinf starts with Windows is the installer's question alone (finding 5): the app no
+        // longer registers itself, and takes away the entry older versions left for this user.
+        AutostartSetting.RemoveUserEntry();
 
         Application.Run(config.IsStudent ? new StudentForm(paths, config, dev) : new MainForm(paths, config));
     }

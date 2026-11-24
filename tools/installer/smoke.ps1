@@ -5,8 +5,9 @@
 .DESCRIPTION
   Run on a Windows runner (administrator) after the installer was built. Fails on the first thing
   that is not as it should be:
-    1. a student computer, silently: files, setup.json with the role and the name, start with
-       Windows for every user, the firewall rule for Sinf.exe and none for the server;
+    1. a student computer, silently: files, setup.json with the role and the name, no start with
+       Windows unless asked (finding 5), then with /AUTOSTART=1 — for every user, and kept by an
+       update; the firewall rule for Sinf.exe and none for the server;
     2. the same computer again as the teacher's: setup.json says teacher, no start with Windows, the
        server is let through the firewall too, and the installed server really starts
        (`Sinf.exe --selftest`, as the teacher's window starts it — pc-test.md 8.3);
@@ -78,7 +79,8 @@ Expect (Test-Path (Join-Path $app 'server/node.exe')) 'сервер на мес�
 Expect (Test-Path (Join-Path $app 'content')) 'уроки на месте'
 $setupJson = Get-Content (Join-Path $app 'setup.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 Expect ($setupJson.role -eq 'student' -and $setupJson.pc -eq 'ПК-05') "setup.json: $($setupJson | ConvertTo-Json -Compress)"
-Expect ((Autostart) -eq "`"$app\Sinf.exe`"") "запуск с Windows для всех: $(Autostart)"
+Expect (-not (Autostart)) 'без /AUTOSTART с Windows не запускается'
+Expect (Test-Path (Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'Sinf.lnk')) 'значок на рабочем столе — открывать вручную'
 Expect (Rule 'Sinf') 'брандмауэр пускает Sinf.exe'
 Expect (-not (Rule 'Sinf server')) 'сервер урока на ПК ученика не открыт'
 Expect (Test-Path (Join-Path $app 'Sinf.Updater.exe')) 'программа обновления на месте'
@@ -87,6 +89,12 @@ Expect (Task 'Sinf\Update at start') 'задача обновления посл
 $status = & (Join-Path $app 'Sinf.Updater.exe') --status | Out-String
 Write-Host "  Sinf.Updater --status: $($status.Trim())"
 Expect ($status -match 'installed 0\.') 'программа обновления видит установленную версию'
+
+Write-Host '1б. Тот же компьютер ученика с /AUTOSTART=1, затем обновление поверх'
+Install @('/ROLE=student', '/PC=ПК-05', '/AUTOSTART=1') 'student-autostart.log'
+Expect ((Autostart) -eq "`"$app\Sinf.exe`"") "запуск с Windows для всех: $(Autostart)"
+Install @('/UPDATE=1') 'student-update.log'
+Expect ((Autostart) -eq "`"$app\Sinf.exe`"") 'обновление сохранило запуск с Windows'
 
 Write-Host '2. Тот же компьютер — учителя'
 Install @('/ROLE=teacher') 'teacher.log'

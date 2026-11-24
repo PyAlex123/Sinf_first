@@ -3,15 +3,18 @@
 ; Puts the Windows package (tools/package-windows.ps1 → out\Sinf) into Program Files, so one
 ; flash drive sets up a whole computer room:
 ;
-;   Sinf-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05
+;   Sinf-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05 /AUTOSTART=1
 ;   Sinf-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=teacher
 ;
 ; - /ROLE and /PC are written to {app}\setup.json; Sinf reads it at the first start of each Windows
 ;   user and skips the role window (apps/desktop-core/SetupFile.cs). Without them the wizard asks
 ;   and a silent install leaves the question to Sinf — unless Sinf was installed here before: then
 ;   the role and the name of that install are kept (an update, B6).
-; - A student computer starts Sinf with Windows for every user (HKLM Run): the "Ученик" account
-;   the kiosk runs under is not the administrator who installs.
+; - A student computer starts Sinf with Windows for every user (HKLM Run) only when asked: the
+;   wizard's checkbox or /AUTOSTART=1, off by default. The author's laptop, set up as a student's
+;   computer to try the kiosk, opened the kiosk at every start of Windows and had to be rescued in
+;   Safe Mode (test finding 5). An update keeps the choice. With the agent Sinf is the student
+;   account's shell anyway.
 ; - WebView2 Runtime is installed from the bundled offline installer when it is missing (CLAUDE.md
 ;   §3.2): school internet is not to be relied on.
 ; - The firewall lets Sinf in (and on the teacher's computer its lesson server), so Windows asks no
@@ -86,7 +89,7 @@ ru.RoleTitle=Что это за компьютер?
 ru.RoleSubtitle=Один и тот же Sinf ставится на компьютер учителя и на компьютеры учеников.
 ru.RolePrompt=Выберите роль этого компьютера в кабинете:
 ru.RoleTeacher=Компьютер учителя — пульт урока и сервер класса
-ru.RoleStudent=Компьютер ученика — закрытая среда (киоск), запускается вместе с Windows
+ru.RoleStudent=Компьютер ученика — экран ученика на весь экран (киоск)
 ru.RoleNeeded=Выберите роль компьютера.
 ru.PcTitle=Имя компьютера
 ru.PcSubtitle=Так компьютер будет называться в рассадке и на плитках учителя.
@@ -96,9 +99,10 @@ ru.PcNeeded=Введите имя компьютера, не больше 20 з�
 ru.WebView2=Устанавливается среда WebView2…
 ru.Firewall=Настраивается брандмауэр Windows…
 ru.LaunchSinf=Открыть Sinf
-ru.AgentTitle=Закрытая среда
-ru.AgentSubtitle=Агент Sinf превращает компьютер ученика в киоск на уровне Windows.
-ru.AgentPrompt=Агент создаёт учётку «Ученик» с автовходом, ставит Sinf вместо рабочего стола, отключает диспетчер задач и смену пользователя и поднимает Sinf, если его закрыть. Отключается командой «Sinf.Agent.exe disable» или удалением Sinf. Первый раз включите его на запасном компьютере.
+ru.AgentTitle=Запуск и закрытая среда
+ru.AgentSubtitle=Как Sinf открывается на компьютере ученика.
+ru.AgentPrompt=Без галочек Sinf открывают из меню «Пуск» или с рабочего стола. «Запускать при входе в Windows» — для компьютеров класса. Агент создаёт учётку «Ученик» с автовходом, ставит Sinf вместо рабочего стола, отключает диспетчер задач и смену пользователя и поднимает Sinf, если его закрыть; отключается командой «Sinf.Agent.exe disable» или удалением Sinf. Первый раз включайте агент на запасном компьютере, не на своём.
+ru.AutostartCheck=Запускать Sinf при входе в Windows
 ru.AgentCheck=Включить закрытую среду (агент)
 ru.AgentOn=Включается закрытая среда…
 
@@ -112,13 +116,13 @@ Source: "{#WebView2Installer}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Che
 
 [Icons]
 Name: "{autoprograms}\Sinf"; Filename: "{app}\Sinf.exe"
-; Only the teacher opens Sinf by hand; a student computer opens it with Windows.
-Name: "{autodesktop}\Sinf"; Filename: "{app}\Sinf.exe"; Check: IsTeacher
+; Whoever opens Sinf by hand gets a desktop icon: the teacher, and a student computer without autostart.
+Name: "{autodesktop}\Sinf"; Filename: "{app}\Sinf.exe"; Check: OpensByHand
 
 [Registry]
-Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Sinf"; ValueData: """{app}\Sinf.exe"""; Flags: uninsdeletevalue; Check: IsStudent
-; Installed again as a teacher's computer: it no longer starts with Windows.
-Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "Sinf"; Flags: deletevalue; Check: IsTeacher
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Sinf"; ValueData: """{app}\Sinf.exe"""; Flags: uninsdeletevalue; Check: WantsAutostart
+; Installed again without it (or as the teacher's computer): it no longer starts with Windows.
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "Sinf"; Flags: deletevalue; Check: OpensByHand
 
 [Run]
 #ifexist WebView2Installer
@@ -143,6 +147,7 @@ Type: filesandordirs; Name: "{app}\updates"
 var
   RolePage: TInputOptionWizardPage;
   PcPage: TInputQueryWizardPage;
+  { The student computer's start: [0] — with Windows, [1] — the agent (B7). }
   AgentPage: TInputOptionWizardPage;
   { Was the agent's service here before this install? 0 — not asked yet, 1 — yes, 2 — no. }
   AgentBefore: Integer;
@@ -262,7 +267,44 @@ begin
   else if WizardSilent or (AgentPage = nil) then
     Result := AgentParam = '1'
   else
+    Result := AgentPage.Values[1];
+end;
+
+{ With Windows (finding 5): /AUTOSTART=1 or 0 when given; else what this computer had before (an
+  update keeps it; an install from before the choice existed had it on); else off. }
+function AutostartParam: String;
+var
+  Command: String;
+begin
+  Result := Trim(ExpandConstant('{param:AUTOSTART|}'));
+  if (Result = '1') or (Result = '0') then
+    Exit;
+  Result := GetPreviousData('Autostart', '');
+  if (Result = '1') or (Result = '0') then
+    Exit;
+  Result := InstalledSetupValue('autostart');
+  if (Result = '1') or (Result = '0') then
+    Exit;
+  if RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Sinf', Command)
+    and (Command <> '') then
+    Result := '1'
+  else
+    Result := '0';
+end;
+
+function WantsAutostart: Boolean;
+begin
+  if not IsStudent then
+    Result := False
+  else if WizardSilent or (AgentPage = nil) then
+    Result := AutostartParam = '1'
+  else
     Result := AgentPage.Values[0];
+end;
+
+function OpensByHand: Boolean;
+begin
+  Result := not WantsAutostart;
 end;
 
 procedure RunAgent(const Command: String);
@@ -297,6 +339,10 @@ begin
     SetPreviousData(PreviousDataKey, 'Agent', '1')
   else
     SetPreviousData(PreviousDataKey, 'Agent', '0');
+  if WantsAutostart then
+    SetPreviousData(PreviousDataKey, 'Autostart', '1')
+  else
+    SetPreviousData(PreviousDataKey, 'Autostart', '0');
 end;
 
 { The updater's tasks (B6): as SYSTEM, every 30 minutes and 5 minutes after Windows starts. Made
@@ -343,8 +389,10 @@ begin
 
   AgentPage := CreateInputOptionPage(PcPage.ID, CustomMessage('AgentTitle'),
     CustomMessage('AgentSubtitle'), CustomMessage('AgentPrompt'), False, False);
+  AgentPage.Add(CustomMessage('AutostartCheck'));
   AgentPage.Add(CustomMessage('AgentCheck'));
-  AgentPage.Values[0] := AgentParam = '1';
+  AgentPage.Values[0] := AutostartParam = '1';
+  AgentPage.Values[1] := AgentParam = '1';
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
@@ -453,8 +501,10 @@ begin
     Exit;
   end;
   SetArrayLength(Lines, 1);
-  if Role = 'student' then
-    Lines[0] := '{"role":"student","pc":"' + JsonText(ChosenPc) + '"}'
+  if (Role = 'student') and WantsAutostart then
+    Lines[0] := '{"role":"student","pc":"' + JsonText(ChosenPc) + '","autostart":"1"}'
+  else if Role = 'student' then
+    Lines[0] := '{"role":"student","pc":"' + JsonText(ChosenPc) + '","autostart":"0"}'
   else
     Lines[0] := '{"role":"teacher"}';
   SaveStringsToUTF8File(ExpandConstant('{app}\setup.json'), Lines, False);
