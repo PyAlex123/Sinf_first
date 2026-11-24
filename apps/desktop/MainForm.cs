@@ -36,6 +36,28 @@ internal sealed class MainForm : Form
         ForeColor = BarColor,
     };
 
+    // When the start fails, the reason is on the screen: the end of the server's log, where it is
+    // kept, and a second try. The author once had to dig the log out of AppData (pc-test.md 8.3).
+    private readonly Panel failurePanel = new()
+    {
+        Dock = DockStyle.Bottom,
+        Height = 280,
+        Padding = new Padding(32, 0, 32, 24),
+        Visible = false,
+    };
+    private readonly TextBox failureLog = new()
+    {
+        Dock = DockStyle.Fill,
+        Multiline = true,
+        ReadOnly = true,
+        ScrollBars = ScrollBars.Vertical,
+        BorderStyle = BorderStyle.FixedSingle,
+        BackColor = Color.FromArgb(246, 247, 249),
+        ForeColor = Color.FromArgb(19, 35, 58),
+    };
+    private readonly Button openLogButton = new() { Text = "Открыть журнал", AutoSize = true };
+    private readonly Button retryButton = new() { Text = "Повторить", AutoSize = true };
+
     private HostConfig config;
     private readonly Platform platform;
     private ServerProcess? server;
@@ -70,8 +92,10 @@ internal sealed class MainForm : Form
         }
 
         BuildBar();
+        BuildFailurePanel();
         Controls.Add(view);
         Controls.Add(splash);
+        Controls.Add(failurePanel);
         Controls.Add(bar);
         bar.Visible = false;
     }
@@ -119,6 +143,43 @@ internal sealed class MainForm : Form
         bar.Controls.Add(right);
     }
 
+    private void BuildFailurePanel()
+    {
+        failureLog.Font = new Font("Consolas", 9.75f);
+        var buttons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            Padding = new Padding(0, 0, 0, 8),
+            WrapContents = false,
+        };
+        foreach (var button in new[] { retryButton, openLogButton })
+        {
+            button.FlatStyle = FlatStyle.Flat;
+            button.BackColor = Color.White;
+            button.Padding = new Padding(10, 4, 10, 4);
+            button.Margin = new Padding(0, 0, 8, 0);
+            buttons.Controls.Add(button);
+        }
+
+        openLogButton.Click += (_, _) => OpenLog();
+        retryButton.Click += async (_, _) => await StartAsync().ConfigureAwait(true);
+        failurePanel.Controls.Add(failureLog);
+        failurePanel.Controls.Add(buttons);
+    }
+
+    private void OpenLog()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(paths.LogFile) { UseShellExecute = true })?.Dispose();
+        }
+        catch (Exception error) when (error is System.ComponentModel.Win32Exception or IOException)
+        {
+            failureLog.AppendText($"{Environment.NewLine}Не удалось открыть журнал: {error.Message}");
+        }
+    }
+
     protected override async void OnShown(EventArgs e)
     {
         base.OnShown(e);
@@ -127,6 +188,8 @@ internal sealed class MainForm : Form
 
     private async Task StartAsync()
     {
+        failurePanel.Visible = false;
+        splash.Font = new Font("Segoe UI", 14f);
         splash.Text = "Запускаем Sinf…";
         splash.Visible = true;
         view.Visible = false;
@@ -145,7 +208,8 @@ internal sealed class MainForm : Form
         }
         catch (Exception error)
         {
-            ShowFailure(error.Message);
+            // Nothing is running yet, so a second try starts from scratch.
+            ShowFailure(error.Message, (error as ServerStartException)?.LogTail, canRetry: true);
             return;
         }
 
@@ -489,12 +553,19 @@ internal sealed class MainForm : Form
         }
     }
 
-    private void ShowFailure(string message)
+    private void ShowFailure(string message, string? logTail = null, bool canRetry = false)
     {
         splash.Visible = true;
         view.Visible = false;
-        splash.Text = $"{message}\n\nЖурнал: {paths.LogFile}";
-        splash.Font = new Font("Segoe UI", 11f);
+        splash.Text = message;
+        splash.Font = new Font("Segoe UI", 12f);
+        var nl = Environment.NewLine;
+        failureLog.Text = string.IsNullOrWhiteSpace(logTail)
+            ? $"Журнал: {paths.LogFile}"
+            : $"Конец журнала ({paths.LogFile}):{nl}{nl}{logTail}";
+        retryButton.Visible = canRetry;
+        openLogButton.Enabled = File.Exists(paths.LogFile);
+        failurePanel.Visible = true;
     }
 
     private void OfferRuntimeInstall()
