@@ -134,10 +134,21 @@ internal sealed class AgentService : ServiceBase
         }
     }
 
-    /// <summary>The exit password hashes the student computer's Sinf keeps (H3), from every profile.</summary>
+    /// <summary>
+    /// The exit password hashes the student computer's Sinf keeps (H3), from every profile, and the
+    /// installer's one (finding 4): the same passwords that open the kiosk buy maintenance time.
+    /// </summary>
     private static IReadOnlyList<string> ExitHashes()
     {
         var hashes = new List<string>();
+        using (var machine = Registry.LocalMachine.OpenSubKey(KioskPasswords.MachineKey))
+        {
+            if (machine?.GetValue(KioskPasswords.MachineValue) is string installed && ExitPassword.IsWellFormed(installed))
+            {
+                hashes.Add(installed);
+            }
+        }
+
         using var profiles = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList");
         foreach (var sid in profiles?.GetSubKeyNames() ?? [])
         {

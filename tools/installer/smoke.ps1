@@ -7,7 +7,8 @@
   that is not as it should be:
     1. a student computer, silently: files, setup.json with the role and the name, no start with
        Windows unless asked (finding 5), then with /AUTOSTART=1 — for every user, and kept by an
-       update; the firewall rule for Sinf.exe and none for the server;
+       update; the exit password's hash in HKLM, which users may read and not change (finding 4);
+       the firewall rule for Sinf.exe and none for the server;
     2. the same computer again as the teacher's: setup.json says teacher, no start with Windows, the
        server is let through the firewall too, and the installed server really starts
        (`Sinf.exe --selftest`, as the teacher's window starts it — pc-test.md 8.3);
@@ -91,8 +92,17 @@ Write-Host "  Sinf.Updater --status: $($status.Trim())"
 Expect ($status -match 'installed 0\.') 'программа обновления видит установленную версию'
 
 Write-Host '1б. Тот же компьютер ученика с /AUTOSTART=1, затем обновление поверх'
-Install @('/ROLE=student', '/PC=ПК-05', '/AUTOSTART=1') 'student-autostart.log'
+Install @('/ROLE=student', '/PC=ПК-05', '/AUTOSTART=1', '/EXITPASSWORD=smoke-exit-123') 'student-autostart.log'
 Expect ((Autostart) -eq "`"$app\Sinf.exe`"") "запуск с Windows для всех: $(Autostart)"
+$exitHash = (Get-ItemProperty -Path 'HKLM:\SOFTWARE\Sinf' -ErrorAction SilentlyContinue).ExitPasswordHash
+Expect ($exitHash -like 'pbkdf2-sha256$*') 'пароль выхода сохранён хэшем в HKLM\SOFTWARE\Sinf'
+Expect (-not ($exitHash -match 'smoke-exit-123')) 'самого пароля там нет'
+$writers = (Get-Acl 'HKLM:\SOFTWARE\Sinf').Access | Where-Object {
+    $_.AccessControlType -eq 'Allow' -and $_.IdentityReference -match 'Users|Пользователи|Everyone' -and
+    # SetValue | CreateSubKey only: WriteKey would also match the read-permissions bit every reader has.
+    ([int]$_.RegistryRights -band 6)
+}
+Expect (-not $writers) 'пользователи не могут менять пароль выхода'
 Install @('/UPDATE=1') 'student-update.log'
 Expect ((Autostart) -eq "`"$app\Sinf.exe`"") 'обновление сохранило запуск с Windows'
 
@@ -129,6 +139,7 @@ Expect (-not (Rule 'Sinf')) 'правила Sinf нет'
 Expect (-not (Rule 'Sinf server')) 'правила сервера нет'
 Expect (-not (Task 'Sinf\Update')) 'задачи обновления нет'
 Expect (-not (Task 'Sinf\Update at start')) 'задачи обновления при запуске нет'
+Expect (-not (Test-Path 'HKLM:\SOFTWARE\Sinf')) 'пароля выхода в реестре нет'
 Write-Host 'Установщик в порядке.'
 # The last netsh said "no such rule" with exit code 1, as it should: that is not the script's result.
 exit 0

@@ -37,6 +37,10 @@ public static class ExitPassword
         return CryptographicOperations.FixedTimeEquals(actual, expected);
     }
 
+    /// <summary>True when the password matches any of the hashes.</summary>
+    public static bool VerifyAny(string? password, IReadOnlyCollection<string> stored) =>
+        stored.Any(hash => Verify(password, hash));
+
     /// <summary>Does this look like a hash we made? Anything else from the network is ignored.</summary>
     public static bool IsWellFormed(string? stored) => TryParse(stored, out _, out _, out _);
 
@@ -91,14 +95,18 @@ public sealed class ExitGate
         lockedUntil is { } until && until > now ? until - now : TimeSpan.Zero;
 
     /// <summary>Checks a password, counting failures. False also while locked.</summary>
-    public bool TryOpen(string? password, string? stored, DateTimeOffset now)
+    public bool TryOpen(string? password, string? stored, DateTimeOffset now) =>
+        TryOpen(password, stored is null ? [] : [stored], now);
+
+    /// <summary>The same against several passwords, any of which opens (<see cref="KioskPasswords"/>).</summary>
+    public bool TryOpen(string? password, IReadOnlyCollection<string> stored, DateTimeOffset now)
     {
         if (Wait(now) > TimeSpan.Zero)
         {
             return false;
         }
 
-        if (ExitPassword.Verify(password, stored))
+        if (ExitPassword.VerifyAny(password, stored))
         {
             failures = 0;
             lockedUntil = null;
@@ -114,4 +122,29 @@ public sealed class ExitGate
 
         return false;
     }
+}
+
+/// <summary>
+/// The passwords that let a person out of a student's kiosk: the room's password the teacher's
+/// computer hands out (H3) and the one given to the installer (test finding 4: until the computer
+/// met its teacher, it knew none and let anyone out). Either opens. With neither the computer is
+/// still being set up, and the way out asks for nothing.
+/// </summary>
+public static class KioskPasswords
+{
+    /// <summary>Where the installer's password is kept: HKLM, which only administrators may change.</summary>
+    public const string MachineKey = @"SOFTWARE\Sinf";
+
+    public const string MachineValue = "ExitPasswordHash";
+
+    /// <summary>The installer hands the password to <c>Sinf.exe --set-exit-password</c> in this variable,
+    /// never on the command line.</summary>
+    public const string InstallerVariable = "SINF_EXIT_PASSWORD";
+
+    public static IReadOnlyList<string> From(string? teacherHash, string? machineHash) =>
+        new[] { teacherHash, machineHash }
+            .Where(ExitPassword.IsWellFormed)
+            .Select(hash => hash!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
 }

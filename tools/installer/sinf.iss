@@ -4,6 +4,7 @@
 ; flash drive sets up a whole computer room:
 ;
 ;   Sinf-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05 /AUTOSTART=1
+;     [/EXITPASSWORD=…]
 ;   Sinf-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=teacher
 ;
 ; - /ROLE and /PC are written to {app}\setup.json; Sinf reads it at the first start of each Windows
@@ -15,6 +16,11 @@
 ;   computer to try the kiosk, opened the kiosk at every start of Windows and had to be rescued in
 ;   Safe Mode (test finding 5). An update keeps the choice. With the agent Sinf is the student
 ;   account's shell anyway.
+; - The wizard asks a student computer for its exit password (finding 4): until the computer meets
+;   its teacher, whose room password it then also accepts (H3), the kiosk let anyone out. Sinf.exe
+;   --set-exit-password keeps only its hash in HKLM\SOFTWARE\Sinf, where only administrators write;
+;   the password travels in an environment variable, never on a command line. /EXITPASSWORD= does the
+;   same silently, but Inno Setup writes the command line into its /LOG file.
 ; - WebView2 Runtime is installed from the bundled offline installer when it is missing (CLAUDE.md
 ;   §3.2): school internet is not to be relied on.
 ; - The firewall lets Sinf in (and on the teacher's computer its lesson server), so Windows asks no
@@ -103,6 +109,14 @@ ru.AgentTitle=Запуск и закрытая среда
 ru.AgentSubtitle=Как Sinf открывается на компьютере ученика.
 ru.AgentPrompt=Без галочек Sinf открывают из меню «Пуск» или с рабочего стола. «Запускать при входе в Windows» — для компьютеров класса. Агент создаёт учётку «Ученик» с автовходом, ставит Sinf вместо рабочего стола, отключает диспетчер задач и смену пользователя и поднимает Sinf, если его закрыть; отключается командой «Sinf.Agent.exe disable» или удалением Sinf. Первый раз включайте агент на запасном компьютере, не на своём.
 ru.AutostartCheck=Запускать Sinf при входе в Windows
+ru.ExitTitle=Пароль выхода
+ru.ExitSubtitle=Этим паролем выходят из Sinf на этом компьютере.
+ru.ExitPrompt=Кнопка «Выход» на экране ученика и сочетание Ctrl+Alt+Shift+F12 спрашивают этот пароль. Пароль учеников, заданный на компьютере учителя, тоже подойдёт, когда этот компьютер найдёт учителя. Не короче 8 знаков.
+ru.ExitKeep=Пароль уже задан. Оставьте поля пустыми, чтобы не менять его.
+ru.ExitLabel=Пароль:
+ru.ExitAgain=Ещё раз:
+ru.ExitNeeded=Задайте пароль выхода, не короче 8 знаков.
+ru.ExitMismatch=Пароли не совпадают.
 ru.AgentCheck=Включить закрытую среду (агент)
 ru.AgentOn=Включается закрытая среда…
 
@@ -120,6 +134,8 @@ Name: "{autoprograms}\Sinf"; Filename: "{app}\Sinf.exe"
 Name: "{autodesktop}\Sinf"; Filename: "{app}\Sinf.exe"; Check: OpensByHand
 
 [Registry]
+; The exit password's hash lives here (finding 4) and goes with the program.
+Root: HKLM; Subkey: "Software\Sinf"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Sinf"; ValueData: """{app}\Sinf.exe"""; Flags: uninsdeletevalue; Check: WantsAutostart
 ; Installed again without it (or as the teacher's computer): it no longer starts with Windows.
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "Sinf"; Flags: deletevalue; Check: OpensByHand
@@ -147,6 +163,7 @@ Type: filesandordirs; Name: "{app}\updates"
 var
   RolePage: TInputOptionWizardPage;
   PcPage: TInputQueryWizardPage;
+  ExitPage: TInputQueryWizardPage;
   { The student computer's start: [0] — with Windows, [1] — the agent (B7). }
   AgentPage: TInputOptionWizardPage;
   { Was the agent's service here before this install? 0 — not asked yet, 1 — yes, 2 — no. }
@@ -307,6 +324,38 @@ begin
   Result := not WantsAutostart;
 end;
 
+function SetEnvironmentVariable(lpName: String; lpValue: String): Boolean;
+  external 'SetEnvironmentVariableW@kernel32.dll stdcall';
+
+{ An exit password from an earlier install (finding 4): then the wizard may leave it as it is. }
+function HasExitPassword: Boolean;
+begin
+  Result := RegValueExists(HKLM, 'Software\Sinf', 'ExitPasswordHash');
+end;
+
+function ChosenExitPassword: String;
+begin
+  if WizardSilent or (ExitPage = nil) then
+    Result := ExpandConstant('{param:EXITPASSWORD|}')
+  else
+    Result := ExitPage.Values[0];
+end;
+
+{ Only the hash is kept, by Sinf itself; the password reaches it in an environment variable. }
+procedure SaveExitPassword;
+var
+  Password: String;
+  Code: Integer;
+begin
+  Password := ChosenExitPassword;
+  if (not IsStudent) or (Password = '') then
+    Exit;
+  SetEnvironmentVariable('SINF_EXIT_PASSWORD', Password);
+  Exec(ExpandConstant('{app}\Sinf.exe'), '--set-exit-password', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  SetEnvironmentVariable('SINF_EXIT_PASSWORD', '');
+  Log('Sinf.exe --set-exit-password: ' + IntToStr(Code));
+end;
+
 procedure RunAgent(const Command: String);
 var
   Code: Integer;
@@ -387,7 +436,14 @@ begin
   PcPage.Add(CustomMessage('PcLabel'), False);
   PcPage.Values[0] := PcParam;
 
-  AgentPage := CreateInputOptionPage(PcPage.ID, CustomMessage('AgentTitle'),
+  ExitPage := CreateInputQueryPage(PcPage.ID, CustomMessage('ExitTitle'),
+    CustomMessage('ExitSubtitle'), CustomMessage('ExitPrompt'));
+  ExitPage.Add(CustomMessage('ExitLabel'), True);
+  ExitPage.Add(CustomMessage('ExitAgain'), True);
+  if HasExitPassword then
+    ExitPage.SubCaptionLabel.Caption := CustomMessage('ExitPrompt') + #13#10#13#10 + CustomMessage('ExitKeep');
+
+  AgentPage := CreateInputOptionPage(ExitPage.ID, CustomMessage('AgentTitle'),
     CustomMessage('AgentSubtitle'), CustomMessage('AgentPrompt'), False, False);
   AgentPage.Add(CustomMessage('AutostartCheck'));
   AgentPage.Add(CustomMessage('AgentCheck'));
@@ -398,6 +454,7 @@ end;
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := ((PcPage <> nil) and (PageID = PcPage.ID) and (RolePage.SelectedValueIndex <> 1))
+    or ((ExitPage <> nil) and (PageID = ExitPage.ID) and (RolePage.SelectedValueIndex <> 1))
     or ((AgentPage <> nil) and (PageID = AgentPage.ID) and (RolePage.SelectedValueIndex <> 1));
 end;
 
@@ -417,6 +474,21 @@ begin
     if (Pc = '') or (Length(Pc) > 20) then
     begin
       MsgBox(CustomMessage('PcNeeded'), mbError, MB_OK);
+      Result := False;
+    end;
+  end;
+  if (ExitPage <> nil) and (CurPageID = ExitPage.ID) then
+  begin
+    if (ExitPage.Values[0] = '') and (ExitPage.Values[1] = '') and HasExitPassword then
+      Exit;
+    if Length(ExitPage.Values[0]) < 8 then
+    begin
+      MsgBox(CustomMessage('ExitNeeded'), mbError, MB_OK);
+      Result := False;
+    end
+    else if ExitPage.Values[0] <> ExitPage.Values[1] then
+    begin
+      MsgBox(CustomMessage('ExitMismatch'), mbError, MB_OK);
       Result := False;
     end;
   end;
@@ -485,6 +557,7 @@ begin
   if CurStep <> ssPostInstall then
     Exit;
   CreateUpdateTasks;
+  SaveExitPassword;
   { The agent (B7): on when wanted — again after an update, which keeps the choice; off when not. }
   if WantsAgent then
   begin

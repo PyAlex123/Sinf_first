@@ -49,6 +49,8 @@ internal sealed class StudentForm : Form
         ForeColor = Color.Gainsboro,
     };
     private readonly Button manual = new() { Text = "Ввести адрес вручную", AutoSize = true };
+    /// <summary>The way out anyone can see (finding 4): it asks for the password, as the key combination does.</summary>
+    private readonly Button exitButton = new() { Text = "Выход", AutoSize = false, Size = new Size(200, 60) };
     private readonly System.Windows.Forms.Timer watch = new();
 
     private readonly bool dev;
@@ -174,10 +176,24 @@ internal sealed class StudentForm : Form
             Text = config.PcName ?? string.Empty,
         };
 
+        exitButton.FlatStyle = FlatStyle.Flat;
+        exitButton.BackColor = Color.White;
+        exitButton.ForeColor = Dark;
+        exitButton.Font = new Font("Segoe UI", 15f, FontStyle.Bold);
+        exitButton.Click += (_, _) => AskPassword();
+        var exitBar = new Panel { Dock = DockStyle.Bottom, Height = 96 };
+        exitBar.Controls.Add(exitButton);
+        exitBar.Resize += (_, _) =>
+        {
+            exitButton.Left = exitBar.Width - exitButton.Width - 32;
+            exitButton.Top = (exitBar.Height - exitButton.Height) / 2;
+        };
+
         waiting.Controls.Add(bottom);
         waiting.Controls.Add(status);
         waiting.Controls.Add(title);
         waiting.Controls.Add(name);
+        waiting.Controls.Add(exitBar);
         Controls.Add(view);
         Controls.Add(waiting);
 
@@ -869,8 +885,9 @@ internal sealed class StudentForm : Form
     }
 
     /// <summary>
-    /// Ctrl+Alt+Shift+F12 (H3, author's choice). Until this computer has met the teacher's, it knows no
-    /// password: that is setup time, the kiosk guards nothing yet, and the combination simply lets out.
+    /// Ctrl+Alt+Shift+F12 (H3, author's choice) or the "Выход" button of the waiting screen (finding 4).
+    /// The room's password from the teacher's computer and the installer's both open. With neither
+    /// this computer is still being set up: the kiosk guards nothing yet and lets out without asking.
     /// </summary>
     private void AskPassword()
     {
@@ -879,14 +896,15 @@ internal sealed class StudentForm : Form
             return;
         }
 
-        if (!config.HasExitPassword)
+        var hashes = MachinePassword.KioskHashes(config);
+        if (hashes.Count == 0)
         {
             AgentPipe.Maintenance(string.Empty);
             LeaveKiosk();
             return;
         }
 
-        using var dialog = new ExitPasswordDialog(config.ExitPasswordHash!, offerSetup: true, "Выход из режима ученика.");
+        using var dialog = new ExitPasswordDialog(hashes, offerSetup: true, "Выход из режима ученика.");
         // Under "Attention!" the administrator still has to type and click.
         SetLock(false);
         dialogOpen = true;

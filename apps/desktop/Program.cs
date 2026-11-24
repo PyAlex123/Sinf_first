@@ -32,6 +32,13 @@ internal static class Program
             return;
         }
 
+        // The installer's exit password for the student kiosk (finding 4); needs an administrator.
+        if (HasFlag(args, MachinePassword.Flag))
+        {
+            Environment.ExitCode = MachinePassword.SetFromEnvironment();
+            return;
+        }
+
         using var running = new Mutex(initiallyOwned: true, MutexName, out var first);
         if (!first && !WaitForPrevious(running, HasFlag(args, "--restart")))
         {
@@ -59,10 +66,10 @@ internal static class Program
             HostConfig.Save(paths, config);
         }
 
-        if (config.IsStudent && config.HasExitPassword && (setup || dev))
+        if (config.IsStudent && (setup || dev) && MachinePassword.KioskHashes(config) is { Count: > 0 } hashes)
         {
             using var check = new ExitPasswordDialog(
-                config.ExitPasswordHash!,
+                hashes,
                 offerSetup: false,
                 setup ? "Смена настроек этого компьютера." : "Режим разработки: окно без киоска.");
             if (check.ShowDialog() != DialogResult.OK)
