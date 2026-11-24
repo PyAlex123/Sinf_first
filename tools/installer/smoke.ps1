@@ -8,8 +8,10 @@
     1. a student computer, silently: files, setup.json with the role and the name, start with
        Windows for every user, the firewall rule for Sinf.exe and none for the server;
     2. the same computer again as the teacher's: setup.json says teacher, no start with Windows, the
-       server is let through the firewall too;
-    3. an update over it (no /ROLE, as the updater runs it, B6): still the teacher's computer;
+       server is let through the firewall too, and the installed server really starts
+       (`Sinf.exe --selftest`, as the teacher's window starts it — pc-test.md 8.3);
+    3. an update over it (no /ROLE, as the updater runs it, B6): still the teacher's computer, and
+       the server still starts;
     4. removal: no program, no start with Windows, no firewall rules, no update tasks.
 
 .PARAMETER Setup
@@ -53,6 +55,22 @@ function Expect([bool]$Ok, [string]$What) {
     Write-Host "  ok: $What"
 }
 
+# The installed program's own server, started the way the teacher's window starts it. The build folder
+# can be fine while Program Files is not (pc-test.md 8.3): only this run shows it.
+function SelfTest([string]$When) {
+    $p = Start-Process -FilePath (Join-Path $app 'Sinf.exe') -ArgumentList '--selftest' -Wait -PassThru
+    $logDir = Join-Path $env:LOCALAPPDATA 'Sinf\logs'
+    $result = Join-Path $logDir 'selftest.log'
+    if ($p.ExitCode -ne 0) {
+        foreach ($file in @($result, (Join-Path $logDir 'server.log'))) {
+            Write-Host "--- $file"
+            if (Test-Path $file) { Get-Content $file -Raw -Encoding UTF8 } else { Write-Host '(файла нет)' }
+        }
+    }
+    $said = if (Test-Path $result) { (Get-Content $result -Raw -Encoding UTF8).Trim() } else { 'нет итога' }
+    Expect ($p.ExitCode -eq 0) "сервер установленной программы отвечает ($When): $said"
+}
+
 Write-Host '1. Компьютер ученика, тихо'
 Install @('/ROLE=student', '/PC=ПК-05') 'student.log'
 Expect (Test-Path (Join-Path $app 'Sinf.exe')) 'Sinf.exe на месте'
@@ -77,6 +95,7 @@ Expect ($setupJson.role -eq 'teacher') 'setup.json: учитель'
 Expect (-not (Autostart)) 'с Windows больше не запускается'
 Expect (Rule 'Sinf') 'брандмауэр пускает Sinf.exe'
 Expect (Rule 'Sinf server') 'брандмауэр пускает сервер урока'
+SelfTest 'после установки'
 
 Write-Host '3. Обновление поверх, без /ROLE (так его запускает программа обновления)'
 Install @('/UPDATE=1') 'update.log'
@@ -84,6 +103,7 @@ $setupJson = Get-Content (Join-Path $app 'setup.json') -Raw -Encoding UTF8 | Con
 Expect ($setupJson.role -eq 'teacher') 'роль компьютера сохранилась: учитель'
 Expect (-not (Autostart)) 'с Windows по-прежнему не запускается'
 Expect (Task 'Sinf\Update') 'задача обновления на месте'
+SelfTest 'после обновления'
 
 Write-Host '4. Удаление'
 $uninstaller = Join-Path $app 'unins000.exe'

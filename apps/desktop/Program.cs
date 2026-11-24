@@ -24,6 +24,14 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
+        // The installer test (pc-test.md 8.3): the server of the installed program, started as the
+        // window starts it, with no window and no kiosk.
+        if (HasFlag(args, SelfTest.Flag))
+        {
+            Environment.ExitCode = SelfTest.Run();
+            return;
+        }
+
         using var running = new Mutex(initiallyOwned: true, MutexName, out var first);
         if (!first && !WaitForPrevious(running, HasFlag(args, "--restart")))
         {
