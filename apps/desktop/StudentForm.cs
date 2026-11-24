@@ -81,6 +81,8 @@ internal sealed class StudentForm : Form
     private readonly System.Windows.Forms.Timer closeDeadline = new();
     private readonly AccessibilityGuard? accessibility;
     private readonly System.Windows.Forms.Timer focusBack = new();
+    /// <summary>The kiosk stepped behind Task Manager (finding 3) and goes on top again once it closes.</summary>
+    private bool behindTaskManager;
 
     private string? teacherUrl;
     private readonly ActivityBeat beat;
@@ -125,8 +127,33 @@ internal sealed class StudentForm : Form
             focusBack.Tick += (_, _) =>
             {
                 focusBack.Stop();
+                if (dialogOpen || closeAllowed)
+                {
+                    return;
+                }
+
+                // Task Manager from Ctrl+Alt+Del (finding 3): the kiosk steps behind it and keeps
+                // looking until it is gone. With the agent a policy does not let it open at all.
+                if (AppLauncher.TaskManagerInFront())
+                {
+                    if (TopMost)
+                    {
+                        TopMost = false;
+                        behindTaskManager = true;
+                    }
+
+                    focusBack.Start();
+                    return;
+                }
+
+                if (behindTaskManager)
+                {
+                    behindTaskManager = false;
+                    TopMost = true;
+                }
+
                 // Paint of the practice may keep the focus (H6); nothing else may.
-                if (!dialogOpen && !closeAllowed && !(appMode && AppLauncher.OwnsForegroundWindow()))
+                if (!(appMode && AppLauncher.OwnsForegroundWindow()))
                 {
                     Activate();
                 }

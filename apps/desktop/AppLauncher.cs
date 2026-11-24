@@ -105,23 +105,33 @@ internal static class AppLauncher
     }
 
     /// <summary>Does this window belong to a practice program? Only those may take the focus from the lesson.</summary>
-    public static bool OwnsForegroundWindow()
+    public static bool OwnsForegroundWindow() =>
+        ForegroundProcessName() is { } name && AppCatalog.IsPracticeProcess(name);
+
+    /// <summary>
+    /// Windows' own Task Manager is in front (finding 3). Without the agent nothing forbids it, and the
+    /// kiosk must not take the focus from it; with the agent a policy does not let it open at all.
+    /// </summary>
+    public static bool TaskManagerInFront() =>
+        string.Equals(ForegroundProcessName(), "Taskmgr", StringComparison.OrdinalIgnoreCase);
+
+    private static string? ForegroundProcessName()
     {
         var window = GetForegroundWindow();
         if (window == IntPtr.Zero)
         {
-            return false;
+            return null;
         }
 
         GetWindowThreadProcessId(window, out var pid);
         try
         {
             using var process = Process.GetProcessById((int)pid);
-            return AppCatalog.IsPracticeProcess(process.ProcessName);
+            return process.ProcessName;
         }
-        catch (ArgumentException)
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
         {
-            return false;
+            return null;
         }
     }
 
