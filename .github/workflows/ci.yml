@@ -49,7 +49,7 @@ jobs:
           pnpm start > "$RUNNER_TEMP/server.log" 2>&1 &
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:3000/health && break; sleep 1; done
           curl -sf http://127.0.0.1:3000/health | grep -q '"ok"'
-          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf</title>'
+          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf'
           curl -sf http://127.0.0.1:3000/api/courses | grep -q 'g10'
           curl -sf -H 'content-type: application/json' \
             -d '{"email":"demo@sinf.local","password":"demo1234"}' \
@@ -77,7 +77,7 @@ jobs:
             sinf:ci
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:3000/health && break; sleep 1; done
           curl -sf http://127.0.0.1:3000/health | grep -q '"ok"'
-          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf</title>'
+          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf'
           curl -sf http://127.0.0.1:3000/api/courses | grep -q 'g10'
           echo "docker image works"
 
