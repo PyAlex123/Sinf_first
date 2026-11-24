@@ -64,8 +64,21 @@ if (Test-Path $updater) {
 Write-Host '2/5 server with production dependencies'
 # pnpm writes straight into the package: the folder must not exist yet, and nothing is copied afterwards.
 # `server/drizzle` holds the SQL migrations the server runs at startup and comes along through "files".
-pnpm --filter @sinf/server deploy --legacy --prod (Join-Path $Out 'server')
+#
+# The layout must be flat, npm-style (`node-linker=hoisted`): real folders, every dependency at the top
+# of node_modules. pnpm's own layout is a web of junctions into node_modules\.pnpm, and the installer
+# copies a junction as a plain folder: in Program Files each package then stands alone, without the
+# neighbours it imports, and the server dies at its first import ("Cannot find package 'htmlparser2'",
+# the author's test, pc-test.md 8.3). Injecting the workspace packages lets this deploy read the
+# shared lockfile, so the package carries exactly the versions the tests ran against.
+pnpm --config.inject-workspace-packages=true --config.node-linker=hoisted `
+    --filter @sinf/server deploy --prod (Join-Path $Out 'server')
 if ($LASTEXITCODE -ne 0) { throw 'pnpm deploy не справился' }
+$links = @(Get-ChildItem -Path (Join-Path $Out 'server') -Recurse -Force -Attributes ReparsePoint)
+if ($links.Count -gt 0) {
+    $links | Select-Object -First 5 | ForEach-Object { Write-Host "   ссылка: $($_.FullName)" }
+    throw "В комплекте сервера $($links.Count) ссылок: установщик скопирует их как отдельные папки, и сервер не запустится"
+}
 
 Write-Host "3/5 Node $NodeVersion"
 $nodeZip = Join-Path ([System.IO.Path]::GetTempPath()) "node-v$NodeVersion-win-x64.zip"
