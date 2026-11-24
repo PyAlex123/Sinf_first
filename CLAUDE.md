@@ -519,7 +519,7 @@ dotnet publish apps/agent/Sinf.Agent.csproj -c Release -r win-x64
 
 Тест на ПК после этапа 6 (сайт на ноутбуке, установка, урок онлайн и офлайн, обновление, агент) — `docs/pc-test.md`.
 
-Установщик (Inno Setup, ADR-018) собирается там же, после комплекта: `iscc tools/installer/sinf.iss` (артефакт `Sinf-setup-x64`); тихая установка — `Sinf-setup-….exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05` (или `/ROLE=teacher`). CI ставит, переставляет и удаляет его на раннере (`tools/installer/smoke.ps1`).
+Установщик (Inno Setup, ADR-018) собирается там же, после комплекта: `iscc tools/installer/sinf.iss` (артефакт `Sinf-setup-x64`); тихая установка — `Sinf-setup-….exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05` (или `/ROLE=teacher`). CI ставит, переставляет и удаляет его на раннере (`tools/installer/smoke.ps1`) и запускает сервер установленной программы так же, как окно учителя: `Sinf.exe --selftest` (код 0 — сервер ответил; итог — `%LOCALAPPDATA%\Sinf\logs\selftest.log`).
 
 Автообновление (ADR-023): CI собирает ещё `Sinf-update-…exe` (без WebView2) и, если есть секрет `SINF_UPDATE_KEY`, подписывает его (`tools/sign-update.mjs`, артефакт `Sinf-update-x64`); пара ключей — `node tools/update-key.mjs`, открытый ключ — переменная GitHub `SINF_UPDATE_PUBLIC_KEY` (вшивается в `apps/updater`). Суперадмин загружает обновление в `/admin`, ПК учителя копирует его с сайта, `Sinf.Updater.exe` (задача SYSTEM) ставит его вне урока; путь обновления проверяет `tools/installer/update-smoke.ps1`.
 
