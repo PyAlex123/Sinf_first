@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import WebSocket from 'ws';
 import { loginTeacher, TEACHER_PASSWORD, testApp, type TestApp } from './helpers.js';
 
 /**
@@ -87,5 +88,63 @@ describe('the teacher on the site', () => {
       remoteAddress: PUPIL,
     });
     expect(there.statusCode).toBe(200);
+  });
+});
+
+describe('the lock a classroom computer keeps', () => {
+  const HOST = 'host-token-0123456789abcdef';
+  const locked = (query: string, headers: Record<string, string>, remoteAddress?: string) =>
+    t!.app.inject({
+      method: 'GET',
+      url: `/api/join/room/locked${query}`,
+      headers,
+      ...(remoteAddress ? { remoteAddress } : {}),
+    });
+
+  it('is told only to Sinf on the teacher computer, and follows "Attention!"', async () => {
+    t = await testApp({ CLASSROOM_MODE: '1', HOST_TOKEN: HOST });
+    expect((await locked('?pc=ПК-05', {})).statusCode).toBe(404);
+    expect((await locked('?pc=ПК-05', { 'x-host-token': HOST }, PUPIL)).statusCode).toBe(404);
+    expect((await locked('?pc=ПК-05', { 'x-host-token': HOST })).json()).toEqual({
+      locked: false,
+    });
+
+    const cookie = await loginTeacher(t.app);
+    const started = await t.app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      headers: { cookie },
+      payload: { classId: 'class-1a', lessonId: 'g10' },
+    });
+    const sessionId = started.json<{ session: { id: string } }>().session.id;
+    await t.app.listen({ port: 0, host: '127.0.0.1' });
+    const address = t.app.server.address();
+    if (!address || typeof address === 'string') throw new Error('no address');
+    const socket = new WebSocket(
+      `ws://127.0.0.1:${address.port}/ws?session=${sessionId}&role=teacher`,
+      { headers: { cookie } },
+    );
+    await new Promise((resolve) => socket.once('message', resolve));
+    socket.send(JSON.stringify({ v: 1, type: 'teacher.lock', targets: 'all' }));
+    for (let i = 0; i < 20; i++) {
+      if ((await locked('?pc=ПК-05', { 'x-host-token': HOST })).json<{ locked: boolean }>().locked)
+        break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect((await locked('?pc=ПК-05', { 'x-host-token': HOST })).json()).toEqual({ locked: true });
+    expect((await locked('', { 'x-host-token': HOST })).json()).toEqual({ locked: true });
+    socket.send(JSON.stringify({ v: 1, type: 'teacher.unlock', targets: 'all' }));
+    for (let i = 0; i < 20; i++) {
+      if (!(await locked('?pc=ПК-05', { 'x-host-token': HOST })).json<{ locked: boolean }>().locked)
+        break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect((await locked('?pc=ПК-05', { 'x-host-token': HOST })).json()).toEqual({ locked: false });
+    socket.close();
+  });
+
+  it('is not asked on the site at all', async () => {
+    t = await testApp({ CLASSROOM_MODE: '0', HOST_TOKEN: HOST });
+    expect((await locked('?pc=ПК-05', { 'x-host-token': HOST })).statusCode).toBe(404);
   });
 });

@@ -793,6 +793,21 @@ export function lockFor(state: SessionState, participantId: string): { text: str
   return state.lock.byParticipant[participantId] ?? state.lock.all;
 }
 
+/**
+ * Should the classroom computer named `pc` keep its screen and input locked (review 2026-11-25)?
+ * The teacher's computer signs this answer for the kiosk, which no longer takes an unlock from the
+ * lesson page alone. Locked: "Attention!" for everyone; "Attention!" for the child at this computer;
+ * or the teacher's screen shown full-screen — unless this computer is the one being shown.
+ * `pc` null — a computer without a name: only the class-wide lock reaches it.
+ */
+export function lockedForPc(state: SessionState, pc: string | null): boolean {
+  if (state.lock.all) return true;
+  const here = pc ? Object.values(state.participants).filter((p) => p.pc === pc) : [];
+  if (here.some((p) => lockFor(state, p.id) !== null)) return true;
+  const demo = state.demo;
+  return demo?.mode === 'fullscreen' && !here.some((p) => p.id === demo.source);
+}
+
 /** Next free participant number ("Student N"). */
 export function nextParticipantNumber(state: SessionState): number {
   return Object.values(state.participants).reduce((max, p) => Math.max(max, p.number), 0) + 1;
