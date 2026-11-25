@@ -1,0 +1,22 @@
+<!--
+  Sinf student kiosk in Windows Sandbox (review 2026-11-25): a throwaway clean Windows, gone when
+  its window closes. The author's laptop got locked by the kiosk once (test findings 3-5); here
+  nothing of the laptop is touched.
+
+  Put the installer (Sinf-setup-*.exe) and install-student.ps1 into C:\SinfTest, then double-click
+  this file. See docs/pc-test.md, "Киоск в песочнице".
+-->
+<Configuration>
+  <Networking>Enable</Networking>
+  <MemoryInMB>4096</MemoryInMB>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>C:\SinfTest</HostFolder>
+      <SandboxFolder>C:\SinfTest</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\SinfTest\install-student.ps1</Command>
+  </LogonCommand>
+</Configuration>
