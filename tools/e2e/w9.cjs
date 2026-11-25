@@ -79,6 +79,10 @@ const check = (name, pass, extra = '') => {
   check('Backspace стирает оценку', true);
   await page.screenshot({ path: `${S}/w9-journal.png` });
 
+  // A change shows at once and is saved in turn (review 2026-11-25): wait for the saves first.
+  await page.waitForFunction(() => !document.querySelector('td.cell.saving'), null, {
+    timeout: 10000,
+  });
   await page.reload();
   await page.waitForSelector('[data-cell="0:0"]');
   const after = [0, 1, 2, 3].map(async (i) =>
