@@ -28,6 +28,8 @@ internal sealed class MainForm : Form
     private readonly Button schoolButton = new() { Text = "Школа", AutoSize = true };
     private readonly Button updateButton = new() { Text = "Обновить материалы", AutoSize = true };
     private readonly Button exitPasswordButton = new() { Text = "Пароль учеников", AutoSize = true };
+    /// <summary>The demo account's password, on request only: the bar is on the projector (review 2026-11-25).</summary>
+    private readonly Button demoPasswordButton = new() { Text = "Пароль демо", AutoSize = true };
     private readonly Label splash = new()
     {
         Dock = DockStyle.Fill,
@@ -36,14 +38,39 @@ internal sealed class MainForm : Form
         ForeColor = BarColor,
     };
 
+    // When the start fails, the reason is on the screen: the end of the server's log, where it is
+    // kept, and a second try. The author once had to dig the log out of AppData (pc-test.md 8.3).
+    private readonly Panel failurePanel = new()
+    {
+        Dock = DockStyle.Bottom,
+        Height = 280,
+        Padding = new Padding(32, 0, 32, 24),
+        Visible = false,
+    };
+    private readonly TextBox failureLog = new()
+    {
+        Dock = DockStyle.Fill,
+        Multiline = true,
+        ReadOnly = true,
+        ScrollBars = ScrollBars.Vertical,
+        BorderStyle = BorderStyle.FixedSingle,
+        BackColor = Color.FromArgb(246, 247, 249),
+        ForeColor = Color.FromArgb(19, 35, 58),
+    };
+    private readonly Button openLogButton = new() { Text = "Открыть журнал", AutoSize = true };
+    private readonly Button retryButton = new() { Text = "Повторить", AutoSize = true };
+
     private HostConfig config;
     private readonly Platform platform;
     private ServerProcess? server;
+    private ActivityBeat? beat;
     /// <summary>"Мой экран" (H14): this computer's screen for the class, while the teacher shows it.</summary>
     private ScreenShare? share;
     /// <summary>Answers student computers that look for this lesson on the network (ADR-014 §3).</summary>
     private TeacherBeacon? beacon;
     private TeacherIdentity? identity;
+    /// <summary>For the beacon's question to the lesson server; short, the student asks again in 5 s.</summary>
+    private readonly HttpClient lockClient = new() { Timeout = TimeSpan.FromMilliseconds(700) };
     private FormWindowState beforeFullScreen = FormWindowState.Maximized;
     private bool fullScreen;
 
@@ -69,8 +96,10 @@ internal sealed class MainForm : Form
         }
 
         BuildBar();
+        BuildFailurePanel();
         Controls.Add(view);
         Controls.Add(splash);
+        Controls.Add(failurePanel);
         Controls.Add(bar);
         bar.Visible = false;
     }
@@ -98,7 +127,7 @@ internal sealed class MainForm : Form
             Padding = new Padding(8, 10, 12, 10),
             WrapContents = false,
         };
-        foreach (var button in new[] { reloadButton, fullScreenButton, updateButton, schoolButton, exitPasswordButton, copyButton })
+        foreach (var button in new[] { reloadButton, fullScreenButton, updateButton, schoolButton, exitPasswordButton, demoPasswordButton, copyButton })
         {
             button.FlatStyle = FlatStyle.Flat;
             button.BackColor = Color.White;
@@ -112,10 +141,53 @@ internal sealed class MainForm : Form
         fullScreenButton.Click += (_, _) => ToggleFullScreen();
         schoolButton.Click += (_, _) => PairWithSchool();
         exitPasswordButton.Click += (_, _) => SetExitPassword();
+        demoPasswordButton.Click += (_, _) => MessageBox.Show(
+            this,
+            $"Демо-учётка: demo@sinf.local\nПароль: {config.TeacherPassword}\n\nВойти ею можно только на этом компьютере.",
+            "Sinf",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
         updateButton.Click += async (_, _) => await UpdateContentAsync(manual: true).ConfigureAwait(true);
 
         bar.Controls.Add(left);
         bar.Controls.Add(right);
+    }
+
+    private void BuildFailurePanel()
+    {
+        failureLog.Font = new Font("Consolas", 9.75f);
+        var buttons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            AutoSize = true,
+            Padding = new Padding(0, 0, 0, 8),
+            WrapContents = false,
+        };
+        foreach (var button in new[] { retryButton, openLogButton })
+        {
+            button.FlatStyle = FlatStyle.Flat;
+            button.BackColor = Color.White;
+            button.Padding = new Padding(10, 4, 10, 4);
+            button.Margin = new Padding(0, 0, 8, 0);
+            buttons.Controls.Add(button);
+        }
+
+        openLogButton.Click += (_, _) => OpenLog();
+        retryButton.Click += async (_, _) => await StartAsync().ConfigureAwait(true);
+        failurePanel.Controls.Add(failureLog);
+        failurePanel.Controls.Add(buttons);
+    }
+
+    private void OpenLog()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(paths.LogFile) { UseShellExecute = true })?.Dispose();
+        }
+        catch (Exception error) when (error is System.ComponentModel.Win32Exception or IOException)
+        {
+            failureLog.AppendText($"{Environment.NewLine}Не удалось открыть журнал: {error.Message}");
+        }
     }
 
     protected override async void OnShown(EventArgs e)
@@ -126,6 +198,8 @@ internal sealed class MainForm : Form
 
     private async Task StartAsync()
     {
+        failurePanel.Visible = false;
+        splash.Font = new Font("Segoe UI", 14f);
         splash.Text = "Запускаем Sinf…";
         splash.Visible = true;
         view.Visible = false;
@@ -144,16 +218,28 @@ internal sealed class MainForm : Form
         }
         catch (Exception error)
         {
-            ShowFailure(error.Message);
+            // Nothing is running yet, so a second try starts from scratch.
+            ShowFailure(error.Message, (error as ServerStartException)?.LogTail, canRetry: true);
             return;
         }
+
+        // For the updater (B6): this computer's own lesson server, which also says when a lesson is on.
+        var local = server.LocalUrl;
+        beat = new ActivityBeat(paths, () => new Core.Activity(
+            DateTimeOffset.UtcNow,
+            HostConfig.TeacherRole,
+            InLesson: false,
+            ServerUrl: local,
+            PlatformUrl: config.IsPaired ? config.PlatformUrl : null));
 
         var lan = LanAddress.Find();
         var lanUrl = lan is null ? null : $"http://{lan}:{server.Port}";
         addressLabel.Text = lanUrl is null
             ? "Сеть не найдена — ученики не смогут подключиться"
             : $"Ученики заходят: {lanUrl}";
-        accountLabel.Text = $"Учитель: demo@sinf.local · пароль: {config.TeacherPassword}";
+        // The password is not on the bar any more: the bar is on the projector, and pupils read it for
+        // the address. The teacher signs in only on this computer anyway (auth/local.ts).
+        accountLabel.Text = "Учитель: demo@sinf.local · пароль — кнопка «Пароль демо»";
         copyButton.Enabled = lanUrl is not null;
         StartBeacon(lanUrl);
         if (identity is not null)
@@ -213,6 +299,40 @@ internal sealed class MainForm : Form
     }
 
     /// <summary>
+    /// Whether a student computer is to stay locked, from this computer's own lesson server (review
+    /// 2026-11-25). The beacon signs the answer, so the kiosk takes an unlock only from here, never
+    /// from a page. Asked on the beacon's thread; a server that does not answer says "not locked".
+    /// </summary>
+    private bool LockedOnServer(string? pc)
+    {
+        var current = server;
+        if (current is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var query = pc is null ? string.Empty : $"?pc={Uri.EscapeDataString(pc)}";
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{current.LocalUrl}/api/join/room/locked{query}");
+            request.Headers.Add("x-host-token", current.HostToken);
+            using var answer = lockClient.Send(request);
+            if (!answer.IsSuccessStatusCode)
+            {
+                return false;
+            }
+
+            using var body = answer.Content.ReadAsStream();
+            using var document = JsonDocument.Parse(body);
+            return document.RootElement.TryGetProperty("locked", out var locked) && locked.ValueKind == JsonValueKind.True;
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or JsonException or IOException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Student computers find this one by a broadcast question (ADR-014 §3). If the port is taken —
     /// another Sinf already answers on this machine — the lesson still runs; students type the address.
     /// </summary>
@@ -227,7 +347,12 @@ internal sealed class MainForm : Form
         {
             // The key that signs every answer (H9); student computers remember it at their first meeting.
             identity = TeacherIdentity.LoadOrCreate(paths.TeacherKeyFile);
-            beacon = new TeacherBeacon(() => lanUrl, Environment.MachineName, identity, () => config.ExitPasswordHash);
+            beacon = new TeacherBeacon(
+                () => lanUrl,
+                Environment.MachineName,
+                identity,
+                () => config.ExitPasswordHash,
+                isLocked: LockedOnServer);
         }
         catch (System.Net.Sockets.SocketException)
         {
@@ -479,12 +604,19 @@ internal sealed class MainForm : Form
         }
     }
 
-    private void ShowFailure(string message)
+    private void ShowFailure(string message, string? logTail = null, bool canRetry = false)
     {
         splash.Visible = true;
         view.Visible = false;
-        splash.Text = $"{message}\n\nЖурнал: {paths.LogFile}";
-        splash.Font = new Font("Segoe UI", 11f);
+        splash.Text = message;
+        splash.Font = new Font("Segoe UI", 12f);
+        var nl = Environment.NewLine;
+        failureLog.Text = string.IsNullOrWhiteSpace(logTail)
+            ? $"Журнал: {paths.LogFile}"
+            : $"Конец журнала ({paths.LogFile}):{nl}{nl}{logTail}";
+        retryButton.Visible = canRetry;
+        openLogButton.Enabled = File.Exists(paths.LogFile);
+        failurePanel.Visible = true;
     }
 
     private void OfferRuntimeInstall()
@@ -544,7 +676,10 @@ internal sealed class MainForm : Form
         }
 
         beacon?.Dispose();
+        lockClient.Dispose();
         beacon = null;
+        beat?.Dispose();
+        beat = null;
         identity?.Dispose();
         identity = null;
         await stopping.DisposeAsync().ConfigureAwait(true);

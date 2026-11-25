@@ -52,9 +52,12 @@ netsh advfirewall firewall add rule name="Sinf" dir=in action=allow protocol=TCP
 
 ---
 
-## 2. Облачный сервер с доменом (Docker + Caddy)
+## 2. Облачный сервер (Docker + Caddy)
 
-Нужен сервер Linux с Docker и Docker Compose и домен, A-запись которого указывает на IP сервера. Порты 80 и 443 должны быть открыты. Caddy сам получает и продлевает сертификат Let's Encrypt.
+Нужен сервер Linux с Docker и Docker Compose. Порты 80 и 443 должны быть открыты. Caddy сам получает и продлевает сертификат Let's Encrypt — для этого нужно имя, которое указывает на IP сервера:
+
+- **свой домен** — A-запись на IP сервера, например `lesson.example.uz`;
+- **без домена** — бесплатное имя **sslip.io**: IP `203.0.113.7` превращается в `203-0-113-7.sslip.io`, оно само указывает на этот IP, ничего регистрировать не нужно. Сертификат Let's Encrypt для него Caddy получит так же.
 
 На сервере:
 
@@ -71,10 +74,21 @@ cp .env.example .env
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
+Что ещё задать в `.env` для сайта:
+
+| Переменная | Зачем | Пример |
+|---|---|---|
+| `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` | ваша учётка суперадмина: школы, лицензии, заявки, обновления (`/admin`) | `you@example.com`, длинный пароль |
+| `PUBLIC_URL` | адрес сайта в письмах и ссылках сброса пароля | `https://203-0-113-7.sslip.io` |
+| `SMTP_URL`, `MAIL_FROM` | почта для «Забыли пароль?» и заявок; пусто — письмо в журнал сервера | `smtps://user:pass@smtp.example.com:465` |
+| `UPDATE_PUBLIC_KEY` | открытый ключ подписи обновлений: сайт не примет неподписанное обновление | из `node tools/update-key.mjs` |
+| `COOKIE_SECURE` | `auto` (по умолчанию): вход работает и по `http://IP`, и по HTTPS | `auto` |
+| `TRUST_PROXY` | верить заголовкам Caddy; в `docker-compose.yml` уже `1` | — |
+
 Запуск:
 
 ```bash
-export SINF_DOMAIN=lesson.example.uz
+export SINF_DOMAIN=lesson.example.uz        # или без домена: 203-0-113-7.sslip.io
 ```
 ```bash
 docker compose -f deploy/docker-compose.yml up -d --build
@@ -82,7 +96,7 @@ docker compose -f deploy/docker-compose.yml up -d --build
 
 Через минуту откройте `https://lesson.example.uz/health` — должно быть `{"status":"ok"}`. Логи: `docker compose -f deploy/docker-compose.yml logs -f app`.
 
-Без домена (например, по IP, временно): не задавайте `SINF_DOMAIN` — Caddy отдаст сайт по HTTP на порту 80. Функции экрана при этом не работают.
+Совсем без имени (временно, по IP): не задавайте `SINF_DOMAIN` — Caddy отдаст сайт по HTTP на порту 80, `http://203.0.113.7`. Вход работает (`COOKIE_SECURE=auto`), но пароли идут по сети открыто, а функции экрана браузера без HTTPS не работают — лучше sslip.io.
 
 **Обновление:**
 
@@ -175,8 +189,8 @@ sudo systemctl reload caddy
 Alt+F4 и подобными. Выход для администратора — **Ctrl+Alt+Shift+F12** и пароль учеников. Пароль
 задаётся **на ПК учителя** (Sinf спросит при запуске; сменить — кнопка «Пароль учеников») и сам
 доходит до ПК учеников, когда они находят учителя. `Sinf.exe --setup` и `Sinf.exe --dev` (окно без
-киоска) на ПК ученика тоже просят этот пароль. Ctrl+Alt+Del и Win+L пока открыты — их закроет служба
-Windows (шаг 6.4); полный список — `docs/escape-checklist.md`.
+киоска) на ПК ученика тоже просят этот пароль. Ctrl+Alt+Del и Win+L закрывает только агент (ниже);
+полный список — `docs/escape-checklist.md`.
 
 **Где данные.** `%LOCALAPPDATA%\Sinf`: база `sinf.db`, настройки `config.json`, журнал `logs\server.log`. Папку программы можно носить на флешке. Сброс демо — «Демо» → «Сбросить демо» у демо-учителя; полный сброс — удалить `sinf.db` при закрытой программе.
 
@@ -197,7 +211,22 @@ Windows (шаг 6.4); полный список — `docs/escape-checklist.md`.
 
 Без параметров установщик спросит роль и имя ПК сам. ПК ученика запускает Sinf вместе с Windows для
 любого пользователя. Удаление — «Приложения» Windows или `C:\Program Files\Sinf\unins000.exe
-/VERYSILENT`; данные в `%LOCALAPPDATA%\Sinf` остаются.
+/VERYSILENT`; данные в `%LOCALAPPDATA%\Sinf` остаются. Повторная установка без `/ROLE` (так ставит
+обновление) оставляет роль и имя ПК прежними.
+
+**Автообновление (этап 6, B6, ADR-023).** Установщик создаёт задачу Windows «Sinf\Update» (от
+SYSTEM, каждые 30 минут и после запуска Windows): `Sinf.Updater.exe` спрашивает новую версию у
+сервера класса, потом у сайта, и ставит её тихо, когда нет урока. Новую версию на сайт кладёт
+суперадмин: `/admin` → «Обновления Windows-приложения» → `update.json` и `Sinf-update-….exe` из
+артефакта `Sinf-update-x64`. Подпись ключом проекта обязательна — как завести ключи, в
+`docs/pc-test.md`, раздел 6. Журнал — `C:\Program Files\Sinf\updates\updater.log`;
+`Sinf.Updater.exe --status` — что программа решила бы сейчас.
+
+**Агент — закрытая среда (этап 6, B7, ADR-024).** Только по выбору, на ПК ученика: галочка
+«Включить закрытую среду» в установщике или `/AGENT=1`. Учётка «Ученик» с автовходом, Sinf вместо
+рабочего стола, политики (диспетчер задач, блокировка, выход, командная строка), сторож, который
+поднимает Sinf. Выключить: `"C:\Program Files\Sinf\Sinf.Agent.exe" disable` или удалить Sinf
+(`/REMOVEACCOUNT=1` — вместе с учёткой). Первый раз — на запасном ПК: `docs/pc-test.md`, раздел 7.
 
 **Собрать самому** (нужен Windows, Node 22, .NET 10 SDK):
 
@@ -205,6 +234,8 @@ Windows (шаг 6.4); полный список — `docs/escape-checklist.md`.
 pnpm install
 pnpm build
 dotnet publish apps/desktop/Sinf.Desktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish apps/updater/Sinf.Updater.csproj -c Release -r win-x64
+dotnet publish apps/agent/Sinf.Agent.csproj -c Release -r win-x64
 ./tools/package-windows.ps1
 # установщик (Inno Setup 6); WebView2 кладётся в tools/installer/redist/ заранее
 iscc tools/installer/sinf.iss

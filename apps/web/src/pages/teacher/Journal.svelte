@@ -4,6 +4,7 @@
   import { api, ApiError } from '../../lib/api.js';
   import { i18n, t } from '../../lib/i18n/index.svelte.js';
   import { router, type PageProps } from '../../lib/router.svelte.js';
+  import { SaveQueue } from '../../lib/save-queue.js';
   import Button from '../../lib/ui/Button.svelte';
   import Card from '../../lib/ui/Card.svelte';
   import EmptyState from '../../lib/ui/EmptyState.svelte';
@@ -17,8 +18,14 @@
    * teacher's own columns without a lesson. A cell holds the lesson's stars — or its 2–5 grade —
    * or the absence mark. A date opens that lesson's results. The same table goes to Excel.
    *
-   * By hand, from the keyboard (PLAN.md 5.1): click a cell, type 2–5; "н" marks absent in a column
-   * without a lesson; Backspace clears; arrows and Enter move; "к" (or "c") writes a note.
+   * By hand, from the keyboard (PLAN.md 5.1): type 2–5 on a cell; "н" marks absent in a column
+   * without a lesson; Backspace clears; arrows and Enter move; "к" (or "c") writes a note. With the
+   * mouse or a finger: a click opens the cell's menu (review 2026-11-25).
+   *
+   * Saving (review 2026-11-25): a change shows at once and is saved in turn, one request at a time
+   * (each answer is the whole journal, so two in flight could undo a grade, and a change that came
+   * during another used to be dropped). A failed change stays on its cell, marked, with "Retry";
+   * the table never goes away.
    *
    * Towards eMaktab (PLAN.md 5.4, W12): a view with only what eMaktab takes — confirmed grades and
    * "н" — a "moved" mark per column, and the hours left of its 72 for columns not moved yet.
@@ -28,11 +35,27 @@
   const classId = $derived(params['classId'] ?? '');
 
   let journal = $state<Journal | null>(null);
-  let error = $state<string | null>(null);
+  /** The journal did not load: the page has nothing to show but this and "Retry". */
+  let loadError = $state<string | null>(null);
+  /** An action failed: said above the table, which stays. */
+  let actionError = $state<string | null>(null);
   let adding = $state(false);
   let newDate = $state(new Date().toISOString().slice(0, 10));
   let newTitle = $state('');
-  let saving = $state(false);
+  const queue = new SaveQueue();
+
+  type Change = { value?: number | null; absent?: boolean; comment?: string | null };
+  /** A cell changed here and not yet confirmed: shown at once; `failed` — the server said no. */
+  interface Pending {
+    change: Change;
+    failed: boolean;
+    seq: number;
+  }
+  let pending = $state<Record<string, Pending>>({});
+  let seq = 0;
+  const failedCount = $derived(Object.values(pending).filter((p) => p.failed).length);
+  /** The cell whose menu is open, and where on the screen. */
+  let menu = $state<{ row: number; col: number; x: number; y: number } | null>(null);
   /** "As in eMaktab": grades and "н" only, no stars or suggestions. */
   let eView = $state(false);
   let now = $state(new Date());
@@ -42,20 +65,20 @@
   const hasGrades = (c: number): boolean =>
     !!journal?.students.some((s) => s.cells[c]?.grade != null);
 
+  function failure(e: unknown): string {
+    if (!(e instanceof ApiError)) return t('common.error');
+    if (e.code === 'lesson_running') return t('journal.running');
+    if (e.code === 'not_at_lesson') return t('journal.notThere');
+    if (e.code === 'edit_on_platform') return t('emaktab.onPlatform');
+    return t('common.error');
+  }
+
   async function markEmaktab(l: Lesson, done: boolean): Promise<void> {
-    if (saving) return;
-    saving = true;
-    error = null;
     try {
-      journal = await api.setEmaktab(classId, { column: columnRef(l), done });
+      journal = await queue.run(() => api.setEmaktab(classId, { column: columnRef(l), done }));
       now = new Date();
     } catch (e) {
-      error =
-        e instanceof ApiError && e.code === 'edit_on_platform'
-          ? t('emaktab.onPlatform')
-          : t('common.error');
-    } finally {
-      saving = false;
+      actionError = failure(e);
     }
   }
 
@@ -69,65 +92,104 @@
   async function addColumn(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (!newTitle.trim()) return;
+    const date = newDate;
+    const title = newTitle.trim();
     try {
-      journal = await api.addJournalColumn(classId, newDate, newTitle.trim());
+      journal = await queue.run(() => api.addJournalColumn(classId, date, title));
       newTitle = '';
       adding = false;
-    } catch {
-      error = t('common.error');
+    } catch (e) {
+      actionError = failure(e);
     }
   }
 
   async function removeColumn(l: Lesson): Promise<void> {
     if (!l.columnId || !confirm(t('journal.column.deleteConfirm', { title: l.lessonTitle })))
       return;
+    const columnId = l.columnId;
     try {
-      journal = await api.deleteJournalColumn(classId, l.columnId);
-    } catch {
-      error = t('common.error');
+      journal = await queue.run(() => api.deleteJournalColumn(classId, columnId));
+    } catch (e) {
+      actionError = failure(e);
     }
   }
 
-  async function setCell(
-    studentId: string,
-    l: Lesson,
-    change: { value?: number | null; absent?: boolean; comment?: string | null },
-  ): Promise<void> {
-    if (saving) return;
-    saving = true;
-    error = null;
-    try {
-      journal = await api.setJournalCell(classId, { column: columnRef(l), studentId, ...change });
-    } catch (e) {
-      error =
-        e instanceof ApiError && e.code === 'lesson_running'
-          ? t('journal.running')
-          : e instanceof ApiError && e.code === 'not_at_lesson'
-            ? t('journal.notThere')
-            : t('common.error');
-    } finally {
-      saving = false;
+  const cellKey = (studentId: string, l: Lesson): string => `${studentId}|${columnKey(l)}`;
+
+  function forget(key: string): void {
+    pending = Object.fromEntries(Object.entries(pending).filter(([k]) => k !== key));
+  }
+
+  /** Shows the change at once and saves it in turn. A change on a failed cell carries the failed one. */
+  function setCell(studentId: string, l: Lesson, change: Change): void {
+    const key = cellKey(studentId, l);
+    const before = pending[key];
+    const send = before?.failed ? { ...before.change, ...change } : change;
+    const mine = ++seq;
+    pending = {
+      ...pending,
+      [key]: { change: { ...(before?.change ?? {}), ...change }, failed: false, seq: mine },
+    };
+    const column = columnRef(l);
+    queue
+      .run(() => api.setJournalCell(classId, { column, studentId, ...send }))
+      .then((next) => {
+        journal = next;
+        if (pending[key]?.seq === mine) forget(key);
+      })
+      .catch((e: unknown) => {
+        const now = pending[key];
+        if (now?.seq === mine) pending = { ...pending, [key]: { ...now, failed: true } };
+        actionError = failure(e);
+      });
+  }
+
+  /** Sends every failed change again. */
+  function retryFailed(): void {
+    if (!journal) return;
+    actionError = null;
+    for (const [key, p] of Object.entries(pending)) {
+      if (!p.failed) continue;
+      const [studentId = '', column = ''] = key.split('|');
+      const l = journal.lessons.find((x) => columnKey(x) === column);
+      if (l) setCell(studentId, l, p.change);
     }
+  }
+
+  /** The cell as it is about to be: the server's, with this computer's unsaved change on top. */
+  function shown(cell: JournalCell, studentId: string, l: Lesson): JournalCell {
+    const p = pending[cellKey(studentId, l)];
+    if (!p) return cell;
+    const c = p.change;
+    return {
+      ...cell,
+      present: c.absent === true ? false : c.absent === false ? true : cell.present,
+      grade: c.value !== undefined ? c.value : cell.grade,
+      confirmed: c.value !== undefined ? true : cell.confirmed,
+      comment: c.comment !== undefined ? c.comment : cell.comment,
+    };
   }
 
   /** The keyboard of a cell: 2–5, "н", Backspace, a note, and the arrows. */
   function onCellKey(event: KeyboardEvent, row: number, col: number): void {
     if (!journal) return;
+    // Typing on a cell is the keyboard way: the mouse's menu steps aside.
+    if (menu && event.key !== 'Tab') menu = null;
     const student = journal.students[row];
     const l = journal.lessons[col];
     if (!student || !l) return;
     const key = event.key.toLowerCase();
     if (/^[2-5]$/.test(key)) {
       event.preventDefault();
-      void setCell(student.id, l, { value: Number(key) });
+      setCell(student.id, l, { value: Number(key) });
       focusCell(row + 1, col);
     } else if ((key === 'н' || key === 'n' || key === 'y') && l.kind === 'manual') {
       event.preventDefault();
-      void setCell(student.id, l, { absent: true });
+      setCell(student.id, l, { absent: true });
       focusCell(row + 1, col);
     } else if (key === 'backspace' || key === 'delete') {
       event.preventDefault();
-      void setCell(
+      setCell(
         student.id,
         l,
         l.kind === 'manual' ? { value: null, absent: false } : { value: null },
@@ -153,7 +215,63 @@
   function note(studentId: string, l: Lesson, current: string): void {
     const text = prompt(t('journal.note'), current);
     if (text === null) return;
-    void setCell(studentId, l, { comment: text.trim() || null });
+    setCell(studentId, l, { comment: text.trim() || null });
+  }
+
+  /** The cell's menu, for the mouse and the finger; the keyboard keeps its keys. */
+  function openMenu(row: number, col: number, button: HTMLElement): void {
+    if (menu?.row === row && menu.col === col) {
+      menu = null;
+      return;
+    }
+    const box = button.getBoundingClientRect();
+    menu = {
+      row,
+      col,
+      x: Math.max(8, Math.min(box.left, window.innerWidth - 280)),
+      y: Math.min(box.bottom + 4, window.innerHeight - 64),
+    };
+  }
+
+  function closeMenu(refocus = false): void {
+    const was = menu;
+    menu = null;
+    if (refocus && was) focusCell(was.row, was.col);
+  }
+
+  function pick(change: Change, next = true): void {
+    if (!menu || !journal) return;
+    const { row, col } = menu;
+    const student = journal.students[row];
+    const l = journal.lessons[col];
+    menu = null;
+    if (!student || !l) return;
+    setCell(student.id, l, change);
+    focusCell(next ? row + 1 : row, col);
+  }
+
+  function pickNote(): void {
+    if (!menu || !journal) return;
+    const { row, col } = menu;
+    const student = journal.students[row];
+    const l = journal.lessons[col];
+    menu = null;
+    if (!student || !l) return;
+    note(student.id, l, shown(student.cells[col] as JournalCell, student.id, l).comment ?? '');
+  }
+
+  /** Grades still on their way: the browser asks before the page goes. */
+  function onLeave(event: BeforeUnloadEvent): void {
+    if (queue.size > 0) event.preventDefault();
+  }
+
+  function onWindowKey(event: KeyboardEvent): void {
+    if (menu && event.key === 'Escape') closeMenu(true);
+  }
+
+  /** The menu closes on Escape, a click elsewhere or a scroll that would move its cell away. */
+  function onWindowPointer(event: PointerEvent): void {
+    if (menu && !(event.target as HTMLElement | null)?.closest?.('.pick, .cellbtn')) closeMenu();
   }
 
   function focusCell(row: number, col: number): void {
@@ -170,26 +288,38 @@
     return cell.grade !== null ? String(cell.grade) : `★ ${cell.stars}`;
   }
 
-  onMount(() => {
-    void (async () => {
-      try {
-        journal = await api.journal(classId);
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 401) {
-          router.navigate('/teacher/login', { replace: true });
-          return;
-        }
-        error = e instanceof ApiError && e.status === 404 ? t('class.notFound') : t('common.error');
+  async function load(): Promise<void> {
+    loadError = null;
+    try {
+      journal = await api.journal(classId);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        router.navigate('/teacher/login', { replace: true });
+        return;
       }
-    })();
+      loadError =
+        e instanceof ApiError && e.status === 404 ? t('class.notFound') : t('common.error');
+    }
+  }
+
+  onMount(() => {
+    void load();
   });
 </script>
+
+<svelte:window
+  onpointerdown={onWindowPointer}
+  onbeforeunload={onLeave}
+  onresize={() => closeMenu()}
+  onkeydown={onWindowKey}
+/>
 
 <Header back="/teacher" />
 
 <main class="page stack">
-  {#if error}
-    <Notice kind="error">{error}</Notice>
+  {#if loadError}
+    <Notice kind="error">{loadError}</Notice>
+    <div><Button variant="secondary" onclick={load}>{t('common.retry')}</Button></div>
   {:else if !journal}
     <p aria-busy="true" class="muted">{t('common.loading')}</p>
   {:else}
@@ -223,6 +353,19 @@
       {/snippet}
     </PageHeader>
 
+    {#if actionError}
+      <Notice kind="error">
+        <span class="action-error" data-journal-error>
+          {actionError}
+          {#if failedCount > 0}
+            <Button size="sm" variant="secondary" onclick={retryFailed}>{t('common.retry')}</Button>
+          {/if}
+          <Button size="sm" variant="ghost" onclick={() => (actionError = null)}
+            >{t('common.close')}</Button
+          >
+        </span>
+      </Notice>
+    {/if}
     {#if adding}
       <Card>
         <form class="addcol" onsubmit={addColumn}>
@@ -266,7 +409,7 @@
       <EmptyState icon="star" title={t('journal.empty.title')} text={t('journal.empty')} />
     {:else}
       <Card>
-        <div class="scroll">
+        <div class="scroll" onscroll={() => closeMenu()}>
           <table>
             <thead>
               <tr>
@@ -294,7 +437,6 @@
                         title={t('emaktab.movedAt', {
                           date: registerDate(lesson.emaktabAt.slice(0, 10)),
                         })}
-                        disabled={saving}
                         onclick={() => markEmaktab(lesson, false)}
                         data-emaktab={c}>✓ eMaktab</button
                       >
@@ -304,7 +446,6 @@
                         class="em"
                         class:late={!hoursLeft.has(c)}
                         title={t('emaktab.mark')}
-                        disabled={saving}
                         onclick={() => markEmaktab(lesson, true)}
                         data-emaktab={c}
                       >
@@ -336,8 +477,10 @@
                     {#if !student.isActive}<span class="muted small">({t('journal.left')})</span
                       >{/if}
                   </td>
-                  {#each student.cells as cell, c (c)}
+                  {#each student.cells as raw, c (c)}
                     {@const l = journal.lessons[c]}
+                    {@const cell = raw && l ? shown(raw, student.id, l) : raw}
+                    {@const state = l ? pending[cellKey(student.id, l)] : undefined}
                     <td
                       class="cell"
                       class:absent={cell && !cell.present}
@@ -347,10 +490,14 @@
                         cell.grade !== null &&
                         !cell.confirmed}
                       class:noted={!!cell?.comment}
-                      title={cell?.comment ??
-                        (cell?.present && cell.grade !== null && !cell.confirmed
-                          ? t('results.grades.offered')
-                          : undefined)}
+                      class:saving={state && !state.failed}
+                      class:failed={state?.failed}
+                      title={state?.failed
+                        ? t('journal.unsaved')
+                        : (cell?.comment ??
+                          (cell?.present && cell.grade !== null && !cell.confirmed
+                            ? t('results.grades.offered')
+                            : undefined))}
                     >
                       {#if cell && l}
                         <button
@@ -359,8 +506,10 @@
                           data-cell={`${i}:${c}`}
                           data-student={student.id}
                           data-column={columnKey(l)}
+                          aria-haspopup="true"
+                          aria-expanded={menu?.row === i && menu?.col === c}
                           onkeydown={(e) => onCellKey(e, i, c)}
-                          ondblclick={() => note(student.id, l, cell.comment ?? '')}
+                          onclick={(e) => openMenu(i, c, e.currentTarget)}
                         >
                           {!eView && cell.grade === null && cell.present && l.kind === 'manual'
                             ? '·'
@@ -378,6 +527,35 @@
           {journal.class.starsToGrade ? t('journal.legend.grades') : t('journal.legend.stars')}
         </p>
       </Card>
+    {/if}
+    {#if menu}
+      {@const student = journal.students[menu.row]}
+      {@const l = journal.lessons[menu.col]}
+      {#if student && l}
+        <div
+          class="pick"
+          role="group"
+          aria-label={t('journal.pick', { name: student.name })}
+          style={`left:${menu.x}px;top:${menu.y}px`}
+          data-journal-menu
+        >
+          {#each [5, 4, 3, 2] as value (value)}
+            <button type="button" class="grade" onclick={() => pick({ value })}>{value}</button>
+          {/each}
+          {#if l.kind === 'manual'}
+            <button type="button" onclick={() => pick({ absent: true })}
+              >{t('journal.absent')}</button
+            >
+          {/if}
+          <button
+            type="button"
+            onclick={() =>
+              pick(l.kind === 'manual' ? { value: null, absent: false } : { value: null }, false)}
+            >{t('journal.clear')}</button
+          >
+          <button type="button" onclick={pickNote}>{t('journal.comment')}</button>
+        </div>
+      {/if}
     {/if}
   {/if}
 </main>
@@ -472,8 +650,58 @@
     color: inherit;
     cursor: pointer;
   }
-  .cellbtn:focus {
-    outline: none;
+  .cellbtn:hover {
+    background: var(--c-bg-2);
+  }
+  .cellbtn:focus-visible {
+    outline: var(--focus-ring) solid var(--c-accent);
+    outline-offset: 1px;
+    background: var(--c-accent-soft);
+  }
+  /* Shown before the server confirmed it; a failed one keeps its value, framed in red. */
+  .cell.saving .cellbtn {
+    color: var(--c-muted);
+  }
+  .cell.failed .cellbtn {
+    border-color: var(--c-danger);
+    background: var(--c-danger-soft);
+  }
+  .action-error {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .pick {
+    position: fixed;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    max-width: 272px;
+    padding: var(--space-2);
+    background: var(--c-surface);
+    border: 1px solid var(--c-line-strong);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+  }
+  .pick button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--c-line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    font: inherit;
+    color: var(--c-dark);
+    cursor: pointer;
+  }
+  .pick button.grade {
+    font-weight: 700;
+    font-size: var(--text-lg);
+  }
+  .pick button:hover,
+  .pick button:focus-visible {
     border-color: var(--c-accent);
     background: var(--c-accent-soft);
   }

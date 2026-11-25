@@ -52,6 +52,22 @@ public static class WorkFolder
         return dot > 0 && Allowed.Contains(lower[(dot + 1)..]);
     }
 
+    /// <summary>
+    /// Arduino keeps a sketch in a folder of its own name — "blink.ino" must be "blink\blink.ino",
+    /// or the IDE refuses to open it (stage 6, B5). The child's file is still "blink.ino": this is
+    /// the folder it lives in on the student computer, or null for any other file.
+    /// </summary>
+    public static string? SketchFolder(string name)
+    {
+        if (!IsWork(name) || !name.EndsWith(".ino", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var stem = name[..^4];
+        return stem.Length > 0 && stem.IndexOfAny(['\\', '/', ':']) < 0 && stem.Trim('.').Length > 0 ? stem : null;
+    }
+
     private static readonly HashSet<string> Allowed =
     [
         "docx", "doc", "odt", "rtf", "txt", "pdf", "xlsx", "xls", "ods", "csv", "pptx", "ppt", "odp",

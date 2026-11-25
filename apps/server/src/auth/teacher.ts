@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
+import type { Config } from '../config.js';
 import type { Teacher } from '@sinf/shared';
 import { schema, type Db } from '../db/index.js';
 import { ApiHttpError } from '../errors.js';
@@ -18,6 +19,19 @@ declare module 'fastify' {
   interface FastifyRequest {
     teacher: Teacher | null;
   }
+}
+
+/**
+ * `Secure` on a login cookie: over HTTPS only, unless the config says always or never. A browser
+ * drops a Secure cookie that came over plain http, so the server by IP could not keep anyone in.
+ */
+export function cookieSecure(
+  config: Pick<Config, 'cookieSecure'>,
+  request: FastifyRequest,
+): boolean {
+  if (config.cookieSecure === 'always') return true;
+  if (config.cookieSecure === 'never') return false;
+  return request.protocol === 'https';
 }
 
 export function setTeacherCookie(

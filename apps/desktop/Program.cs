@@ -24,6 +24,21 @@ internal static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
 
+        // The installer test (pc-test.md 8.3): the server of the installed program, started as the
+        // window starts it, with no window and no kiosk.
+        if (HasFlag(args, SelfTest.Flag))
+        {
+            Environment.ExitCode = SelfTest.Run();
+            return;
+        }
+
+        // The installer's exit password for the student kiosk (finding 4); needs an administrator.
+        if (HasFlag(args, MachinePassword.Flag))
+        {
+            Environment.ExitCode = MachinePassword.SetFromEnvironment();
+            return;
+        }
+
         using var running = new Mutex(initiallyOwned: true, MutexName, out var first);
         if (!first && !WaitForPrevious(running, HasFlag(args, "--restart")))
         {
@@ -36,16 +51,25 @@ internal static class Program
         var dev = HasFlag(args, "--dev");
 
         // What the installer was told about this computer (H17): no role window on each computer.
-        if (!config.HasRole && !setup && ReadSetupFile(paths) is { } chosen)
+        // Taken at the first start and after a reinstall that says something new (finding 2).
+        var fromInstaller = ReadSetupFile(paths);
+        if (!setup
+            && SetupFile.Decide(fromInstaller, config.Role, config.PcName, config.SetupApplied) is { } decision)
         {
-            config = config with { Role = chosen.Role, PcName = chosen.PcName };
+            config = config with { Role = decision.Role, PcName = decision.PcName, SetupApplied = decision.AppliedKey };
+            if (decision.NewRole)
+            {
+                // As after `--setup`: a computer that changed its kind meets its teacher anew (H9).
+                config = config with { TeacherKey = null, TeacherUrl = null };
+            }
+
             HostConfig.Save(paths, config);
         }
 
-        if (config.IsStudent && config.HasExitPassword && (setup || dev))
+        if (config.IsStudent && (setup || dev) && MachinePassword.KioskHashes(config) is { Count: > 0 } hashes)
         {
             using var check = new ExitPasswordDialog(
-                config.ExitPasswordHash!,
+                hashes,
                 offerSetup: false,
                 setup ? "Смена настроек этого компьютера." : "Режим разработки: окно без киоска.");
             if (check.ShowDialog() != DialogResult.OK)
@@ -65,15 +89,18 @@ internal static class Program
             // A student computer set up again meets its teacher anew (H9): the first signed answer is
             // remembered. The exit password stays until the new teacher hands over its own.
             config = config with { Role = dialog.Role, PcName = dialog.PcName, TeacherKey = null, TeacherUrl = null };
+            // The installer's file is taken as seen, so it does not undo this choice at the next start.
+            if (fromInstaller is not null)
+            {
+                config = config with { SetupApplied = SetupFile.Key(fromInstaller) };
+            }
+
             HostConfig.Save(paths, config);
         }
 
-        // A student's computer opens Sinf with Windows (H7); a teacher's starts it when the lesson needs it.
-        // The developer's window does not register itself.
-        if (!dev)
-        {
-            AutostartSetting.Apply(config.IsStudent);
-        }
+        // Whether Sinf starts with Windows is the installer's question alone (finding 5): the app no
+        // longer registers itself, and takes away the entry older versions left for this user.
+        AutostartSetting.RemoveUserEntry();
 
         Application.Run(config.IsStudent ? new StudentForm(paths, config, dev) : new MainForm(paths, config));
     }

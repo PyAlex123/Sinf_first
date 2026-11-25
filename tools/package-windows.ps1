@@ -26,6 +26,10 @@
 param(
     [string]$Out = 'out/Sinf',
     [string]$DesktopPublish = 'apps/desktop/bin/Release/net10.0-windows/win-x64/publish',
+    # The updater (B6): one small file, published on its own (`dotnet publish apps/updater -r win-x64`).
+    [string]$UpdaterPublish = 'apps/updater/bin/Release/net10.0-windows/win-x64/publish',
+    # The agent (B7), the same way.
+    [string]$AgentPublish = 'apps/agent/bin/Release/net10.0-windows/win-x64/publish',
     [string]$NodeVersion = '22.23.4'
 )
 
@@ -44,12 +48,37 @@ New-Item -ItemType Directory -Force -Path $Out | Out-Null
 Write-Host '1/5 our window'
 Copy-Tree $DesktopPublish $Out
 Copy-Item 'apps/desktop/sinf.ico' (Join-Path $Out 'sinf.ico') -Force
+$agent = Join-Path $AgentPublish 'Sinf.Agent.exe'
+if (Test-Path $agent) {
+    Copy-Item $agent (Join-Path $Out 'Sinf.Agent.exe') -Force
+} else {
+    Write-Host "   (без агента: нет $agent)"
+}
+$updater = Join-Path $UpdaterPublish 'Sinf.Updater.exe'
+if (Test-Path $updater) {
+    Copy-Item $updater (Join-Path $Out 'Sinf.Updater.exe') -Force
+} else {
+    Write-Host "   (без программы обновления: нет $updater)"
+}
 
 Write-Host '2/5 server with production dependencies'
 # pnpm writes straight into the package: the folder must not exist yet, and nothing is copied afterwards.
 # `server/drizzle` holds the SQL migrations the server runs at startup and comes along through "files".
-pnpm --filter @sinf/server deploy --legacy --prod (Join-Path $Out 'server')
+#
+# The layout must be flat, npm-style (`node-linker=hoisted`): real folders, every dependency at the top
+# of node_modules. pnpm's own layout is a web of junctions into node_modules\.pnpm, and the installer
+# copies a junction as a plain folder: in Program Files each package then stands alone, without the
+# neighbours it imports, and the server dies at its first import ("Cannot find package 'htmlparser2'",
+# the author's test, pc-test.md 8.3). Injecting the workspace packages lets this deploy read the
+# shared lockfile, so the package carries exactly the versions the tests ran against.
+pnpm --config.inject-workspace-packages=true --config.node-linker=hoisted `
+    --filter @sinf/server deploy --prod (Join-Path $Out 'server')
 if ($LASTEXITCODE -ne 0) { throw 'pnpm deploy не справился' }
+$links = @(Get-ChildItem -Path (Join-Path $Out 'server') -Recurse -Force -Attributes ReparsePoint)
+if ($links.Count -gt 0) {
+    $links | Select-Object -First 5 | ForEach-Object { Write-Host "   ссылка: $($_.FullName)" }
+    throw "В комплекте сервера $($links.Count) ссылок: установщик скопирует их как отдельные папки, и сервер не запустится"
+}
 
 Write-Host "3/5 Node $NodeVersion"
 $nodeZip = Join-Path ([System.IO.Path]::GetTempPath()) "node-v$NodeVersion-win-x64.zip"

@@ -3,14 +3,24 @@
 ; Puts the Windows package (tools/package-windows.ps1 → out\Sinf) into Program Files, so one
 ; flash drive sets up a whole computer room:
 ;
-;   Sinf-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05
+;   Sinf-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=student /PC=ПК-05 /AUTOSTART=1
+;     [/EXITPASSWORD=…]
 ;   Sinf-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /ROLE=teacher
 ;
 ; - /ROLE and /PC are written to {app}\setup.json; Sinf reads it at the first start of each Windows
-;   user and skips the role window (apps/desktop-core/SetupFile.cs). Without them the wizard asks;
-;   a silent install without them leaves the question to Sinf.
-; - A student computer starts Sinf with Windows for every user (HKLM Run): the "Ученик" account
-;   the kiosk runs under is not the administrator who installs.
+;   user and skips the role window (apps/desktop-core/SetupFile.cs). Without them the wizard asks
+;   and a silent install leaves the question to Sinf — unless Sinf was installed here before: then
+;   the role and the name of that install are kept (an update, B6).
+; - A student computer starts Sinf with Windows for every user (HKLM Run) only when asked: the
+;   wizard's checkbox or /AUTOSTART=1, off by default. The author's laptop, set up as a student's
+;   computer to try the kiosk, opened the kiosk at every start of Windows and had to be rescued in
+;   Safe Mode (test finding 5). An update keeps the choice. With the agent Sinf is the student
+;   account's shell anyway.
+; - The wizard asks a student computer for its exit password (finding 4): until the computer meets
+;   its teacher, whose room password it then also accepts (H3), the kiosk let anyone out. Sinf.exe
+;   --set-exit-password keeps only its hash in HKLM\SOFTWARE\Sinf, where only administrators write;
+;   the password travels in an environment variable, never on a command line. /EXITPASSWORD= does the
+;   same silently, but Inno Setup writes the command line into its /LOG file.
 ; - WebView2 Runtime is installed from the bundled offline installer when it is missing (CLAUDE.md
 ;   §3.2): school internet is not to be relied on.
 ; - The firewall lets Sinf in (and on the teacher's computer its lesson server), so Windows asks no
@@ -18,8 +28,18 @@
 ; - Uninstalling removes the program, the autostart and the firewall rules. Lessons, results and the
 ;   children's files in each user's %LOCALAPPDATA%\Sinf stay: they are the school's, not the program's.
 ;
+; - The agent (stage 6, B7; ADR-024) only when asked, and only on a student computer: the wizard's
+;   checkbox or /AGENT=1. It makes the "Ученик" account with autologon and Sinf as its shell
+;   (Sinf.Agent.exe enable); /AGENT=0, a teacher's role or removing Sinf undo it (disable).
+;   Uninstall with /REMOVEACCOUNT=1 also deletes the account the agent made.
+; - Updates (stage 6, B6; ADR-023): the task "Sinf\Update" runs {app}\Sinf.Updater.exe as SYSTEM
+;   every 30 minutes and 5 minutes after Windows starts. An update is this same installer built with
+;   /DUpdateBuild (no WebView2 inside, Sinf-update-<version>.exe) and run with /UPDATE=1: silent,
+;   and the computer keeps its role and name from the previous install.
+;
 ; Build (from the repository root, after tools/package-windows.ps1):
 ;   iscc /DAppVersion=0.3.0 tools\installer\sinf.iss
+;   iscc /DAppVersion=0.3.0 /DUpdateBuild tools\installer\sinf.iss
 ; The WebView2 offline installer is taken from tools\installer\redist\ when it is there
 ; (MicrosoftEdgeWebView2RuntimeInstallerX64.exe, downloaded by CI); without it the installer is built
 ; without one and says so.
@@ -33,7 +53,14 @@
 #ifndef OutputDir
   #define OutputDir "..\..\out\installer"
 #endif
-#define WebView2Installer AddBackslash(SourcePath) + "redist\MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+#ifdef UpdateBuild
+  ; An update goes to computers that already have WebView2: tens of MB, not two hundred.
+  #define WebView2Installer AddBackslash(SourcePath) + "redist\no-webview2-in-updates.exe"
+  #define OutputName "Sinf-update-" + AppVersion
+#else
+  #define WebView2Installer AddBackslash(SourcePath) + "redist\MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+  #define OutputName "Sinf-setup-" + AppVersion
+#endif
 #define WebView2Client "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 
 [Setup]
@@ -50,7 +77,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
 OutputDir={#OutputDir}
-OutputBaseFilename=Sinf-setup-{#AppVersion}
+OutputBaseFilename={#OutputName}
 SetupIconFile={#SourceDir}\sinf.ico
 UninstallDisplayIcon={app}\Sinf.exe
 Compression=lzma2/max
@@ -68,7 +95,7 @@ ru.RoleTitle=Что это за компьютер?
 ru.RoleSubtitle=Один и тот же Sinf ставится на компьютер учителя и на компьютеры учеников.
 ru.RolePrompt=Выберите роль этого компьютера в кабинете:
 ru.RoleTeacher=Компьютер учителя — пульт урока и сервер класса
-ru.RoleStudent=Компьютер ученика — закрытая среда (киоск), запускается вместе с Windows
+ru.RoleStudent=Компьютер ученика — экран ученика на весь экран (киоск)
 ru.RoleNeeded=Выберите роль компьютера.
 ru.PcTitle=Имя компьютера
 ru.PcSubtitle=Так компьютер будет называться в рассадке и на плитках учителя.
@@ -78,6 +105,20 @@ ru.PcNeeded=Введите имя компьютера, не больше 20 з�
 ru.WebView2=Устанавливается среда WebView2…
 ru.Firewall=Настраивается брандмауэр Windows…
 ru.LaunchSinf=Открыть Sinf
+ru.AgentTitle=Запуск и закрытая среда
+ru.AgentSubtitle=Как Sinf открывается на компьютере ученика.
+ru.AgentPrompt=Без галочек Sinf открывают из меню «Пуск» или с рабочего стола. «Запускать при входе в Windows» — для компьютеров класса. Агент создаёт учётку «Ученик» с автовходом, ставит Sinf вместо рабочего стола, отключает диспетчер задач и смену пользователя и поднимает Sinf, если его закрыть; отключается командой «Sinf.Agent.exe disable» или удалением Sinf. Первый раз включайте агент на запасном компьютере, не на своём.
+ru.AutostartCheck=Запускать Sinf при входе в Windows
+ru.ExitTitle=Пароль выхода
+ru.ExitSubtitle=Этим паролем выходят из Sinf на этом компьютере.
+ru.ExitPrompt=Кнопка «Выход» на экране ученика и сочетание Ctrl+Alt+Shift+F12 спрашивают этот пароль. Пароль учеников, заданный на компьютере учителя, тоже подойдёт, когда этот компьютер найдёт учителя. Не короче 8 знаков.
+ru.ExitKeep=Пароль уже задан. Оставьте поля пустыми, чтобы не менять его.
+ru.ExitLabel=Пароль:
+ru.ExitAgain=Ещё раз:
+ru.ExitNeeded=Задайте пароль выхода, не короче 8 знаков.
+ru.ExitMismatch=Пароли не совпадают.
+ru.AgentCheck=Включить закрытую среду (агент)
+ru.AgentOn=Включается закрытая среда…
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -89,13 +130,15 @@ Source: "{#WebView2Installer}"; DestDir: "{tmp}"; Flags: deleteafterinstall; Che
 
 [Icons]
 Name: "{autoprograms}\Sinf"; Filename: "{app}\Sinf.exe"
-; Only the teacher opens Sinf by hand; a student computer opens it with Windows.
-Name: "{autodesktop}\Sinf"; Filename: "{app}\Sinf.exe"; Check: IsTeacher
+; Whoever opens Sinf by hand gets a desktop icon: the teacher, and a student computer without autostart.
+Name: "{autodesktop}\Sinf"; Filename: "{app}\Sinf.exe"; Check: OpensByHand
 
 [Registry]
-Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Sinf"; ValueData: """{app}\Sinf.exe"""; Flags: uninsdeletevalue; Check: IsStudent
-; Installed again as a teacher's computer: it no longer starts with Windows.
-Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "Sinf"; Flags: deletevalue; Check: IsTeacher
+; The exit password's hash lives here (finding 4) and goes with the program.
+Root: HKLM; Subkey: "Software\Sinf"; Flags: uninsdeletekey
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Sinf"; ValueData: """{app}\Sinf.exe"""; Flags: uninsdeletevalue; Check: WantsAutostart
+; Installed again without it (or as the teacher's computer): it no longer starts with Windows.
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "Sinf"; Flags: deletevalue; Check: OpensByHand
 
 [Run]
 #ifexist WebView2Installer
@@ -114,16 +157,56 @@ Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=
 
 [UninstallDelete]
 Type: files; Name: "{app}\setup.json"
+Type: filesandordirs; Name: "{app}\updates"
 
 [Code]
 var
   RolePage: TInputOptionWizardPage;
   PcPage: TInputQueryWizardPage;
+  ExitPage: TInputQueryWizardPage;
+  { The student computer's start: [0] — with Windows, [1] — the agent (B7). }
+  AgentPage: TInputOptionWizardPage;
+  { Was the agent's service here before this install? 0 — not asked yet, 1 — yes, 2 — no. }
+  AgentBefore: Integer;
 
-{ "teacher", "student" or "" — from /ROLE=, as typed. }
+{ What the last install wrote into setup.json in the program folder: the computer's own memory of
+  its role and name, which an update (B6) must keep. Empty before the folder is known, or when
+  there is none. }
+function InstalledSetupValue(const Key: String): String;
+var
+  Lines: TArrayOfString;
+  Line, Marker: String;
+  P: Integer;
+begin
+  Result := '';
+  try
+    if not LoadStringsFromFile(ExpandConstant('{app}\setup.json'), Lines) then
+      Exit;
+  except
+    Exit;
+  end;
+  if GetArrayLength(Lines) = 0 then
+    Exit;
+  Line := Lines[0];
+  Marker := '"' + Key + '":"';
+  P := Pos(Marker, Line);
+  if P = 0 then
+    Exit;
+  Line := Copy(Line, P + Length(Marker), Length(Line));
+  P := Pos('"', Line);
+  if P > 0 then
+    Result := Copy(Line, 1, P - 1);
+end;
+
+{ "teacher", "student" or "" — from /ROLE=, as typed; else what this computer was before (an
+  update, B6, runs with no /ROLE at all and must not forget it). }
 function RoleParam: String;
 begin
   Result := Lowercase(Trim(ExpandConstant('{param:ROLE|}')));
+  if (Result <> 'teacher') and (Result <> 'student') then
+    Result := Lowercase(GetPreviousData('Role', ''));
+  if (Result <> 'teacher') and (Result <> 'student') then
+    Result := InstalledSetupValue('role');
   if (Result <> 'teacher') and (Result <> 'student') then
     Result := '';
 end;
@@ -131,6 +214,10 @@ end;
 function PcParam: String;
 begin
   Result := Trim(ExpandConstant('{param:PC|}'));
+  if Result = '' then
+    Result := GetPreviousData('Pc', '');
+  if Result = '' then
+    Result := InstalledSetupValue('pc');
 end;
 
 { The role chosen: the wizard's page, or /ROLE in a silent install. }
@@ -163,6 +250,122 @@ begin
   Result := ChosenRole = 'student';
 end;
 
+function AgentInstalled: Boolean;
+var
+  Code: Integer;
+begin
+  Result := Exec(ExpandConstant('{sys}\sc.exe'), 'query SinfAgent', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0);
+end;
+
+{ The agent (B7): /AGENT=1 or 0 when given; else the wizard's checkbox; else what it was before —
+  an update must never switch the closed environment off by itself. }
+function AgentParam: String;
+begin
+  Result := Trim(ExpandConstant('{param:AGENT|}'));
+  if (Result = '1') or (Result = '0') then
+    Exit;
+  if AgentBefore = 0 then
+  begin
+    if AgentInstalled then
+      AgentBefore := 1
+    else
+      AgentBefore := 2;
+  end;
+  if AgentBefore = 1 then
+    Result := '1'
+  else
+    Result := GetPreviousData('Agent', '0');
+end;
+
+function WantsAgent: Boolean;
+begin
+  if not IsStudent then
+    Result := False
+  else if WizardSilent or (AgentPage = nil) then
+    Result := AgentParam = '1'
+  else
+    Result := AgentPage.Values[1];
+end;
+
+{ With Windows (finding 5): /AUTOSTART=1 or 0 when given; else what this computer had before (an
+  update keeps it; an install from before the choice existed had it on); else off. }
+function AutostartParam: String;
+var
+  Command: String;
+begin
+  Result := Trim(ExpandConstant('{param:AUTOSTART|}'));
+  if (Result = '1') or (Result = '0') then
+    Exit;
+  Result := GetPreviousData('Autostart', '');
+  if (Result = '1') or (Result = '0') then
+    Exit;
+  Result := InstalledSetupValue('autostart');
+  if (Result = '1') or (Result = '0') then
+    Exit;
+  if RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Sinf', Command)
+    and (Command <> '') then
+    Result := '1'
+  else
+    Result := '0';
+end;
+
+function WantsAutostart: Boolean;
+begin
+  if not IsStudent then
+    Result := False
+  else if WizardSilent or (AgentPage = nil) then
+    Result := AutostartParam = '1'
+  else
+    Result := AgentPage.Values[0];
+end;
+
+function OpensByHand: Boolean;
+begin
+  Result := not WantsAutostart;
+end;
+
+function SetEnvironmentVariable(lpName: String; lpValue: String): Boolean;
+  external 'SetEnvironmentVariableW@kernel32.dll stdcall';
+
+{ An exit password from an earlier install (finding 4): then the wizard may leave it as it is. }
+function HasExitPassword: Boolean;
+begin
+  Result := RegValueExists(HKLM, 'Software\Sinf', 'ExitPasswordHash');
+end;
+
+function ChosenExitPassword: String;
+begin
+  if WizardSilent or (ExitPage = nil) then
+    Result := ExpandConstant('{param:EXITPASSWORD|}')
+  else
+    Result := ExitPage.Values[0];
+end;
+
+{ Only the hash is kept, by Sinf itself; the password reaches it in an environment variable. }
+procedure SaveExitPassword;
+var
+  Password: String;
+  Code: Integer;
+begin
+  Password := ChosenExitPassword;
+  if (not IsStudent) or (Password = '') then
+    Exit;
+  SetEnvironmentVariable('SINF_EXIT_PASSWORD', Password);
+  Exec(ExpandConstant('{app}\Sinf.exe'), '--set-exit-password', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  SetEnvironmentVariable('SINF_EXIT_PASSWORD', '');
+  Log('Sinf.exe --set-exit-password: ' + IntToStr(Code));
+end;
+
+procedure RunAgent(const Command: String);
+var
+  Code: Integer;
+begin
+  if not FileExists(ExpandConstant('{app}\Sinf.Agent.exe')) then
+    Exit;
+  Exec(ExpandConstant('{app}\Sinf.Agent.exe'), Command, '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Log('Sinf.Agent.exe ' + Command + ': ' + IntToStr(Code));
+end;
+
 { Found in either place Microsoft puts it: for the whole computer or for one user. }
 function NeedsWebView2: Boolean;
 var
@@ -175,6 +378,46 @@ begin
   else if RegQueryStringValue(HKCU, 'Software\Microsoft\EdgeUpdate\Clients\{#WebView2Client}', 'pv', Version)
     and (Version <> '') and (Version <> '0.0.0.0') then
     Result := False;
+end;
+
+procedure RegisterPreviousData(PreviousDataKey: Integer);
+begin
+  SetPreviousData(PreviousDataKey, 'Role', ChosenRole);
+  SetPreviousData(PreviousDataKey, 'Pc', ChosenPc);
+  if WantsAgent then
+    SetPreviousData(PreviousDataKey, 'Agent', '1')
+  else
+    SetPreviousData(PreviousDataKey, 'Agent', '0');
+  if WantsAutostart then
+    SetPreviousData(PreviousDataKey, 'Autostart', '1')
+  else
+    SetPreviousData(PreviousDataKey, 'Autostart', '0');
+end;
+
+{ The updater's tasks (B6): as SYSTEM, every 30 minutes and 5 minutes after Windows starts. Made
+  afresh on every install, so a reinstall into another folder points them at the new one. }
+procedure CreateUpdateTasks;
+var
+  Run: String;
+  Code: Integer;
+begin
+  Run := '\"' + ExpandConstant('{app}\Sinf.Updater.exe') + '\"';
+  Exec(ExpandConstant('{sys}\schtasks.exe'),
+    '/Create /F /TN "Sinf\Update" /SC MINUTE /MO 30 /RU SYSTEM /RL HIGHEST /TR "' + Run + '"',
+    '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Log('schtasks Sinf\Update: ' + IntToStr(Code));
+  Exec(ExpandConstant('{sys}\schtasks.exe'),
+    '/Create /F /TN "Sinf\Update at start" /SC ONSTART /DELAY 0005:00 /RU SYSTEM /RL HIGHEST /TR "' + Run + '"',
+    '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Log('schtasks Sinf\Update at start: ' + IntToStr(Code));
+end;
+
+procedure DeleteUpdateTasks;
+var
+  Code: Integer;
+begin
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /F /TN "Sinf\Update"', '', SW_HIDE, ewWaitUntilTerminated, Code);
+  Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /F /TN "Sinf\Update at start"', '', SW_HIDE, ewWaitUntilTerminated, Code);
 end;
 
 procedure InitializeWizard;
@@ -192,11 +435,27 @@ begin
     CustomMessage('PcSubtitle'), CustomMessage('PcPrompt'));
   PcPage.Add(CustomMessage('PcLabel'), False);
   PcPage.Values[0] := PcParam;
+
+  ExitPage := CreateInputQueryPage(PcPage.ID, CustomMessage('ExitTitle'),
+    CustomMessage('ExitSubtitle'), CustomMessage('ExitPrompt'));
+  ExitPage.Add(CustomMessage('ExitLabel'), True);
+  ExitPage.Add(CustomMessage('ExitAgain'), True);
+  if HasExitPassword then
+    ExitPage.SubCaptionLabel.Caption := CustomMessage('ExitPrompt') + #13#10#13#10 + CustomMessage('ExitKeep');
+
+  AgentPage := CreateInputOptionPage(ExitPage.ID, CustomMessage('AgentTitle'),
+    CustomMessage('AgentSubtitle'), CustomMessage('AgentPrompt'), False, False);
+  AgentPage.Add(CustomMessage('AutostartCheck'));
+  AgentPage.Add(CustomMessage('AgentCheck'));
+  AgentPage.Values[0] := AutostartParam = '1';
+  AgentPage.Values[1] := AgentParam = '1';
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PcPage <> nil) and (PageID = PcPage.ID) and (RolePage.SelectedValueIndex <> 1);
+  Result := ((PcPage <> nil) and (PageID = PcPage.ID) and (RolePage.SelectedValueIndex <> 1))
+    or ((ExitPage <> nil) and (PageID = ExitPage.ID) and (RolePage.SelectedValueIndex <> 1))
+    or ((AgentPage <> nil) and (PageID = AgentPage.ID) and (RolePage.SelectedValueIndex <> 1));
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -218,6 +477,23 @@ begin
       Result := False;
     end;
   end;
+  { Only in the wizard: Inno Setup calls this in a silent install too, where the password comes from
+    /EXITPASSWORD (optional) and an empty page would stop the install for good. }
+  if (ExitPage <> nil) and (CurPageID = ExitPage.ID) and not WizardSilent then
+  begin
+    if (ExitPage.Values[0] = '') and (ExitPage.Values[1] = '') and HasExitPassword then
+      Exit;
+    if Length(ExitPage.Values[0]) < 8 then
+    begin
+      MsgBox(CustomMessage('ExitNeeded'), mbError, MB_OK);
+      Result := False;
+    end
+    else if ExitPage.Values[0] <> ExitPage.Values[1] then
+    begin
+      MsgBox(CustomMessage('ExitMismatch'), mbError, MB_OK);
+      Result := False;
+    end;
+  end;
 end;
 
 { A running Sinf (the kiosk, or the teacher's panel) is closed before its files are replaced; its
@@ -231,14 +507,28 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
 begin
+  { The agent's service holds its file and would bring Sinf back mid-install: it stops first. }
+  if AgentInstalled then
+  begin
+    Exec(ExpandConstant('{sys}\sc.exe'), 'stop SinfAgent', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    Sleep(1500);
+  end;
   CloseSinf;
   Result := '';
 end;
 
 function InitializeUninstall: Boolean;
 begin
+  { Ordinary Windows again before the files go: shell, policies, autologon, the service. }
+  if Trim(ExpandConstant('{param:REMOVEACCOUNT|0}')) = '1' then
+    RunAgent('disable --remove-account')
+  else
+    RunAgent('disable');
   CloseSinf;
+  DeleteUpdateTasks;
   Result := True;
 end;
 
@@ -268,6 +558,16 @@ var
 begin
   if CurStep <> ssPostInstall then
     Exit;
+  CreateUpdateTasks;
+  SaveExitPassword;
+  { The agent (B7): on when wanted — again after an update, which keeps the choice; off when not. }
+  if WantsAgent then
+  begin
+    WizardForm.StatusLabel.Caption := CustomMessage('AgentOn');
+    RunAgent('enable');
+  end
+  else if AgentInstalled then
+    RunAgent('disable');
   Role := ChosenRole;
   if Role = '' then
   begin
@@ -276,8 +576,10 @@ begin
     Exit;
   end;
   SetArrayLength(Lines, 1);
-  if Role = 'student' then
-    Lines[0] := '{"role":"student","pc":"' + JsonText(ChosenPc) + '"}'
+  if (Role = 'student') and WantsAutostart then
+    Lines[0] := '{"role":"student","pc":"' + JsonText(ChosenPc) + '","autostart":"1"}'
+  else if Role = 'student' then
+    Lines[0] := '{"role":"student","pc":"' + JsonText(ChosenPc) + '","autostart":"0"}'
   else
     Lines[0] := '{"role":"teacher"}';
   SaveStringsToUTF8File(ExpandConstant('{app}\setup.json'), Lines, False);

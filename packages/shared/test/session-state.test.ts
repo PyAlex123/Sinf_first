@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createSessionState,
+  lockedForPc,
   lockFor,
   nextParticipantNumber,
   reduce,
@@ -317,5 +318,45 @@ describe('program tiles (H15)', () => {
     const old = JSON.parse(JSON.stringify(base())) as { apps: Record<string, unknown> };
     delete old.apps['allowed'];
     expect(SessionStateSchema.parse(old).apps.allowed).toBeNull();
+  });
+});
+
+describe('a classroom computer kept locked (review 2026-11-25)', () => {
+  const at = (state: SessionState, participantId: string, number: number, pc: string) =>
+    reduce(state, {
+      kind: 'participant.join',
+      participantId,
+      number,
+      studentId: null,
+      name: null,
+      pc,
+      now: 1,
+    });
+
+  it('follows "Attention!" for all, for the child at it, and the teacher\'s full screen', () => {
+    let r = at(base(), 'p1', 1, 'ПК-01');
+    r = at(r.state, 'p2', 2, 'ПК-02');
+    expect(lockedForPc(r.state, 'ПК-01')).toBe(false);
+
+    r = teacher(r.state, { v: 1, type: 'teacher.lock', targets: ['p2'] });
+    expect(lockedForPc(r.state, 'ПК-01')).toBe(false);
+    expect(lockedForPc(r.state, 'ПК-02')).toBe(true);
+
+    r = teacher(r.state, { v: 1, type: 'teacher.lock', targets: 'all' });
+    // Every computer that asks, a child's or an empty one, and one without a name.
+    expect(lockedForPc(r.state, 'ПК-01')).toBe(true);
+    expect(lockedForPc(r.state, 'ПК-09')).toBe(true);
+    expect(lockedForPc(r.state, null)).toBe(true);
+
+    r = teacher(r.state, { v: 1, type: 'teacher.unlock', targets: 'all' });
+    expect(lockedForPc(r.state, 'ПК-02')).toBe(false);
+
+    r = teacher(r.state, { v: 1, type: 'teacher.demo.start', mode: 'fullscreen', source: 'p1' });
+    expect(lockedForPc(r.state, 'ПК-02')).toBe(true);
+    // The computer being shown is not frozen by its own picture.
+    expect(lockedForPc(r.state, 'ПК-01')).toBe(false);
+    r = teacher(r.state, { v: 1, type: 'teacher.demo.stop' });
+    r = teacher(r.state, { v: 1, type: 'teacher.demo.start', mode: 'window', source: 'teacher' });
+    expect(lockedForPc(r.state, 'ПК-02')).toBe(false);
   });
 });

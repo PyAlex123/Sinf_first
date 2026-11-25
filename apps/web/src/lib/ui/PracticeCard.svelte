@@ -1,5 +1,10 @@
 <script lang="ts">
-  import type { CheckOutcome, PracticeCheckState, PracticeTask } from '@sinf/shared';
+  import {
+    PRACTICE_FILE_EXTENSIONS,
+    type CheckOutcome,
+    type PracticeCheckState,
+    type PracticeTask,
+  } from '@sinf/shared';
   import {
     downloadFile,
     listFiles,
@@ -36,17 +41,14 @@
   let error = $state<string | null>(null);
   let input = $state<HTMLInputElement | null>(null);
 
+  // A text-like practice takes any of its kinds; the others only their own file.
   const accept = $derived(
-    task.app === 'word'
-      ? '.docx'
-      : task.app === 'excel'
-        ? '.xlsx'
-        : task.app === 'powerpoint'
-          ? '.pptx'
-          : undefined,
+    task.app === 'notepad' || task.app === 'browser' || task.app === 'paint'
+      ? undefined
+      : PRACTICE_FILE_EXTENSIONS[task.app].map((e) => `.${e}`).join(','),
   );
   const outcome = (id: string): CheckOutcome | null => check?.outcomes[id] ?? null;
-  const label = (c: PracticeTask['criteria'][number]): string => c.label[i18n.locale];
+  const label = (c: PracticeTask['criteria'][number]): string => c.label[i18n.contentLocale];
 
   async function download(): Promise<void> {
     if (!access) return;

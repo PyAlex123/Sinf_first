@@ -32,10 +32,10 @@ async function login(page, email, password) {
   await page.goto(`${BASE}/school/school-demo#rules`);
   await page.waitForSelector('input[data-field=quota]');
   check(
-    'по умолчанию: 200 МБ, файл 50 МБ, все пять программ',
+    'по умолчанию: 200 МБ, файл 50 МБ, все восемь программ (с Scratch, Arduino, Python — B5)',
     (await page.inputValue('input[data-field=quota]')) === '200' &&
       (await page.inputValue('input[data-field=max-file]')) === '50' &&
-      (await page.locator('input[data-app]:checked').count()) === 5,
+      (await page.locator('input[data-app]:checked').count()) === 8,
   );
 
   await page.fill('input[data-field=quota]', '100');
@@ -44,6 +44,9 @@ async function login(page, email, password) {
   await page.selectOption('select[data-field=keep-day]', '30');
   await page.locator('input[data-app=powerpoint]').uncheck();
   await page.locator('input[data-app=excel]').uncheck();
+  for (const app of ['scratch', 'arduino', 'python']) {
+    await page.locator(`input[data-app=${app}]`).uncheck();
+  }
   await page
     .locator('input[data-field=quota]')
     .locator('xpath=ancestor::form')

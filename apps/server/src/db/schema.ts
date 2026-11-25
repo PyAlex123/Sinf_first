@@ -48,7 +48,7 @@ export const users = sqliteTable(
     email: text('email').notNull(),
     passwordHash: text('password_hash').notNull(),
     fullName: text('full_name').notNull(),
-    locale: text('locale', { enum: ['uz', 'ru'] })
+    locale: text('locale', { enum: ['uz', 'ru', 'en'] })
       .notNull()
       .default('ru'),
     createdAt: timestamp('created_at').notNull(),
@@ -720,8 +720,56 @@ export const passwordResets = sqliteTable(
   (t) => [uniqueIndex('password_resets_token_idx').on(t.tokenHash)],
 );
 
+/**
+ * What a school has paid for (CLAUDE.md §2, §6 License; stage 6, B2; ADR-022): N classes for a
+ * period. The newest license in force counts; one taken back keeps its row with `revokedAt`.
+ */
+export const licenses = sqliteTable(
+  'licenses',
+  {
+    id: id(),
+    schoolId: text('school_id')
+      .notNull()
+      .references(() => schools.id),
+    classesLimit: integer('classes_limit').notNull(),
+    validFrom: text('valid_from').notNull(),
+    validTo: text('valid_to').notNull(),
+    note: text('note').notNull().default(''),
+    /** Null on a school computer, whose copy comes with the roster. */
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at').notNull(),
+    revokedAt: timestamp('revoked_at'),
+  },
+  (t) => [index('licenses_school_idx').on(t.schoolId)],
+);
+
+/**
+ * Requests for a pilot from the landing page (PLAN.md 8.4; stage 6, B10; ADR-026). Only on the
+ * platform; the superadmin sees them in /admin and marks the handled ones.
+ */
+export const pilotRequests = sqliteTable(
+  'pilot_requests',
+  {
+    id: id(),
+    school: text('school').notNull(),
+    city: text('city').notNull(),
+    name: text('name').notNull(),
+    contact: text('contact').notNull(),
+    classes: integer('classes'),
+    comment: text('comment').notNull().default(''),
+    locale: text('locale', { enum: ['uz', 'ru', 'en'] })
+      .notNull()
+      .default('ru'),
+    createdAt: timestamp('created_at').notNull(),
+    handledAt: timestamp('handled_at'),
+  },
+  (t) => [index('pilot_requests_created_idx').on(t.createdAt)],
+);
+
 /** Tables in a foreign-key-safe deletion order (children first). */
 export const TABLES_FOR_RESET = [
+  pilotRequests,
+  licenses,
   passwordResets,
   schoolInvites,
   emaktabMarks,

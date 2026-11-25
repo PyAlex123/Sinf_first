@@ -20,7 +20,8 @@ internal static class AppLauncher
     public static bool Launch(string id, string? file = null)
     {
         var spec = AppCatalog.Find(id);
-        if (spec is null || !IsInstalled(spec))
+        var located = spec is null ? null : AppCatalog.Locate(spec, WindowsAppEnvironment.Instance);
+        if (spec is null || located is null)
         {
             return false;
         }
@@ -35,7 +36,12 @@ internal static class AppLauncher
 
         try
         {
-            var start = new ProcessStartInfo(spec.Command) { UseShellExecute = true };
+            var start = new ProcessStartInfo(located.Exe) { UseShellExecute = true };
+            foreach (var arg in located.Args)
+            {
+                start.ArgumentList.Add(arg);
+            }
+
             if (file is not null)
             {
                 start.ArgumentList.Add(file);
@@ -52,27 +58,9 @@ internal static class AppLauncher
 
     /// <summary>
     /// Is the program on this computer? Paint and Notepad are part of Windows; Office registers its
-    /// programs under App Paths (HKLM, and HKCU for a per-user install).
+    /// programs under App Paths; Scratch, Arduino and Python are looked for where they install (B5).
     /// </summary>
-    public static bool IsInstalled(AppSpec spec)
-    {
-        if (spec.AlwaysThere)
-        {
-            return true;
-        }
-
-        const string key = @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\";
-        foreach (var root in new[] { Microsoft.Win32.Registry.LocalMachine, Microsoft.Win32.Registry.CurrentUser })
-        {
-            using var entry = root.OpenSubKey(key + spec.Command);
-            if (entry?.GetValue(null) is string path && File.Exists(path.Trim('"')))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public static bool IsInstalled(AppSpec spec) => AppCatalog.Locate(spec, WindowsAppEnvironment.Instance) is not null;
 
     /// <summary>The ids of the catalog's programs found on this computer.</summary>
     public static IReadOnlyList<string> Installed() =>
@@ -117,23 +105,33 @@ internal static class AppLauncher
     }
 
     /// <summary>Does this window belong to a practice program? Only those may take the focus from the lesson.</summary>
-    public static bool OwnsForegroundWindow()
+    public static bool OwnsForegroundWindow() =>
+        ForegroundProcessName() is { } name && AppCatalog.IsPracticeProcess(name);
+
+    /// <summary>
+    /// Windows' own Task Manager is in front (finding 3). Without the agent nothing forbids it, and the
+    /// kiosk must not take the focus from it; with the agent a policy does not let it open at all.
+    /// </summary>
+    public static bool TaskManagerInFront() =>
+        string.Equals(ForegroundProcessName(), "Taskmgr", StringComparison.OrdinalIgnoreCase);
+
+    private static string? ForegroundProcessName()
     {
         var window = GetForegroundWindow();
         if (window == IntPtr.Zero)
         {
-            return false;
+            return null;
         }
 
         GetWindowThreadProcessId(window, out var pid);
         try
         {
             using var process = Process.GetProcessById((int)pid);
-            return AppCatalog.IsPracticeProcess(process.ProcessName);
+            return process.ProcessName;
         }
-        catch (ArgumentException)
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
         {
-            return false;
+            return null;
         }
     }
 
@@ -156,4 +154,41 @@ internal static class AppLauncher
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool ShowWindow(IntPtr window, int command);
+}
+
+/// <summary>The catalog's view of this Windows computer: App Paths in the registry, files and folders.</summary>
+internal sealed class WindowsAppEnvironment : IAppEnvironment
+{
+    public static readonly WindowsAppEnvironment Instance = new();
+
+    public string? AppPath(string command)
+    {
+        const string key = @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\";
+        foreach (var root in new[] { Microsoft.Win32.Registry.LocalMachine, Microsoft.Win32.Registry.CurrentUser })
+        {
+            using var entry = root.OpenSubKey(key + command);
+            if (entry?.GetValue(null) is string path)
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    public bool FileExists(string path) => File.Exists(path);
+
+    public string Expand(string path) => Environment.ExpandEnvironmentVariables(path);
+
+    public IEnumerable<string> Directories(string parent, string pattern)
+    {
+        try
+        {
+            return Directory.Exists(parent) ? Directory.GetDirectories(parent, pattern) : [];
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
 }

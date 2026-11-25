@@ -1,16 +1,20 @@
 <script lang="ts">
   import { i18n, LOCALE_NAMES, t } from '../i18n/index.svelte.js';
+
+  /** `compact` — "UZ RU EN" for a phone's header; the full name stays for screen readers. */
+  let { compact = false }: { compact?: boolean } = $props();
 </script>
 
-<div class="lang" role="group" aria-label={t('common.language')}>
+<div class="lang" class:compact role="group" aria-label={t('common.language')}>
   {#each i18n.locales as locale (locale)}
     <button
       type="button"
       class:active={i18n.locale === locale}
       aria-pressed={i18n.locale === locale}
-      onclick={() => i18n.set(locale)}
+      aria-label={compact ? LOCALE_NAMES[locale] : undefined}
+      onclick={() => void i18n.set(locale)}
     >
-      {LOCALE_NAMES[locale]}
+      {compact ? locale.toUpperCase() : LOCALE_NAMES[locale]}
     </button>
   {/each}
 </div>
@@ -31,6 +35,10 @@
     color: var(--c-muted);
     font-weight: 600;
     min-height: var(--control-sm);
+  }
+  .compact button {
+    padding: 0 var(--space-2);
+    font-size: var(--text-sm);
   }
   .active {
     background: var(--c-dark);

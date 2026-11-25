@@ -4,6 +4,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { readTeacher } from './auth/teacher.js';
+import { teacherAllowedFrom } from './auth/local.js';
 import type { Config } from './config.js';
 import type { ContentStore } from './content/index.js';
 import type { Db } from './db/index.js';
@@ -19,6 +20,7 @@ import { programRoutes } from './routes/programs.js';
 import { libraryRoutes } from './routes/library.js';
 import { ktpRoutes } from './routes/ktp.js';
 import { inviteRoutes } from './routes/invites.js';
+import { reportRoutes } from './routes/reports.js';
 import { RetentionWorker } from './services/retention.js';
 import { createMailer, type Mailer } from './services/mailer.js';
 import { demoRoutes } from './routes/demo.js';
@@ -39,6 +41,8 @@ import { practiceRoutes } from './routes/practice.js';
 import { ensureHomeCodes } from './services/student-files.js';
 import { clearUploadLeftovers } from './sync/files.js';
 import { SyncWorker } from './sync/worker.js';
+import { updateRoutes } from './routes/updates.js';
+import { siteRoutes } from './routes/site.js';
 import { VirtualStudents } from './services/virtual-students.js';
 
 export interface AppContext {
@@ -85,14 +89,17 @@ export async function buildApp(
     ...given,
     content: withAuthoredLessons(given.content, given.db, given.config.dataDir),
   };
-  const app = Fastify({ logger: options.logger ?? false });
+  // Behind Caddy the client's address and protocol come in X-Forwarded-* (TRUST_PROXY, review).
+  const app = Fastify({ logger: options.logger ?? false, trustProxy: ctx.config.trustProxy });
   app.decorate('ctx', ctx);
   app.decorateRequest('teacher', null);
   app.setErrorHandler(errorHandler);
 
   await app.register(fastifyCookie, { secret: ctx.config.sessionSecret });
   app.addHook('onRequest', (request, _reply, done) => {
-    request.teacher = readTeacher(request, ctx.db);
+    // On a classroom server a teacher's cookie counts only on the teacher's own computer, so a
+    // pupil's phone on the network never acts as the teacher, whatever it got hold of.
+    request.teacher = teacherAllowedFrom(ctx.config, request) ? readTeacher(request, ctx.db) : null;
     done();
   });
 
@@ -192,6 +199,7 @@ export async function buildApp(
   await app.register(libraryRoutes, { prefix: '/api' });
   await app.register(ktpRoutes, { prefix: '/api' });
   await app.register(inviteRoutes, { prefix: '/api' });
+  await app.register(reportRoutes, { prefix: '/api' });
   await app.register(demoRoutes, { prefix: '/api', store, virtual });
   await app.register(classRoutes, { prefix: '/api' });
   await app.register(schoolRoutes, { prefix: '/api' });
@@ -207,6 +215,8 @@ export async function buildApp(
   await app.register(joinRoutes, { prefix: '/api', store });
   await app.register(fileRoutes, { prefix: '/api', store });
   await app.register(practiceRoutes, { prefix: '/api' });
+  await app.register(updateRoutes, { prefix: '/api' });
+  await app.register(siteRoutes, { prefix: '/api' });
   await app.register(realtimePlugin, { store, demo });
 
   // Built web client (single-page app). In development Vite serves it and proxies /api, /ws, /content here.

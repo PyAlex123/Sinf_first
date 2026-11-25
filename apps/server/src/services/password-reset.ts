@@ -91,6 +91,13 @@ export async function resetPassword(
 
 /** The letter, in the teacher's language. */
 export function resetLetter(to: string, name: string, url: string, locale: Locale): Letter {
+  if (locale === 'en') {
+    return {
+      to,
+      subject: 'Sinf: a new password',
+      text: `Hello, ${name}!\n\nA link to set a new password on Sinf (works for 1 hour):\n${url}\n\nIf you did not ask for it, just ignore this letter: your old password still works.`,
+    };
+  }
   return locale === 'uz'
     ? {
         to,

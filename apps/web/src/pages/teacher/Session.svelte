@@ -23,6 +23,7 @@
   import StageTimer from '../../lib/ui/StageTimer.svelte';
   import Toolbar from '../../lib/ui/Toolbar.svelte';
   import LessonPlayer from '../../player/LessonPlayer.svelte';
+  import { turnsSlide } from '../../lib/keys.js';
 
   let { params }: PageProps = $props();
   const sessionId = $derived(params['id'] ?? '');
@@ -215,8 +216,9 @@
     router.navigate(`/teacher/session/${sessionId}/results`);
   }
 
+  /** The arrows turn the class's slide, but never while the teacher types a message (review). */
   function onKey(event: KeyboardEvent): void {
-    if ((event.target as HTMLElement | null)?.tagName === 'INPUT') return;
+    if (!turnsSlide(event)) return;
     if (event.key === 'ArrowRight' || event.key === 'PageDown') go(1);
     if (event.key === 'ArrowLeft' || event.key === 'PageUp') go(-1);
   }

@@ -1,5 +1,11 @@
 <script lang="ts">
-  import type { Device, ResetLinkResponse, SchoolClass, SchoolDetailsResponse } from '@sinf/shared';
+  import {
+    registerDate,
+    type Device,
+    type ResetLinkResponse,
+    type SchoolClass,
+    type SchoolDetailsResponse,
+  } from '@sinf/shared';
   import { onMount } from 'svelte';
   import { api, ApiError } from '../../lib/api.js';
   import { t } from '../../lib/i18n/index.svelte.js';
@@ -15,6 +21,7 @@
   import ResetLink from '../../lib/ui/ResetLink.svelte';
   import Table from '../../lib/ui/Table.svelte';
   import SchoolInvites from './SchoolInvites.svelte';
+  import SchoolReports from './SchoolReports.svelte';
   import SchoolSettings from './SchoolSettings.svelte';
 
   /**
@@ -38,8 +45,8 @@
 
   const isAdmin = $derived(data?.role === 'admin');
 
-  type Tab = 'overview' | 'teachers' | 'classes' | 'computers' | 'rules';
-  const ADMIN_TABS: Tab[] = ['overview', 'teachers', 'classes', 'computers', 'rules'];
+  type Tab = 'overview' | 'teachers' | 'classes' | 'computers' | 'reports' | 'rules';
+  const ADMIN_TABS: Tab[] = ['overview', 'teachers', 'classes', 'computers', 'reports', 'rules'];
   const TEACHER_TABS: Tab[] = ['teachers', 'classes'];
   const tabs = $derived(isAdmin ? ADMIN_TABS : TEACHER_TABS);
   /** Kept in the address (`#computers`), so a link or a reload opens the same tab. */
@@ -298,6 +305,21 @@
           <p class="muted small">{t('teacher.students', { count: studentTotal })}</p>
         </Card>
         <Card>
+          <h2>{t('license.title')}</h2>
+          <p class="big" data-license-state>{t(`license.status.${data.license.status}`)}</p>
+          {#if data.license.terms}
+            <p class="muted small">
+              {t('license.terms', {
+                used: data.license.classesUsed,
+                limit: data.license.terms.classesLimit,
+                to: registerDate(data.license.terms.validTo),
+              })}
+            </p>
+          {:else}
+            <p class="muted small">{t('license.ask')}</p>
+          {/if}
+        </Card>
+        <Card>
           <h2>{t('school.tab.computers')}</h2>
           <p class="big" data-online>
             {t('school.overview.online', {
@@ -497,6 +519,11 @@
           {/each}
         {/if}
       </Card>
+    {/if}
+
+    {#if tab === 'reports' && isAdmin}
+      <!-- Attendance, grades and the KTP by class and parallel (PLAN.md 8.2, B1). -->
+      <SchoolReports {schoolId} />
     {/if}
 
     {#if tab === 'rules' && isAdmin}

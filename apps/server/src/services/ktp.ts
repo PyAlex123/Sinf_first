@@ -349,8 +349,9 @@ export function deleteKtp(db: Db, teacherId: string, planId: string): void {
 const LABELS: Record<Locale, string[]> = {
   ru: ['№', 'Тема урока', 'Часы', 'Неделя / дата', 'Примечание', 'Проведено'],
   uz: ['№', 'Dars mavzusi', 'Soat', 'Hafta / sana', 'Izoh', 'O‘tilgan'],
+  en: ['No.', 'Lesson topic', 'Hours', 'Week / date', 'Note', 'Done'],
 };
-const DONE: Record<Locale, string> = { ru: 'да', uz: 'ha' };
+const DONE: Record<Locale, string> = { ru: 'да', uz: 'ha', en: 'yes' };
 
 /** Rows of the sheet, apart from the file itself — easy to check in a test. */
 export function ktpRows(plan: KtpPlan, locale: Locale): Cell[][] {

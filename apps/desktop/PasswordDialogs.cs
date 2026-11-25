@@ -66,13 +66,14 @@ internal sealed class ExitPasswordDialog : SmallDialog
     }
 
     private readonly TextBox password = PasswordBox();
-    private readonly string hash;
+    private readonly IReadOnlyList<string> hashes;
 
+    /// <param name="hashes">Any of them opens: the room's password and the installer's (finding 4).</param>
     /// <param name="offerSetup">On the kiosk both ways out are offered; elsewhere only "continue".</param>
-    public ExitPasswordDialog(string hash, bool offerSetup, string purpose)
+    public ExitPasswordDialog(IReadOnlyList<string> hashes, bool offerSetup, string purpose)
         : base("Sinf — пароль администратора", topMost: true)
     {
-        this.hash = hash;
+        this.hashes = hashes;
         Body.Controls.Add(Hint(purpose));
         Body.Controls.Add(password);
 
@@ -98,6 +99,9 @@ internal sealed class ExitPasswordDialog : SmallDialog
 
     public Choice Chosen { get; private set; }
 
+    /// <summary>The password that opened the dialog, for the agent's maintenance time (B7).</summary>
+    public string Password => password.Text;
+
     private void Confirm(Choice choice)
     {
         var now = DateTimeOffset.UtcNow;
@@ -108,7 +112,7 @@ internal sealed class ExitPasswordDialog : SmallDialog
             return;
         }
 
-        if (!Gate.TryOpen(password.Text, hash, now))
+        if (!Gate.TryOpen(password.Text, hashes, now))
         {
             password.Clear();
             password.Focus();

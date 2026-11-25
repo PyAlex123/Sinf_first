@@ -3,6 +3,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import type { RawData, WebSocket } from 'ws';
 import { z } from 'zod';
 import { parseClientMessage, PROTOCOL_VERSION, RoleSchema, type ServerMessage } from '@sinf/shared';
+import { requireSessionClass } from '../auth/access.js';
+import { isLocalRequest } from '../auth/local.js';
 import { ApiHttpError } from '../errors.js';
 import type { DemoRelay, DemoSource } from './demo-relay.js';
 import type { SessionStore } from './session-store.js';
@@ -28,8 +30,6 @@ const DemoQuerySchema = z.object({
   session: z.string().min(1),
   participant: z.string().min(1).optional(),
 });
-
-const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 
 export const realtimePlugin: FastifyPluginAsync<{ store: SessionStore; demo: DemoRelay }> = async (
   app,
@@ -58,7 +58,7 @@ export const realtimePlugin: FastifyPluginAsync<{ store: SessionStore; demo: Dem
       app.ctx.config.hostToken &&
       typeof token === 'string' &&
       token === app.ctx.config.hostToken &&
-      LOOPBACK.has(request.socket.remoteAddress ?? '')
+      isLocalRequest(request)
     ) {
       sourceId = 'teacher';
     } else if (query.data.participant) {
@@ -106,6 +106,16 @@ export const realtimePlugin: FastifyPluginAsync<{ store: SessionStore; demo: Dem
     if (!state) {
       closeWithError(socket, 'not_found', 'Session not found or already ended');
       return;
+    }
+    if (role === 'teacher' && request.teacher) {
+      // A teacher drives only the lessons of a class they may see, as over HTTP.
+      try {
+        requireSessionClass(app.ctx.db, request.teacher, sessionId);
+      } catch (error) {
+        const code = error instanceof ApiHttpError ? error.code : 'forbidden';
+        closeWithError(socket, code, 'Not your lesson');
+        return;
+      }
     }
     let attached: ReturnType<typeof store.attach>;
     try {

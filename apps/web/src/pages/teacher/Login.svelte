@@ -23,7 +23,12 @@
       await api.login({ email, password });
       router.navigate(nextPath() ?? '/teacher', { replace: true });
     } catch (e) {
-      error = e instanceof ApiError && e.status === 401 ? t('login.failed') : t('common.error');
+      error =
+        e instanceof ApiError && e.code === 'teacher_local_only'
+          ? t('login.localOnly')
+          : e instanceof ApiError && e.status === 401
+            ? t('login.failed')
+            : t('common.error');
     } finally {
       busy = false;
     }

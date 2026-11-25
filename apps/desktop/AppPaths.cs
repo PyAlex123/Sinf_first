@@ -117,7 +117,8 @@ internal sealed record HostConfig(
     string? PcName = null,
     string? TeacherUrl = null,
     string? ExitPasswordHash = null,
-    string? TeacherKey = null)
+    string? TeacherKey = null,
+    string? SetupApplied = null)
 {
     public const string TeacherRole = "teacher";
     public const string StudentRole = "student";
@@ -139,6 +140,9 @@ internal sealed record HostConfig(
     /// this key are believed; null until the first teacher is found, and again after `--setup`.
     /// </summary>
     public bool KnowsTeacher => TeacherKey is not null;
+
+    // SetupApplied: which setup.json this user has taken (SetupFile.Key), so a reinstall as the other
+    // kind of computer takes effect, while the same file does not undo a later `--setup` (finding 2).
 
     private static readonly JsonSerializerOptions Format = new() { WriteIndented = true };
 

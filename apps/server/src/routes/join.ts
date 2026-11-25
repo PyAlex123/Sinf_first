@@ -2,6 +2,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import {
+  lockedForPc,
   JoinLookupRequestSchema,
   JoinRequestSchema,
   PcNameSchema,
@@ -11,6 +12,7 @@ import {
   type JoinResponse,
   type JoinSessionResponse,
 } from '@sinf/shared';
+import { isLocalRequest } from '../auth/local.js';
 import { verifySecret } from '../auth/password.js';
 import { CODE_SEPARATOR } from '../services/codes.js';
 import { rememberSeat, RoomComputers } from '../services/seats.js';
@@ -21,6 +23,7 @@ import { AttemptGuard } from '../services/attempt-guard.js';
 
 const Params = z.object({ id: z.string().min(1) });
 const RoomQuery = z.object({ pc: PcNameSchema });
+const LockedQuery = z.object({ pc: PcNameSchema.optional() });
 
 /** Student login (S1.7): lesson code → class list → personal code → participant token. Public endpoints. */
 export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: AttemptGuard }> = (
@@ -144,6 +147,34 @@ export const joinRoutes: FastifyPluginCallback<{ store: SessionStore; guard?: At
     const seated =
       seat && lesson.students.some((s) => s.id === seat.studentId) ? seat.studentId : null;
     return { lesson: { ...lesson, seatedStudentId: seated } };
+  });
+
+  /**
+   * Is this classroom computer to stay locked (review 2026-11-25)? Asked by Sinf on the teacher's
+   * own computer, which signs the answer for the kiosk with its key; nobody else may ask — the
+   * loopback address and the host token, as for the teacher's screen broadcast.
+   */
+  app.get('/join/room/locked', (request): { locked: boolean } => {
+    const token = request.headers['x-host-token'];
+    if (
+      !app.ctx.config.classroom ||
+      !app.ctx.config.hostToken ||
+      token !== app.ctx.config.hostToken ||
+      !isLocalRequest(request)
+    ) {
+      throw notFound('Not here');
+    }
+    const { pc } = LockedQuery.parse(request.query);
+    const rows = db
+      .select({ id: schema.sessions.id })
+      .from(schema.sessions)
+      .where(eq(schema.sessions.status, 'active'))
+      .all();
+    const locked = rows.some((row) => {
+      const state = store.getState(row.id);
+      return state ? lockedForPc(state, pc ?? null) : false;
+    });
+    return { locked };
   });
 
   /** Personal code check; issues the participant token. Five wrong codes lock the student for two minutes. */

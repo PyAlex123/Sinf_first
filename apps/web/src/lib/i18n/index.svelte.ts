@@ -5,10 +5,18 @@ import uz from './uz.json';
 /**
  * Minimal i18n (CLAUDE.md §3.5): flat key → string dictionaries, `{name}` placeholders, the locale is remembered in
  * localStorage. Lesson content stays in Russian; only the platform UI is translated.
+ *
+ * Uzbek and Russian are in the first bundle; English (stage 6, B3) is its own chunk, loaded when it
+ * is chosen — a classroom computer in Uzbekistan never pays for it.
  */
 
 type Dictionary = Record<string, string>;
-const dictionaries: Record<Locale, Dictionary> = { ru, uz };
+const dictionaries: Partial<Record<Locale, Dictionary>> = { ru, uz };
+
+async function loadDictionary(locale: Locale): Promise<void> {
+  if (dictionaries[locale]) return;
+  if (locale === 'en') dictionaries.en = (await import('./en.json')).default;
+}
 const STORAGE_KEY = 'sinf.locale';
 
 function storedLocale(): Locale {
@@ -42,35 +50,54 @@ function pluralKey(
   key: string,
   params?: Record<string, string | number>,
 ): string | null {
-  if (locale !== 'ru' || !params) return null;
+  if (locale === 'uz' || !params) return null;
   const n = params['count'] ?? params['sec'];
-  return typeof n === 'number' ? `${key}#${russianForm(n)}` : null;
+  if (typeof n !== 'number') return null;
+  // English: `#one` for one, the plain key — the plural — for every other number.
+  if (locale === 'en') return Math.abs(n) === 1 ? `${key}#one` : null;
+  return `${key}#${russianForm(n)}`;
 }
 
 class I18n {
-  locale = $state<Locale>(storedLocale());
+  /** A stored language whose dictionary is not loaded yet starts in Russian and switches once it is. */
+  locale = $state<Locale>(dictionaries[storedLocale()] ? storedLocale() : DEFAULT_LOCALE);
 
   readonly locales = LOCALES;
 
-  set(locale: Locale): void {
+  /** Lessons and criteria are written in Russian and Uzbek only (B3): English shows them in Russian. */
+  get contentLocale(): 'ru' | 'uz' {
+    return this.locale === 'uz' ? 'uz' : 'ru';
+  }
+
+  constructor() {
+    const wanted = storedLocale();
+    if (!dictionaries[wanted]) void this.set(wanted);
+  }
+
+  async set(locale: Locale): Promise<void> {
+    try {
+      await loadDictionary(locale);
+    } catch {
+      return; // offline and not cached: stay in the language there is
+    }
     this.locale = locale;
     try {
       localStorage.setItem(STORAGE_KEY, locale);
     } catch {
       // ignore
     }
-    document.documentElement.lang = locale;
+    if (typeof document !== 'undefined') document.documentElement.lang = locale;
   }
 
   /** Translates a key; missing keys fall back to Russian, then to the key itself (visible in dev). */
   t(key: string, params?: Record<string, string | number>): string {
     const plural = pluralKey(this.locale, key, params);
-    const dictionary = dictionaries[this.locale];
+    const dictionary = dictionaries[this.locale] ?? dictionaries.ru ?? {};
     const template =
       (plural ? dictionary[plural] : undefined) ??
       dictionary[key] ??
-      (plural ? dictionaries.ru[plural] : undefined) ??
-      dictionaries.ru[key] ??
+      (plural ? dictionaries.ru?.[plural] : undefined) ??
+      dictionaries.ru?.[key] ??
       key;
     return format(template, params);
   }
@@ -90,4 +117,13 @@ export const t = (key: string, params?: Record<string, string | number>): string
   i18n.t(key, params);
 
 /** Names of the locales in their own language, for the switcher. */
-export const LOCALE_NAMES: Record<Locale, string> = { uz: 'O‘zbekcha', ru: 'Русский' };
+export const LOCALE_NAMES: Record<Locale, string> = {
+  uz: 'O‘zbekcha',
+  ru: 'Русский',
+  en: 'English',
+};
+
+/** The language tag for dates and numbers in the browser's own formatting. */
+export function localeTag(locale: Locale): string {
+  return locale === 'uz' ? 'uz-UZ' : locale === 'en' ? 'en-GB' : 'ru-RU';
+}

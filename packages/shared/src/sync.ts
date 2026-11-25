@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LicenseTermsSchema } from './license.js';
 import { SchoolSettingsSchema } from './school.js';
 import { ClassSettingsSchema, SchoolRoleSchema } from './api.js';
 import { LocaleSchema } from './locale.js';
@@ -72,6 +73,8 @@ export const SchoolSnapshotSchema = z.strictObject({
   programs: z.array(SyncProgramSchema).optional(),
   /** The school's rules (A1): quotas, programs, how long works are kept. */
   settings: SchoolSettingsSchema.optional(),
+  /** What the school has paid for (B2): a classroom computer checks it before a lesson. */
+  license: LicenseTermsSchema.nullable().optional(),
   /** Changes whenever anything above changes, so an unchanged roster is not rewritten. */
   version: z.string().min(1),
 });

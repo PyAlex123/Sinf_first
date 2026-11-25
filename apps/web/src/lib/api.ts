@@ -22,6 +22,15 @@ import {
   ClassProgramSchema,
   EmaktabRemindersResponseSchema,
   SchoolSettingsResponseSchema,
+  SchoolReportSchema,
+  SuperadminLicensesResponseSchema,
+  AdminUpdatesResponseSchema,
+  SiteInfoSchema,
+  PilotRequestListResponseSchema,
+  type PilotRequestInput,
+  StoredUpdateSchema,
+  type UpdateManifest,
+  ClassReportSchema,
   ResetLinkResponseSchema,
   SchoolInvitesResponseSchema,
   CreatedInviteResponseSchema,
@@ -73,6 +82,7 @@ import {
   type UpdateAuthoredLesson,
   type UpdateProgram,
   type AddKtpRow,
+  type IssueLicense,
   type UpdateSchoolSettings,
   type ImportGrades,
   type SetEmaktab,
@@ -137,6 +147,16 @@ async function sendBytes<T>(url: string, bytes: Blob, schema: ZodType<T>): Promi
       : new ApiError(res.status, 'http', `HTTP ${res.status}`);
   }
   return schema.parse(json);
+}
+
+/** `?from=…&to=…&lang=…`, only what is given. */
+function periodQuery(period: { from?: string; to?: string }, lang?: Locale): string {
+  const q = new URLSearchParams();
+  if (period.from) q.set('from', period.from);
+  if (period.to) q.set('to', period.to);
+  if (lang) q.set('lang', lang);
+  const text = q.toString();
+  return text ? `?${text}` : '';
 }
 
 const LoginResponseSchema = z.strictObject({ teacher: TeacherSchema });
@@ -324,6 +344,23 @@ export const api = {
       pc,
       studentId,
     }),
+  /** Reports (B1): a period, the school year so far without one. */
+  schoolReport: (schoolId: string, period: { from?: string; to?: string }) =>
+    request(
+      'GET',
+      `/api/schools/${encodeURIComponent(schoolId)}/reports${periodQuery(period)}`,
+      SchoolReportSchema,
+    ),
+  schoolReportUrl: (schoolId: string, period: { from?: string; to?: string }, lang: Locale) =>
+    `/api/schools/${encodeURIComponent(schoolId)}/reports.xlsx${periodQuery(period, lang)}`,
+  classReport: (classId: string, period: { from?: string; to?: string }) =>
+    request(
+      'GET',
+      `/api/classes/${encodeURIComponent(classId)}/report${periodQuery(period)}`,
+      ClassReportSchema,
+    ),
+  classReportUrl: (classId: string, period: { from?: string; to?: string }, lang: Locale) =>
+    `/api/classes/${encodeURIComponent(classId)}/report.xlsx${periodQuery(period, lang)}`,
   classDetails: (id: string) =>
     request('GET', `/api/classes/${encodeURIComponent(id)}`, ClassDetailsResponseSchema),
   createClass: (body: CreateClass) =>
@@ -416,6 +453,59 @@ export const api = {
     request('GET', `/api/invites/${encodeURIComponent(token)}`, InviteInfoResponseSchema),
   acceptInvite: (token: string) =>
     request('POST', `/api/invites/${encodeURIComponent(token)}/accept`, InviteAcceptResponseSchema),
+  /** The platform or a classroom server: the landing page is the platform's only (B10). */
+  site: () => request('GET', '/api/site', SiteInfoSchema),
+  sendPilotRequest: (body: PilotRequestInput) =>
+    request('POST', '/api/pilot-requests', OkSchema, body),
+  pilotRequests: () => request('GET', '/api/admin/pilot-requests', PilotRequestListResponseSchema),
+  markPilotRequest: (id: string) =>
+    request('POST', `/api/admin/pilot-requests/${encodeURIComponent(id)}/handled`, OkSchema),
+  /** Updates of the Windows app, the superadmin's (B6). */
+  adminUpdates: () => request('GET', '/api/admin/updates', AdminUpdatesResponseSchema),
+  deleteUpdate: (version: string) =>
+    request('DELETE', `/api/admin/updates/${encodeURIComponent(version)}`, OkSchema),
+  /** The installer as the body, its `update.json` in the address: streamed, never parsed. */
+  uploadUpdate: async (manifest: UpdateManifest, installer: Blob) => {
+    const { version, ...rest } = manifest;
+    const query = new URLSearchParams({ ...rest, size: String(rest.size) });
+    const res = await fetch(
+      `/api/admin/updates/${encodeURIComponent(version)}?${query.toString()}`,
+      {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: installer,
+      },
+    );
+    const json: unknown = await res.json().catch(() => undefined);
+    if (!res.ok) {
+      const parsed = ApiErrorSchema.safeParse(json);
+      throw parsed.success
+        ? new ApiError(res.status, parsed.data.error, parsed.data.message, parsed.data.details)
+        : new ApiError(res.status, 'http', `HTTP ${res.status}`);
+    }
+    return z.object({ update: StoredUpdateSchema }).parse(json).update;
+  },
+  /** A school's licenses, the superadmin's (B2). */
+  licenses: (schoolId: string) =>
+    request(
+      'GET',
+      `/api/admin/schools/${encodeURIComponent(schoolId)}/licenses`,
+      SuperadminLicensesResponseSchema,
+    ),
+  issueLicense: (schoolId: string, body: IssueLicense) =>
+    request(
+      'POST',
+      `/api/admin/schools/${encodeURIComponent(schoolId)}/licenses`,
+      SuperadminLicensesResponseSchema,
+      body,
+    ),
+  revokeLicense: (schoolId: string, licenseId: string) =>
+    request(
+      'DELETE',
+      `/api/admin/schools/${encodeURIComponent(schoolId)}/licenses/${encodeURIComponent(licenseId)}`,
+      SuperadminLicensesResponseSchema,
+    ),
   updateSchool: (id: string, body: UpdateSchool) =>
     request('PATCH', `/api/schools/${encodeURIComponent(id)}`, SchoolDetailsResponseSchema, body),
   devices: (schoolId: string) =>

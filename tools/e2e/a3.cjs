@@ -59,7 +59,7 @@ const tiles = (page) =>
 
   // The school's rules: Paint and Word only.
   await teacher.goto(`${BASE}/school/school-demo#rules`);
-  for (const app of ['notepad', 'excel', 'powerpoint'])
+  for (const app of ['notepad', 'excel', 'powerpoint', 'scratch', 'arduino', 'python'])
     await teacher.locator(`input[data-app=${app}]`).uncheck();
   await teacher
     .locator('input[data-field=quota]')

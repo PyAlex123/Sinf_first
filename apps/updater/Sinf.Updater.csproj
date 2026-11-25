@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The updater (PLAN.md 6.11; stage 6, B6; ADR-023): a small console program the installer runs as
+    a SYSTEM task every 30 minutes and at start. It installs only an update signed with the key
+    built into it here: CI passes -p:UpdatePublicKey=<base64 SPKI>; without it updates are off.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Sinf.Updater</AssemblyName>
+    <RootNamespace>Sinf.Updater</RootNamespace>
+    <Product>Sinf</Product>
+    <Version>0.1.0</Version>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!--
+    Published as one small file (`dotnet publish -r win-x64`): no .NET on a school PC is assumed, and
+    trimming keeps it a few MB instead of the whole runtime. Set here, not on the command line, so
+    the shared library is not built as trimmed for the desktop app too.
+  -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(UpdatePublicKey)' != ''">
+    <AssemblyMetadata Include="SinfUpdatePublicKey" Value="$(UpdatePublicKey)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../desktop-core/Sinf.Desktop.Core.csproj" />
+  </ItemGroup>
+
+</Project>

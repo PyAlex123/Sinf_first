@@ -13,6 +13,7 @@ The files are committed; this script only explains how they were made and remake
 """
 
 import io
+import json
 import re
 import struct
 import zipfile
@@ -319,6 +320,183 @@ h1 { color: navy; }
 GOOD_TXT = "Моя школа\nНаша школа стоит в центре города.\nВ ней учатся шестьсот учеников.\nКонец.\n"
 
 
+def lesson_pptx(path):
+    """A teacher's presentation for the lesson builder's import (stage 6, B4)."""
+    prs = Presentation()
+    s1 = prs.slides.add_slide(prs.slide_layouts[0])
+    s1.shapes.title.text = "Компьютер и его части"
+    s1.placeholders[1].text = "Урок 1"
+    s2 = prs.slides.add_slide(prs.slide_layouts[1])
+    s2.shapes.title.text = "Устройства ввода"
+    body = s2.placeholders[1].text_frame
+    body.text = "Клавиатура"
+    for point in ("Мышь", "Микрофон", "Сканер"):
+        body.add_paragraph().text = point
+    s3 = prs.slides.add_slide(prs.slide_layouts[5])
+    s3.shapes.title.text = "Монитор"
+    s3.shapes.add_picture(io.BytesIO(png(64, 40, (40, 90, 200))), Inches(1), Inches(2), Inches(4), Inches(2.5))
+    s3.shapes.add_textbox(Inches(5.5), Inches(2), Inches(3), Inches(1)).text_frame.text = "Показывает изображение"
+    s4 = prs.slides.add_slide(prs.slide_layouts[6])
+    s4.shapes.add_picture(io.BytesIO(png(48, 48, (30, 160, 80))), Inches(2), Inches(1), Inches(4), Inches(4))
+    prs.save(path)
+
+
+# ---------- sb3, ino, py (stage 6, B5)
+
+
+def sb3(path, targets):
+    """A Scratch 3 project: project.json and one costume picture, as Scratch saves it."""
+    project = {
+        "targets": targets,
+        "monitors": [],
+        "extensions": [],
+        "meta": {"semver": "3.0.0", "vm": "2.3.0", "agent": "Mozilla/5.0"},
+    }
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"/>'
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("project.json", json.dumps(project, ensure_ascii=False))
+        z.writestr("cd21514d0531fdffb22204e0ec5ed84a.svg", svg)
+
+
+def sprite(name, blocks, variables=None, lists=None, stage=False):
+    return {
+        "isStage": stage,
+        "name": name,
+        "variables": variables or {},
+        "lists": lists or {},
+        "broadcasts": {},
+        "blocks": blocks,
+        "comments": {},
+        "currentCostume": 0,
+        "costumes": [
+            {
+                "name": "c",
+                "assetId": "cd21514d0531fdffb22204e0ec5ed84a",
+                "md5ext": "cd21514d0531fdffb22204e0ec5ed84a.svg",
+                "dataFormat": "svg",
+            }
+        ],
+        "sounds": [],
+        "volume": 100,
+        "layerOrder": 0 if stage else 1,
+    }
+
+
+def block(opcode, next_=None, parent=None, inputs=None, shadow=False, top=False):
+    b = {
+        "opcode": opcode,
+        "next": next_,
+        "parent": parent,
+        "inputs": inputs or {},
+        "fields": {},
+        "shadow": shadow,
+        "topLevel": top,
+    }
+    if top:
+        b.update({"x": 0, "y": 0})
+    return b
+
+
+def good_sb3(path):
+    cat = {
+        "a": block("event_whenflagclicked", "b", top=True),
+        "b": block("control_forever", None, "a", inputs={"SUBSTACK": [2, "c"]}),
+        "c": block("motion_movesteps", "e", "b", inputs={"STEPS": [1, "d"]}),
+        "d": block("math_number", None, "c", shadow=True),
+        "e": block("control_if", None, "c", inputs={"SUBSTACK": [2, "f"]}),
+        "f": block("sound_play", None, "e", inputs={"SOUND_MENU": [1, "g"]}),
+        "g": block("sound_sounds_menu", None, "f", shadow=True),
+        # A variable dropped on the workspace by itself is stored as an array.
+        "h": [12, "счёт", "var1", 100, 200],
+    }
+    ball = {
+        "k": block("event_whenkeypressed", "l", top=True),
+        "l": block("data_changevariableby", None, "k"),
+    }
+    sb3(
+        path,
+        [
+            sprite("Stage", {}, variables={"var1": ["счёт", 0]}, stage=True),
+            sprite("Кот", cat),
+            sprite("Мяч", ball, lists={"list1": ["покупки", []]}),
+        ],
+    )
+
+
+def bad_sb3(path):
+    cat = {
+        "a": block("event_whenkeypressed", "b", top=True),
+        "b": block("motion_movesteps", None, "a"),
+    }
+    sb3(path, [sprite("Stage", {}, stage=True), sprite("Кот", cat)])
+
+
+GOOD_INO = """// Мигаем светодиодом
+#define LED 13
+const int BUTTON = 2;
+
+void setup() {
+  pinMode(LED, OUTPUT);
+  pinMode(BUTTON, INPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  digitalWrite(LED, HIGH); /* включить */
+  delay(500);
+  digitalWrite(LED, LOW);
+  delay(500);
+  Serial.println("blink(); {"); // скобки в строке не считаются
+}
+"""
+
+BAD_INO = """void setup() {
+  pinMode(12, OUTPUT);
+}
+// loop() забыли
+void blink() {
+  digitalWrite(12, HIGH);
+  delay(1000;
+}
+"""
+
+GOOD_PY = '''# Считаем сумму чисел
+def total(numbers):
+    s = 0
+    for n in numbers:
+        if n > 0:
+            s += n
+    return s
+
+
+name = input("Как тебя зовут? ")
+numbers = [3, 5, -2, 7]
+print(f"Привет, {name}!")
+print("Сумма:",
+      total(numbers))
+while False:
+    pass
+text = """многострочная
+строка: for x in y"""
+'''
+
+BAD_PY = """name = input("Имя: ")
+if name == "Ali"
+    print("Salom")
+"""
+
+
+def write_code_fixtures():
+    for sub in ("sb3", "ino", "py"):
+        (OUT / sub).mkdir(parents=True, exist_ok=True)
+    good_sb3(OUT / "sb3" / "good.sb3")
+    bad_sb3(OUT / "sb3" / "bad.sb3")
+    (OUT / "ino" / "good.ino").write_text(GOOD_INO, encoding="utf-8")
+    (OUT / "ino" / "bad.ino").write_text(BAD_INO, encoding="utf-8")
+    (OUT / "py" / "good.py").write_text(GOOD_PY, encoding="utf-8")
+    (OUT / "py" / "bad.py").write_text(BAD_PY, encoding="utf-8")
+
+
 def main():
     for sub in ("docx", "xlsx", "pptx", "html", "txt"):
         (OUT / sub).mkdir(parents=True, exist_ok=True)
@@ -334,6 +512,8 @@ def main():
     good_pptx(OUT / "pptx" / "good.pptx")
     bad_pptx(OUT / "pptx" / "bad.pptx")
     reordered_pptx(OUT / "pptx" / "reordered.pptx")
+    lesson_pptx(OUT / "pptx" / "lesson.pptx")
+    write_code_fixtures()
     (OUT / "html" / "good.html").write_text(GOOD_HTML, encoding="utf-8")
     (OUT / "html" / "bad.html").write_text(BAD_HTML, encoding="utf-8")
     (OUT / "html" / "style.css").write_text(STYLE_CSS, encoding="utf-8")

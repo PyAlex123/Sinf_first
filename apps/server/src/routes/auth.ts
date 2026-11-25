@@ -13,7 +13,13 @@ import { visibleClassWhere } from '../auth/access.js';
 import { readPlatformLink } from '../config.js';
 import { verifyOnPlatform } from '../sync/platform-login.js';
 import { hashSecret, verifySecret } from '../auth/password.js';
-import { clearTeacherCookie, requireTeacher, setTeacherCookie } from '../auth/teacher.js';
+import { localTeacherOnly } from '../auth/local.js';
+import {
+  clearTeacherCookie,
+  cookieSecure,
+  requireTeacher,
+  setTeacherCookie,
+} from '../auth/teacher.js';
 import { schema } from '../db/index.js';
 import { ApiHttpError } from '../errors.js';
 import { AttemptGuard } from '../services/attempt-guard.js';
@@ -35,6 +41,8 @@ export const authRoutes: FastifyPluginCallback<{
   const guard = opts.loginGuard ?? new AttemptGuard();
   /** At most three letters a quarter of an hour to one address: no mail bombing by our hand. */
   const letters = new AttemptGuard(3, 15 * 60 * 1000);
+  // A classroom server lets the teacher in only on its own computer (auth/local.ts).
+  const local = { preHandler: localTeacherOnly(config) };
 
   const toTeacher = (user: typeof schema.users.$inferSelect): Teacher => ({
     id: user.id,
@@ -43,7 +51,7 @@ export const authRoutes: FastifyPluginCallback<{
     locale: user.locale,
   });
 
-  app.post('/auth/register', async (request, reply): Promise<{ teacher: Teacher }> => {
+  app.post('/auth/register', local, async (request, reply): Promise<{ teacher: Teacher }> => {
     const body = TeacherRegisterSchema.parse(request.body);
     const email = body.email.trim().toLowerCase();
     const taken = db.select().from(schema.users).where(eq(schema.users.email, email)).get();
@@ -62,11 +70,11 @@ export const authRoutes: FastifyPluginCallback<{
     };
     db.insert(schema.users).values(user).run();
     // A new teacher starts in their own space: no school, no classes yet (S2.2 adds creating them).
-    setTeacherCookie(reply, user, config.env === 'production');
+    setTeacherCookie(reply, user, cookieSecure(config, request));
     return { teacher: toTeacher(user) };
   });
 
-  app.post('/auth/teacher', async (request, reply): Promise<{ teacher: Teacher }> => {
+  app.post('/auth/teacher', local, async (request, reply): Promise<{ teacher: Teacher }> => {
     const body = TeacherLoginSchema.parse(request.body);
     const email = body.email.trim().toLowerCase();
     const now = Date.now();
@@ -105,7 +113,7 @@ export const authRoutes: FastifyPluginCallback<{
       });
     }
     guard.reset(email);
-    setTeacherCookie(reply, user, config.env === 'production');
+    setTeacherCookie(reply, user, cookieSecure(config, request));
     return { teacher: toTeacher(user) };
   });
 
@@ -118,7 +126,7 @@ export const authRoutes: FastifyPluginCallback<{
   };
 
   /** Always "sent": whether this address is ours is nobody's business. */
-  app.post('/auth/forgot', async (request): Promise<{ ok: true }> => {
+  app.post('/auth/forgot', local, async (request): Promise<{ ok: true }> => {
     platformOnly();
     const { email: raw } = ForgotPasswordSchema.parse(request.body);
     const email = raw.trim().toLowerCase();
@@ -138,14 +146,14 @@ export const authRoutes: FastifyPluginCallback<{
   });
 
   /** A new password by the link; the teacher is signed in with it, every other login ends. */
-  app.post('/auth/reset', async (request, reply): Promise<{ teacher: Teacher }> => {
+  app.post('/auth/reset', local, async (request, reply): Promise<{ teacher: Teacher }> => {
     platformOnly();
     const body = ResetPasswordSchema.parse(request.body);
     const { userId } = await resetPassword(db, body.token, body.password);
     const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
     if (!user) throw new ApiHttpError(400, 'reset_gone', 'This link no longer works');
     guard.reset(user.email);
-    setTeacherCookie(reply, user, config.env === 'production');
+    setTeacherCookie(reply, user, cookieSecure(config, request));
     request.log.info({ userId }, 'password reset');
     return { teacher: toTeacher(user) };
   });

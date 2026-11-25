@@ -18,7 +18,10 @@
 
   let info = $state<ClassProgram | null>(null);
   let choices = $state<ProgramSummary[]>([]);
+  /** The programme did not load: the card says so instead. */
   let error = $state(false);
+  /** Choosing failed: said under the card, which keeps what it showed (review 2026-11-25). */
+  let actionFailed = $state(false);
   let picking = $state(false);
 
   $effect(() => {
@@ -33,20 +36,23 @@
 
   async function openPicker(): Promise<void> {
     picking = true;
+    actionFailed = false;
     try {
       const [mine, school] = await Promise.all([api.programs('mine'), api.programs('school')]);
       choices = [...mine.programs, ...school.programs];
     } catch {
-      error = true;
+      actionFailed = true;
+      picking = false;
     }
   }
 
   async function choose(programId: string | null): Promise<void> {
+    actionFailed = false;
     try {
       info = await api.setClassProgram(classId, programId);
       picking = false;
     } catch (e) {
-      error = !(e instanceof ApiError && e.code === 'edit_on_platform');
+      actionFailed = !(e instanceof ApiError && e.code === 'edit_on_platform');
       picking = false;
     }
   }
@@ -102,6 +108,9 @@
       <Button size="sm" variant="ghost" href="/teacher/programs">{t('programs.title')}</Button>
     </div>
   {/if}
+  {#if actionFailed}
+    <p class="failed small" role="alert">{t('common.error')}</p>
+  {/if}
 </Card>
 
 <style>
@@ -141,5 +150,9 @@
   }
   .small {
     font-size: var(--text-sm);
+  }
+  .failed {
+    margin: var(--space-2) 0 0;
+    color: var(--c-danger);
   }
 </style>

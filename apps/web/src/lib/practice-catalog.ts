@@ -1,4 +1,4 @@
-import type { PracticeApp, PracticeCheck } from '@sinf/shared';
+import { PY_CONSTRUCTS, type PracticeApp, type PracticeCheck } from '@sinf/shared';
 
 /**
  * The ready-made checks a teacher assembles a practice task from (PLAN.md 3.7; H13). Each check has
@@ -140,6 +140,39 @@ export const CHECKS: readonly CheckSpec[] = [
   { type: 'txt.matches', params: [text('pattern')], example: { pattern: '' } },
   { type: 'txt.startsWith', params: [text('text'), caseSensitive], example: { text: '' } },
   { type: 'txt.endsWith', params: [text('text'), caseSensitive], example: { text: '' } },
+
+  // Stage 6, B5: Scratch, Arduino and Python, read without running.
+  { type: 'sb3.sprites', params: [int('min')], example: { min: 2 } },
+  { type: 'sb3.flag', params: [], example: {} },
+  { type: 'sb3.loop', params: [], example: {} },
+  { type: 'sb3.condition', params: [], example: {} },
+  { type: 'sb3.variable', params: [int('min')], example: { min: 1 } },
+  { type: 'sb3.sound', params: [], example: {} },
+  { type: 'sb3.blocks', params: [int('min')], example: { min: 10 } },
+  {
+    type: 'sb3.block',
+    params: [text('opcode'), int('min')],
+    example: { opcode: 'motion_movesteps', min: 1 },
+  },
+
+  { type: 'ino.structure', params: [], example: {} },
+  {
+    type: 'ino.call',
+    params: [text('name'), int('min')],
+    example: { name: 'digitalWrite', min: 1 },
+  },
+  { type: 'ino.pin', params: [text('pin')], example: { pin: '13' } },
+  { type: 'ino.balanced', params: [], example: {} },
+
+  { type: 'py.function', params: [text('name', true)], example: {} },
+  { type: 'py.variable', params: [text('name')], example: { name: '' } },
+  {
+    type: 'py.uses',
+    params: [{ key: 'construct', kind: 'choice', options: PY_CONSTRUCTS }],
+    example: { construct: 'for' },
+  },
+  { type: 'py.prints', params: [text('text'), caseSensitive], example: { text: '' } },
+  { type: 'py.syntax', params: [], example: {} },
 ];
 
 /** Which checks fit the program a practice uses. */
@@ -147,14 +180,19 @@ export const FAMILIES: Record<PracticeApp, readonly string[]> = {
   word: ['docx'],
   excel: ['xlsx'],
   powerpoint: ['pptx'],
-  notepad: ['txt', 'html', 'css'],
+  notepad: ['html', 'css', 'txt'],
   browser: ['html', 'css', 'txt'],
   paint: [],
+  scratch: ['sb3'],
+  arduino: ['ino', 'txt'],
+  python: ['py', 'txt'],
 };
 
+/** The program's own checks first, then the ones it shares (text checks of a Python file). */
 export function checksFor(app: PracticeApp): CheckSpec[] {
   const families = FAMILIES[app];
-  return CHECKS.filter((c) => families.includes(c.type.split('.')[0] ?? ''));
+  const rank = (c: CheckSpec): number => families.indexOf(c.type.split('.')[0] ?? '');
+  return CHECKS.filter((c) => rank(c) >= 0).sort((a, b) => rank(a) - rank(b));
 }
 
 /** What a page may ask of the practice task editor (lib/ui/PracticeTaskEditor.svelte). */

@@ -10,7 +10,12 @@ namespace Sinf.Desktop.Core;
 /// <param name="Url">Where the lesson is.</param>
 /// <param name="ExitHash">Hash of the administrator's exit password (H3), when the teacher has set one.</param>
 /// <param name="TeacherKey">The teacher computer's public key that signed the answer (H9).</param>
-public sealed record TeacherFound(string Url, string? ExitHash, string TeacherKey);
+/// <param name="Name">The teacher computer's name, shown when a new computer meets it.</param>
+/// <param name="Locked">Whether the asking computer is to stay locked (review 2026-11-25), signed.</param>
+public sealed record TeacherFound(string Url, string? ExitHash, string TeacherKey, string? Name = null, bool Locked = false);
+
+/// <summary>A student computer's question: its fresh nonce and, when it has one, its name in the room.</summary>
+public sealed record DiscoveryQuestion(string Nonce, string? Pc);
 
 /// <summary>
 /// How a student computer finds the teacher's (ADR-014 §3). The student broadcasts a short question on
@@ -22,8 +27,11 @@ public static class Discovery
 {
     public const int Port = 41234;
 
-    /// <summary>2: answers are signed (H9). Answers of version 1 are not accepted any more.</summary>
-    public const int Version = 2;
+    /// <summary>
+    /// 3: the question names the computer and the signed answer says whether it stays locked (review
+    /// 2026-11-25). 2: answers are signed (H9). Older versions are not accepted.
+    /// </summary>
+    public const int Version = 3;
     private const string App = "sinf";
 
     /// <summary>Anything longer is not ours; reading it would only cost time.</summary>
@@ -38,33 +46,53 @@ public static class Discovery
         [property: JsonPropertyName("name")] string? Name = null,
         [property: JsonPropertyName("exit")] string? Exit = null,
         [property: JsonPropertyName("key")] string? Key = null,
-        [property: JsonPropertyName("sig")] string? Sig = null);
+        [property: JsonPropertyName("sig")] string? Sig = null,
+        [property: JsonPropertyName("pc")] string? Pc = null,
+        [property: JsonPropertyName("locked")] bool? Locked = null);
 
     /// <summary>A new question's nonce: an old answer replayed later does not fit it.</summary>
     public static string NewNonce() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
 
-    public static byte[] Request(string nonce) =>
-        Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Message(App, Version, "find", nonce)));
+    /// <param name="pc">This computer's name in the room, so the teacher can say whether it stays locked.</param>
+    public static byte[] Request(string nonce, string? pc = null) =>
+        Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Message(App, Version, "find", nonce, Pc: pc)));
 
-    /// <summary>The nonce of a question, or null when the bytes are not a question.</summary>
-    public static string? ReadRequest(ReadOnlySpan<byte> data) =>
-        Read(data) is { Type: "find", Nonce: { } nonce } && IsNonce(nonce) ? nonce : null;
+    /// <summary>A question, or null when the bytes are not one. A name that is not a computer name is dropped.</summary>
+    public static DiscoveryQuestion? ReadRequest(ReadOnlySpan<byte> data)
+    {
+        if (Read(data) is not { Type: "find", Nonce: { } nonce } message || !IsNonce(nonce))
+        {
+            return null;
+        }
+
+        return new DiscoveryQuestion(nonce, PcName.TryNormalize(message.Pc, out var pc) ? pc : null);
+    }
 
     private static bool IsNonce(string nonce) =>
         nonce.Length is >= 16 and <= 64 && nonce.All(c => char.IsAsciiLetterOrDigit(c) || c is '+' or '/' or '=');
 
     /// <summary>
-    /// What the teacher's key signs: the asker's nonce and everything the student will act on — the
-    /// address, the computer's name and the exit hash. One line each, so no field can borrow another's.
+    /// What the teacher's key signs: the asker's nonce and name, and everything the student will act
+    /// on — the address, the teacher computer's name, the exit hash and the lock. One line each, so no
+    /// field can borrow another's; the nonce makes a lock answer fresh without any clock.
     /// </summary>
-    private static string Signed(string nonce, string url, string? name, string? exit) =>
-        $"sinf-here\n{Version}\n{nonce}\n{url}\n{name}\n{exit}";
+    private static string Signed(string nonce, string url, string? name, string? exit, string? pc, bool locked) =>
+        $"sinf-here\n{Version}\n{nonce}\n{url}\n{name}\n{exit}\n{pc}\n{(locked ? 1 : 0)}";
 
     /// <summary>
     /// The teacher's answer: where its lesson is, which computer it is, and the hash of the exit
     /// password for the kiosks (H3) — the hash only, never the password — signed by its key (H9).
     /// </summary>
-    public static byte[] Answer(string nonce, string lessonUrl, string? name, string? exitHash, TeacherIdentity identity) =>
+    /// <param name="pc">The asker's name, as it asked; part of the signature, not repeated in the answer.</param>
+    /// <param name="locked">Whether that computer stays locked now.</param>
+    public static byte[] Answer(
+        string nonce,
+        string lessonUrl,
+        string? name,
+        string? exitHash,
+        TeacherIdentity identity,
+        string? pc = null,
+        bool locked = false) =>
         Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new Message(
             App,
             Version,
@@ -74,7 +102,8 @@ public static class Discovery
             name,
             exitHash,
             identity.PublicKey,
-            identity.Sign(Signed(nonce, lessonUrl, name, exitHash)))));
+            identity.Sign(Signed(nonce, lessonUrl, name, exitHash, pc, locked)),
+            Locked: locked)));
 
     /// <summary>
     /// What a teacher's answer says, or null when it is not one we trust: not an answer to our nonce,
@@ -83,13 +112,15 @@ public static class Discovery
     /// </summary>
     /// <param name="nonce">The nonce of our own question.</param>
     /// <param name="pinnedKey">The teacher this computer met first (H9, author's choice); null before that.</param>
-    public static TeacherFound? ReadAnswer(ReadOnlySpan<byte> data, string nonce, string? pinnedKey)
+    /// <param name="pc">The name this computer asked with: an answer signed for another computer does not fit.</param>
+    public static TeacherFound? ReadAnswer(ReadOnlySpan<byte> data, string nonce, string? pinnedKey, string? pc = null)
     {
         var message = Read(data);
+        var locked = message?.Locked == true;
         if (message is not { Type: "here", Url: { } rawUrl, Key: { } key }
             || message.Nonce != nonce
             || (pinnedKey is not null && key != pinnedKey)
-            || !TeacherIdentity.Verify(key, Signed(nonce, rawUrl, message.Name, message.Exit), message.Sig)
+            || !TeacherIdentity.Verify(key, Signed(nonce, rawUrl, message.Name, message.Exit, pc, locked), message.Sig)
             || !TeacherAddress.TryNormalize(rawUrl, out var url))
         {
             return null;
@@ -97,7 +128,7 @@ public static class Discovery
 
         // A hash we cannot read is dropped, not passed on: the kiosk would never open with it.
         var exit = ExitPassword.IsWellFormed(message.Exit) ? message.Exit : null;
-        return new TeacherFound(url, exit, key);
+        return new TeacherFound(url, exit, key, message.Name, locked);
     }
 
     private static Message? Read(ReadOnlySpan<byte> data)

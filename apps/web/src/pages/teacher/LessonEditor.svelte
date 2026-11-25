@@ -420,6 +420,48 @@
     }
   }
 
+  // ---------- slides from PowerPoint (stage 6, B4)
+
+  let pptxProgress = $state<{ done: number; total: number } | null>(null);
+  async function importPptx(file: File | undefined): Promise<void> {
+    if (!file || !stage) return;
+    const target = stage;
+    error = null;
+    pptxProgress = { done: 0, total: 0 };
+    try {
+      const { pptxToSlides, PptxProblem } = await import('../../lib/pptx-slides.js');
+      try {
+        const slides = await pptxToSlides(file, (done, total) => (pptxProgress = { done, total }));
+        const added: AuthoredBlock[] = [];
+        for (const slide of slides) {
+          const asset = slide.picture ? await api.uploadAsset(slide.picture.blob, 'webp') : null;
+          added.push({
+            id: newBlockId(),
+            kind: 'slide',
+            title: slide.title,
+            text: slide.text,
+            bullets: slide.bullets,
+            image:
+              asset && slide.picture
+                ? {
+                    sha: asset.sha,
+                    ext: 'webp',
+                    width: slide.picture.width,
+                    height: slide.picture.height,
+                  }
+                : null,
+          });
+        }
+        target.blocks = [...target.blocks, ...added].slice(0, 60);
+        blockId = added[0]?.id ?? blockId;
+      } catch (e) {
+        error = e instanceof PptxProblem ? t(`editor.pptx.${e.code}`) : t('editor.pptx.unreadable');
+      }
+    } finally {
+      pptxProgress = null;
+    }
+  }
+
   // ---------- preview
 
   const previewLesson = $derived(
@@ -631,6 +673,21 @@
                 disabled={!!pdfProgress}
                 onchange={(e) => void importPdf(e.currentTarget.files?.[0])}
                 data-field="pdf"
+              />
+            </label>
+            <label class="file ghost">
+              {pptxProgress
+                ? t('editor.pptx.progress', {
+                    done: pptxProgress.done,
+                    total: pptxProgress.total || '…',
+                  })
+                : t('editor.pptx.import')}
+              <input
+                type="file"
+                accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                disabled={!!pptxProgress}
+                onchange={(e) => void importPptx(e.currentTarget.files?.[0])}
+                data-field="pptx"
               />
             </label>
           </div>

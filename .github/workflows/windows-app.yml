@@ -10,6 +10,7 @@ on:
       - 'packages/**'
       - 'content/**'
       - 'tools/package-windows.ps1'
+      - 'tools/*.mjs'
       - 'tools/installer/**'
       - '.github/workflows/windows-app.yml'
       - 'package.json'
@@ -23,6 +24,12 @@ concurrency:
 jobs:
   package:
     runs-on: windows-latest
+    env:
+      # One number for Sinf.exe, the updater and both installers (B6): the updater compares it.
+      SINF_VERSION: 0.3.${{ github.run_number }}
+      # Public half of the update key (GitHub → Settings → Variables), built into the updater;
+      # empty — the build works, and its updater says updates are off (ADR-023).
+      SINF_UPDATE_PUBLIC_KEY: ${{ vars.SINF_UPDATE_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +56,18 @@ jobs:
           dotnet publish apps/desktop/Sinf.Desktop.csproj
           -c Release -r win-x64 --self-contained true
           -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:Version=${{ env.SINF_VERSION }}
+
+      - name: The agent (B7; one trimmed file, switched on only when asked)
+        run: dotnet publish apps/agent/Sinf.Agent.csproj -c Release -r win-x64 -p:Version=${{ env.SINF_VERSION }}
+
+      - name: The updater (B6; one trimmed file with the update key built in)
+        shell: pwsh
+        run: |
+          dotnet publish apps/updater/Sinf.Updater.csproj -c Release -r win-x64 `
+            "-p:Version=$env:SINF_VERSION" "-p:UpdatePublicKey=$env:SINF_UPDATE_PUBLIC_KEY"
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish: код $LASTEXITCODE" }
+          if (-not $env:SINF_UPDATE_PUBLIC_KEY) { Write-Host '::warning::SINF_UPDATE_PUBLIC_KEY не задан: в этой сборке автообновление выключено' }
 
       - name: Collect the package (server deploy included)
         shell: pwsh
@@ -56,13 +75,18 @@ jobs:
         run: ./tools/package-windows.ps1 -NodeVersion (& node --version).TrimStart('v')
 
       # Proves the server really runs on Windows, from the packaged folder, before anyone downloads it.
+      # It runs from a plain copy outside the repository, the way the installer lays it out: inside the
+      # checkout Node could still find a missing package in the repository's own node_modules.
       - name: Smoke test of the packaged server
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $root = (Get-Location).Path
-          $node = Join-Path $root 'out/Sinf/server/node.exe'
-          $entry = Join-Path $root 'out/Sinf/server/dist/index.js'
+          $copy = Join-Path $env:RUNNER_TEMP 'sinf-server'
+          if (Test-Path $copy) { Remove-Item -Recurse -Force $copy }
+          Copy-Item -Recurse (Join-Path $root 'out/Sinf/server') $copy
+          $node = Join-Path $copy 'node.exe'
+          $entry = Join-Path $copy 'dist/index.js'
           $smoke = Join-Path $root 'out/smoke'
           New-Item -ItemType Directory -Force -Path $smoke | Out-Null
           Write-Host "node.exe: $(& $node --version)"
@@ -72,7 +96,7 @@ jobs:
           # (exit code 0xC0000005) points here before anything else.
           # The native module first: it is the only compiled code in the server, and an old Node cannot
           # load its prebuilt binary (Node 22.12 crashes with 0xC0000005, 22.23 is fine).
-          Push-Location (Join-Path $root 'out/Sinf/server')
+          Push-Location $copy
           & $node -e "const D = require('better-sqlite3'); const db = new D(':memory:'); console.log('better-sqlite3 ok:', db.prepare('select 1 as x').get().x);"
           $sqliteCode = $LASTEXITCODE
           Pop-Location
@@ -90,7 +114,7 @@ jobs:
 
           $outLog = Join-Path $smoke 'out.log'
           $errLog = Join-Path $smoke 'err.log'
-          $server = Start-Process -FilePath $node -ArgumentList $entry -WorkingDirectory $root `
+          $server = Start-Process -FilePath $node -ArgumentList $entry -WorkingDirectory $copy `
             -PassThru -NoNewWindow -RedirectStandardOutput $outLog -RedirectStandardError $errLog
           try {
             $ready = $false
@@ -145,14 +169,53 @@ jobs:
           if (-not (Test-Path $iscc)) {
             choco install innosetup -y --no-progress | Out-Null
           }
-          & $iscc /Qp "/DAppVersion=0.3.${{ github.run_number }}" tools/installer/sinf.iss
+          & $iscc /Qp "/DAppVersion=$env:SINF_VERSION" tools/installer/sinf.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC: код $LASTEXITCODE" }
+          # The update (B6): the same program without the WebView2 installer inside.
+          & $iscc /Qp "/DAppVersion=$env:SINF_VERSION" /DUpdateBuild tools/installer/sinf.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC (обновление): код $LASTEXITCODE" }
           Get-ChildItem out/installer | Select-Object Name, @{ Name = 'МБ'; Expression = { '{0:N1}' -f ($_.Length / 1MB) } } | Format-Table -AutoSize
 
       # Installed, reinstalled as the teacher's and removed on the runner, silently, as on a school PC.
-      - name: Silent install, reinstall and removal
+      - name: Silent install, reinstall, update over it and removal
+        timeout-minutes: 30
         shell: pwsh
         run: ./tools/installer/smoke.ps1
+
+      # B6: an older install, a newer signed update on the classroom server, a lesson to wait out,
+      # then the update itself — with a throwaway key, never the project's.
+      - name: Update from start to end (test key)
+        timeout-minutes: 30
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path out/update-smoke | Out-Null
+          node tools/update-key.mjs | Out-File -Encoding utf8 out/update-smoke/test-key.txt
+          $public = (Get-Content out/update-smoke/test-key.txt)[4].Trim()
+          dotnet publish apps/updater/Sinf.Updater.csproj -c Release -r win-x64 `
+            "-p:Version=$env:SINF_VERSION" "-p:UpdatePublicKey=$public" -o out/test-updater
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish: код $LASTEXITCODE" }
+          ./tools/installer/update-smoke.ps1 -Version $env:SINF_VERSION `
+            -TestUpdater out/test-updater/Sinf.Updater.exe -KeyFile out/update-smoke/test-key.txt
+
+      # B7: the agent switched on by the installer and off by removing Sinf; the computer as before.
+      - name: The agent on and off
+        timeout-minutes: 30
+        shell: pwsh
+        run: ./tools/installer/agent-smoke.ps1
+
+      # The update for the platform's /admin: signed with the project's key, only where CI has it.
+      - name: Sign the update
+        shell: pwsh
+        env:
+          SINF_UPDATE_KEY: ${{ secrets.SINF_UPDATE_KEY }}
+        run: |
+          if (-not $env:SINF_UPDATE_KEY) {
+            Write-Host '::warning::SINF_UPDATE_KEY не задан: обновление не подписано, артефакта Sinf-update-x64 нет (docs/pc-test.md)'
+            exit 0
+          }
+          node tools/sign-update.mjs "out/installer/Sinf-update-$env:SINF_VERSION.exe" $env:SINF_VERSION out/update
+          if ($LASTEXITCODE -ne 0) { throw "подпись: код $LASTEXITCODE" }
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -184,5 +247,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Sinf-setup-x64
-          path: out/installer/*.exe
+          path: out/installer/Sinf-setup-*.exe
           if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sinf-update-x64
+          path: out/update
+          if-no-files-found: ignore

@@ -8,6 +8,8 @@ import {
   SchoolDecisionSchema,
   SetClassTeachersSchema,
   SuperadminResetLinkSchema,
+  IssueLicenseSchema,
+  type SuperadminLicensesResponse,
   SetSchoolRoleSchema,
   UpdateSchoolSchema,
   UpdateSchoolSettingsSchema,
@@ -30,6 +32,7 @@ import {
 } from '../auth/access.js';
 import { requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
+import { issueLicense, licensesOf, revokeLicense, schoolLicense } from '../services/licenses.js';
 import { makeResetToken, resetUrl, siteUrl } from '../services/password-reset.js';
 import { retentionPreview } from '../services/retention.js';
 import { settingsOfSchool, updateSchoolSettings } from '../services/school-settings.js';
@@ -123,6 +126,7 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
     members: membersOf(school.id, role === 'admin'),
     classes: classesOfSchool(school.id),
     requests: role === 'admin' ? pendingOf(school.id) : [],
+    license: schoolLicense(db, school.id),
   });
 
   // ---------- teacher side
@@ -430,10 +434,56 @@ export const schoolRoutes: FastifyPluginCallback = (app, _opts, done) => {
           teachers: members.length,
           classes: classesOfSchool(school.id).length,
           admins: members.filter((m) => m.role === 'admin').map((m) => m.fullName),
+          license: schoolLicense(db, school.id),
         };
       }),
     };
   });
+
+  // ---------- licenses (PLAN.md 2.6–2.7; stage 6, B2)
+
+  app.get(
+    '/admin/schools/:id/licenses',
+    { preHandler: requireTeacher },
+    (request): SuperadminLicensesResponse => {
+      requireSuperadmin(db, request.teacher as Teacher);
+      const { id } = Params.parse(request.params);
+      if (!db.select().from(schema.schools).where(eq(schema.schools.id, id)).get()) {
+        throw notFound('School');
+      }
+      return { licenses: licensesOf(db, id) };
+    },
+  );
+
+  app.post(
+    '/admin/schools/:id/licenses',
+    { preHandler: requireTeacher },
+    (request): SuperadminLicensesResponse => {
+      const admin = request.teacher as Teacher;
+      requireSuperadmin(db, admin);
+      const { id } = Params.parse(request.params);
+      if (!db.select().from(schema.schools).where(eq(schema.schools.id, id)).get()) {
+        throw notFound('School');
+      }
+      const license = issueLicense(db, id, IssueLicenseSchema.parse(request.body), admin.id);
+      request.log.info({ schoolId: id, license }, 'license issued');
+      return { licenses: licensesOf(db, id) };
+    },
+  );
+
+  app.delete(
+    '/admin/schools/:id/licenses/:licenseId',
+    { preHandler: requireTeacher },
+    (request): SuperadminLicensesResponse => {
+      requireSuperadmin(db, request.teacher as Teacher);
+      const { id, licenseId } = z
+        .object({ id: z.string().min(1), licenseId: z.string().min(1) })
+        .parse(request.params);
+      revokeLicense(db, id, licenseId);
+      request.log.info({ schoolId: id, licenseId }, 'license revoked');
+      return { licenses: licensesOf(db, id) };
+    },
+  );
 
   app.post('/admin/schools', { preHandler: requireTeacher }, (request): { school: SchoolBrief } => {
     requireSuperadmin(db, request.teacher as Teacher);

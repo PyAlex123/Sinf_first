@@ -131,6 +131,23 @@ export interface SeedResult {
   freedShas?: string[];
 }
 
+/** The demo school's license: 20 classes, from this school year's 1 September for two years. */
+function demoLicense(nowIso: string): typeof schema.licenses.$inferInsert {
+  const year = Number(nowIso.slice(0, 4));
+  const start = Number(nowIso.slice(5, 7)) >= 9 ? year : year - 1;
+  return {
+    id: 'license-demo',
+    schoolId: DEMO.schoolId,
+    classesLimit: 20,
+    validFrom: `${start}-09-01`,
+    validTo: `${start + 2}-08-31`,
+    note: 'demo',
+    createdBy: null,
+    createdAt: nowIso,
+    revokedAt: null,
+  };
+}
+
 /** Inserts the demo data into an empty database. */
 export function seedDemo(db: Db, options: SeedOptions): SeedResult {
   const now = (options.now ?? (() => new Date()))().toISOString();
@@ -145,6 +162,8 @@ export function seedDemo(db: Db, options: SeedOptions): SeedResult {
         createdAt: now,
       })
       .run();
+    // The demo school has paid for two school years (stage 6, B2): a demo never stops at a license.
+    tx.insert(schema.licenses).values(demoLicense(now)).run();
     tx.insert(schema.users)
       .values({
         id: DEMO.teacherId,
@@ -332,6 +351,11 @@ export function resetDemoClass(db: Db, now = new Date()): SeedResult {
         .run();
     }
     tx.insert(schema.students).values(demoStudentRows()).run();
+    // The demo's license comes back too, for two years from now (B2).
+    tx.delete(schema.licenses).where(eq(schema.licenses.id, 'license-demo')).run();
+    if (tx.select().from(schema.schools).where(eq(schema.schools.id, DEMO.schoolId)).get()) {
+      tx.insert(schema.licenses).values(demoLicense(now.toISOString())).run();
+    }
     return { students: DEMO_STUDENTS.length, freedShas };
   });
 }

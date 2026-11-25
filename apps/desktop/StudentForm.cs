@@ -49,6 +49,8 @@ internal sealed class StudentForm : Form
         ForeColor = Color.Gainsboro,
     };
     private readonly Button manual = new() { Text = "Ввести адрес вручную", AutoSize = true };
+    /// <summary>The way out anyone can see (finding 4): it asks for the password, as the key combination does.</summary>
+    private readonly Button exitButton = new() { Text = "Выход", AutoSize = false, Size = new Size(200, 60) };
     private readonly System.Windows.Forms.Timer watch = new();
 
     private readonly bool dev;
@@ -57,6 +59,8 @@ internal sealed class StudentForm : Form
     private MouseGuard? mouse;
     /// <summary>What the teacher asked for, so the lock comes back after the administrator's dialog.</summary>
     private bool lockedByTeacher;
+    /// <summary>Teacher computers an administrator said no to since Sinf started (review 2026-11-25).</summary>
+    private readonly HashSet<string> refusedTeachers = [];
     /// <summary>Thumbnails for the teacher's tiles, only while a teacher's panel is open (H5).</summary>
     private readonly System.Windows.Forms.Timer thumbs = new();
     private byte[] lastFingerprint = [];
@@ -79,8 +83,11 @@ internal sealed class StudentForm : Form
     private readonly System.Windows.Forms.Timer closeDeadline = new();
     private readonly AccessibilityGuard? accessibility;
     private readonly System.Windows.Forms.Timer focusBack = new();
+    /// <summary>The kiosk stepped behind Task Manager (finding 3) and goes on top again once it closes.</summary>
+    private bool behindTaskManager;
 
     private string? teacherUrl;
+    private readonly ActivityBeat beat;
     private bool webReady;
     private bool searching;
     private int failedChecks;
@@ -95,6 +102,13 @@ internal sealed class StudentForm : Form
         this.paths = paths;
         this.config = config;
         this.dev = dev;
+        // For the updater (B6): a child in a lesson here, and the teacher's server it found.
+        beat = new ActivityBeat(paths, () => new Core.Activity(
+            DateTimeOffset.UtcNow,
+            HostConfig.StudentRole,
+            InLesson: folder is not null,
+            ServerUrl: teacherUrl ?? this.config.TeacherUrl,
+            PlatformUrl: this.config.IsPaired ? this.config.PlatformUrl : null));
 
         Text = $"Sinf — {config.PcName ?? "ученик"}" + (dev ? " — РЕЖИМ РАЗРАБОТКИ" : string.Empty);
         if (dev)
@@ -115,8 +129,33 @@ internal sealed class StudentForm : Form
             focusBack.Tick += (_, _) =>
             {
                 focusBack.Stop();
+                if (dialogOpen || closeAllowed)
+                {
+                    return;
+                }
+
+                // Task Manager from Ctrl+Alt+Del (finding 3): the kiosk steps behind it and keeps
+                // looking until it is gone. With the agent a policy does not let it open at all.
+                if (AppLauncher.TaskManagerInFront())
+                {
+                    if (TopMost)
+                    {
+                        TopMost = false;
+                        behindTaskManager = true;
+                    }
+
+                    focusBack.Start();
+                    return;
+                }
+
+                if (behindTaskManager)
+                {
+                    behindTaskManager = false;
+                    TopMost = true;
+                }
+
                 // Paint of the practice may keep the focus (H6); nothing else may.
-                if (!dialogOpen && !closeAllowed && !(appMode && AppLauncher.OwnsForegroundWindow()))
+                if (!(appMode && AppLauncher.OwnsForegroundWindow()))
                 {
                     Activate();
                 }
@@ -166,10 +205,24 @@ internal sealed class StudentForm : Form
             Text = config.PcName ?? string.Empty,
         };
 
+        exitButton.FlatStyle = FlatStyle.Flat;
+        exitButton.BackColor = Color.White;
+        exitButton.ForeColor = Dark;
+        exitButton.Font = new Font("Segoe UI", 15f, FontStyle.Bold);
+        exitButton.Click += (_, _) => AskPassword();
+        var exitBar = new Panel { Dock = DockStyle.Bottom, Height = 96 };
+        exitBar.Controls.Add(exitButton);
+        exitBar.Resize += (_, _) =>
+        {
+            exitButton.Left = exitBar.Width - exitButton.Width - 32;
+            exitButton.Top = (exitBar.Height - exitButton.Height) / 2;
+        };
+
         waiting.Controls.Add(bottom);
         waiting.Controls.Add(status);
         waiting.Controls.Add(title);
         waiting.Controls.Add(name);
+        waiting.Controls.Add(exitBar);
         Controls.Add(view);
         Controls.Add(waiting);
 
@@ -193,6 +246,15 @@ internal sealed class StudentForm : Form
     protected override async void OnShown(EventArgs e)
     {
         base.OnShown(e);
+        // A Sinf that died under "Attention!" comes back locked (B7): the agent remembers, and the
+        // teacher's computer confirms or lifts it once found.
+        var agent = await Task.Run(AgentPipe.Hello).ConfigureAwait(true);
+        if (agent is { Lock: true } && !dev)
+        {
+            lockedByTeacher = true;
+            SetLock(true);
+        }
+
         await SearchAsync().ConfigureAwait(true);
     }
 
@@ -241,17 +303,38 @@ internal sealed class StudentForm : Form
     /// choice). The exit password's hash comes with the answer (H3).
     /// </summary>
     private async Task<string?> FindTeacherAsync() =>
-        Accept(await TeacherFinder.FindAsync(pinnedKey: config.TeacherKey, token: life.Token).ConfigureAwait(true));
+        Accept(await TeacherFinder
+            .FindAsync(pinnedKey: config.TeacherKey, token: life.Token, pc: config.PcName, refused: refusedTeachers)
+            .ConfigureAwait(true));
 
     /// <summary>Is the computer at this address still our teacher's? Asked over UDP, signed (H9).</summary>
     private async Task<string?> ConfirmTeacherAsync(string url) =>
-        Accept(await TeacherFinder.ConfirmAsync(url, config.TeacherKey, token: life.Token).ConfigureAwait(true));
+        Accept(await TeacherFinder
+            .ConfirmAsync(url, config.TeacherKey, token: life.Token, pc: config.PcName, refused: refusedTeachers)
+            .ConfigureAwait(true));
+
+    /// <summary>The installer's exit password, which an administrator confirms a first teacher with.</summary>
+    private static string? InstallerHash() =>
+        MachinePassword.Read() is { } hash && ExitPassword.IsWellFormed(hash) ? hash : null;
 
     private string? Accept(TeacherFound? found)
     {
         if (found is null)
         {
             return null;
+        }
+
+        // The first teacher of a new computer: an administrator confirms it with the installer's exit
+        // password (author's decision 2026-11-25); without one, the first is trusted, as before (H9).
+        var installer = InstallerHash();
+        switch (TeacherTrustRule.Decide(config.TeacherKey, found.TeacherKey, installer is not null, refusedTeachers))
+        {
+            case TeacherTrust.Refuse:
+                return null;
+            case TeacherTrust.AskAdministrator when !AdministratorConfirms(found, installer!):
+                refusedTeachers.Add(found.TeacherKey);
+                status.Text = "Компьютер учителя не подтверждён — ищем дальше…";
+                return null;
         }
 
         var updated = config with
@@ -267,7 +350,62 @@ internal sealed class StudentForm : Form
 
         // The same eight characters stand in the teacher's window: an administrator can compare them.
         status.Text = $"Компьютер учителя найден · ключ {TeacherIdentity.Fingerprint(found.TeacherKey)}";
+        ApplySignedLock(found.Locked);
         return found.Url;
+    }
+
+    /// <summary>
+    /// "A teacher's computer was found — is it ours?" On the kiosk, over a lock if there is one: only
+    /// the installer's password of this computer counts here, never one the newcomer brought along.
+    /// </summary>
+    private bool AdministratorConfirms(TeacherFound found, string installerHash)
+    {
+        using var dialog = new ExitPasswordDialog(
+            [installerHash],
+            offerSetup: false,
+            $"Найден компьютер учителя «{found.Name ?? "без имени"}», ключ {TeacherIdentity.Fingerprint(found.TeacherKey)}. "
+            + "Сверьте ключ с синей полосой окна учителя и введите пароль выхода этого компьютера, чтобы ему доверять.");
+        SetLock(false);
+        dialogOpen = true;
+        var answer = dialog.ShowDialog(this);
+        dialogOpen = false;
+        SetLock(lockedByTeacher);
+        Activate();
+        return answer == DialogResult.OK;
+    }
+
+    /// <summary>
+    /// "Attention!" as the teacher's computer signed it for this computer (review 2026-11-25). The
+    /// lesson page may lock at once, but only this signed answer unlocks.
+    /// </summary>
+    private void ApplySignedLock(bool locked)
+    {
+        if (locked == lockedByTeacher)
+        {
+            return;
+        }
+
+        lockedByTeacher = locked;
+        SetLock(locked);
+        // The agent remembers it for a Sinf that dies and comes back (B7).
+        AgentPipe.Lock(locked);
+    }
+
+    /// <summary>The page says "unlocked": believed only when the teacher's computer signs the same.</summary>
+    private async Task ConfirmUnlockAsync()
+    {
+        if (teacherUrl is null || config.TeacherKey is null)
+        {
+            return;
+        }
+
+        var found = await TeacherFinder
+            .ConfirmAsync(teacherUrl, config.TeacherKey, token: life.Token, pc: config.PcName)
+            .ConfigureAwait(true);
+        if (found is { Locked: false })
+        {
+            ApplySignedLock(false);
+        }
     }
 
     private async Task<bool> IsAliveAsync(string url)
@@ -391,9 +529,18 @@ internal sealed class StudentForm : Form
             return;
         }
 
-        if (await IsAliveAsync(teacherUrl).ConfigureAwait(true))
+        // Alive and still ours: the web server answers and the teacher's key signs the answer, so
+        // nobody who took the teacher's address keeps the class (review 2026-11-25). The same answer
+        // carries this computer's lock.
+        var signed = await IsAliveAsync(teacherUrl).ConfigureAwait(true) && config.TeacherKey is not null
+            ? await TeacherFinder
+                .ConfirmAsync(teacherUrl, config.TeacherKey, token: life.Token, pc: config.PcName)
+                .ConfigureAwait(true)
+            : null;
+        if (signed is not null)
         {
             failedChecks = 0;
+            ApplySignedLock(signed.Locked);
             return;
         }
 
@@ -419,8 +566,17 @@ internal sealed class StudentForm : Form
             switch (type.GetString())
             {
                 case "lock":
-                    lockedByTeacher = root.TryGetProperty("on", out var on) && on.ValueKind == JsonValueKind.True;
-                    SetLock(lockedByTeacher);
+                    // Locking is taken from the page at once; unlocking only from the teacher's
+                    // signed answer (review 2026-11-25), so a substituted page cannot free the class.
+                    if (root.TryGetProperty("on", out var on) && on.ValueKind == JsonValueKind.True)
+                    {
+                        ApplySignedLock(true);
+                    }
+                    else
+                    {
+                        _ = ConfirmUnlockAsync();
+                    }
+
                     break;
                 case "thumbs":
                     SetThumbs(root.TryGetProperty("on", out var wanted) && wanted.ValueKind == JsonValueKind.True);
@@ -538,7 +694,7 @@ internal sealed class StudentForm : Form
         {
             if (fileName is not null)
             {
-                file = folder.PathOf(fileName);
+                file = id == "arduino" ? folder.IntoSketchFolder(fileName) : folder.PathOf(fileName);
             }
             else if (id == "paint")
             {
@@ -581,6 +737,7 @@ internal sealed class StudentForm : Form
         folder = null;
         if (old is not null)
         {
+            beat.Write();
             await old.DisposeAsync().ConfigureAwait(true);
         }
 
@@ -596,6 +753,7 @@ internal sealed class StudentForm : Form
             lessonToken,
             name => BeginInvoke(() => PostToPage(new { type = "saved", name })));
         folder = next;
+        beat.Write();
         await next.StartAsync().ConfigureAwait(true);
     }
 
@@ -794,9 +952,14 @@ internal sealed class StudentForm : Form
 
     private void BackToSearch(string reason)
     {
-        // No lesson, no "Attention!": a lost teacher must not leave the computer frozen.
-        lockedByTeacher = false;
-        SetLock(false);
+        // "Attention!" stays while the teacher's computer is away (author's decision 2026-11-25): a
+        // pupil who drops the connection must not free the class. The teacher, found again, lifts it
+        // with a signed answer; the administrator's exit password works as ever.
+        if (lockedByTeacher)
+        {
+            reason += " Экран закрыт, пока учитель не снимет «Внимание!».";
+        }
+
         SetThumbs(false);
         SetPip(false);
         _ = SetShareAsync(null, null);
@@ -848,8 +1011,9 @@ internal sealed class StudentForm : Form
     }
 
     /// <summary>
-    /// Ctrl+Alt+Shift+F12 (H3, author's choice). Until this computer has met the teacher's, it knows no
-    /// password: that is setup time, the kiosk guards nothing yet, and the combination simply lets out.
+    /// Ctrl+Alt+Shift+F12 (H3, author's choice) or the "Выход" button of the waiting screen (finding 4).
+    /// The room's password from the teacher's computer and the installer's both open. With neither
+    /// this computer is still being set up: the kiosk guards nothing yet and lets out without asking.
     /// </summary>
     private void AskPassword()
     {
@@ -858,13 +1022,15 @@ internal sealed class StudentForm : Form
             return;
         }
 
-        if (!config.HasExitPassword)
+        var hashes = MachinePassword.KioskHashes(config);
+        if (hashes.Count == 0)
         {
+            AgentPipe.Maintenance(string.Empty);
             LeaveKiosk();
             return;
         }
 
-        using var dialog = new ExitPasswordDialog(config.ExitPasswordHash!, offerSetup: true, "Выход из режима ученика.");
+        using var dialog = new ExitPasswordDialog(hashes, offerSetup: true, "Выход из режима ученика.");
         // Under "Attention!" the administrator still has to type and click.
         SetLock(false);
         dialogOpen = true;
@@ -876,6 +1042,10 @@ internal sealed class StudentForm : Form
             Activate();
             return;
         }
+
+        // With the agent (B7), the administrator gets maintenance time: the watchdog does not
+        // bring the kiosk back, and an ordinary desktop opens.
+        AgentPipe.Maintenance(dialog.Password);
 
         if (dialog.Chosen == ExitPasswordDialog.Choice.Setup)
         {
@@ -932,6 +1102,7 @@ internal sealed class StudentForm : Form
         http.Dispose();
         _ = share?.DisposeAsync();
         _ = folder?.DisposeAsync();
+        beat.Dispose();
         base.OnFormClosed(e);
     }
 }

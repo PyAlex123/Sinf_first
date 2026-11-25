@@ -24,6 +24,7 @@ import {
 import { countDirtyFiles, pullFiles, pushFiles } from './files.js';
 import { pullLessons } from './lessons.js';
 import { applyJournal, markJournalSynced, pendingJournal } from '../services/journal.js';
+import { UpdateMirror } from '../services/updates.js';
 
 /**
  * The school computer's side of S2.6 (ADR-011): it pulls the school's roster down and pushes what
@@ -61,6 +62,7 @@ export class SyncWorker {
   private running = false;
   private stopped = false;
   private lastPullAt = 0;
+  private readonly updates: UpdateMirror;
 
   constructor(
     private readonly db: Db,
@@ -71,6 +73,7 @@ export class SyncWorker {
     this.pushEveryMs = options.pushEveryMs ?? 60_000;
     this.pullEveryMs = options.pullEveryMs ?? 10 * 60_000;
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.updates = new UpdateMirror(config, log, this.fetchImpl);
   }
 
   /** Is this server a school computer at all? Decided per call: pairing can happen while it runs. */
@@ -118,6 +121,8 @@ export class SyncWorker {
       // The server may have been shut down while the platform was answering.
       if (this.stopped) return null;
       this.lastPullAt = Date.now();
+      // The classroom's copy of a new app version (B6): in the background, it may take minutes.
+      void this.updates.mirror(link);
       if (this.read(ROSTER_KEY) === snapshot.version) {
         await this.pullLessons(link);
         await this.syncJournal();

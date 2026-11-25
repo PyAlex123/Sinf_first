@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import ru from '../src/lib/i18n/ru.json';
 import uz from '../src/lib/i18n/uz.json';
+import en from '../src/lib/i18n/en.json';
 import { format, i18n } from '../src/lib/i18n/index.svelte.js';
 
 /**
@@ -34,6 +35,40 @@ describe('i18n dictionaries', () => {
       }
       expect(keys, stem).toContain(stem);
     }
+  });
+});
+
+describe('the English dictionary (stage 6, B3)', () => {
+  const english = en as Record<string, string>;
+
+  it('has every key of the Russian one, and a singular only where Russian has forms', () => {
+    const plain = (keys: string[]) => keys.filter((k) => !/#(one|few|many)$/.test(k)).sort();
+    expect(plain(Object.keys(english))).toEqual(plain(Object.keys(ru)));
+    for (const key of Object.keys(english)) {
+      if (!key.endsWith('#one')) continue;
+      expect(Object.keys(ru), key).toContain(key);
+    }
+    expect(Object.keys(english).some((k) => /#(few|many)$/.test(k))).toBe(false);
+  });
+
+  it('uses the same placeholders', () => {
+    for (const [key, value] of Object.entries(english)) {
+      const a = (value.match(/\{\w+\}/g) ?? []).sort();
+      const b = ((ru as Record<string, string>)[key]?.match(/\{\w+\}/g) ?? []).sort();
+      expect(a, key).toEqual(b);
+    }
+  });
+
+  it('says one and many once it is loaded', async () => {
+    await i18n.set('en');
+    expect(i18n.locale).toBe('en');
+    expect(i18n.t('teacher.students', { count: 1 })).toBe(
+      english['teacher.students#one']?.replace('{count}', '1'),
+    );
+    expect(i18n.t('teacher.students', { count: 2 })).toBe(
+      english['teacher.students']?.replace('{count}', '2'),
+    );
+    i18n.locale = 'ru';
   });
 });
 

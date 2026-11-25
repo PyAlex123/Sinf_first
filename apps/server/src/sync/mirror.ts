@@ -1,6 +1,7 @@
 import { eq, inArray, notInArray, and } from 'drizzle-orm';
 import type { SchoolSnapshot } from '@sinf/shared';
 import { schema, type Db } from '../db/index.js';
+import { mirrorLicense } from '../services/licenses.js';
 
 /**
  * Writing the school's roster into this computer's own database (S2.6, ADR-011).
@@ -225,6 +226,9 @@ export function applySchoolSnapshot(db: Db, snapshot: SchoolSnapshot): MirrorRes
       }
     }
   });
+
+  // What the school paid for (B2): an older platform sends nothing, and the copy stays as it was.
+  if (snapshot.license !== undefined) mirrorLicense(db, snapshot.school.id, snapshot.license);
 
   return {
     classes: snapshot.classes.length,

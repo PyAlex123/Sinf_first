@@ -125,6 +125,9 @@
         <Button variant="secondary" href={`/teacher/journal/${cls?.id}`}>
           {t('teacher.journal')}
         </Button>
+        <Button variant="secondary" href={`/teacher/class/${cls?.id}/report`}>
+          {t('report.open')}
+        </Button>
         <Button variant="secondary" href={`/teacher/class/${cls?.id}/cards`}>
           {t('teacher.cards')}
         </Button>

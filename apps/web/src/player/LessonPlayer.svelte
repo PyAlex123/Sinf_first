@@ -9,6 +9,7 @@
   import Question from './screens/Question.svelte';
   import type { WinInfo } from './lib/types.js';
   import WinDialog from './WinDialog.svelte';
+  import { turnsSlide } from '../lib/keys.js';
 
   let {
     lesson,
@@ -88,7 +89,7 @@
   }
 
   function onKey(event: KeyboardEvent): void {
-    if (frozen || navigation !== 'free' || win) return;
+    if (frozen || navigation !== 'free' || win || !turnsSlide(event)) return;
     if (event.key === 'ArrowRight' || event.key === 'PageDown') go(index + 1);
     if (event.key === 'ArrowLeft' || event.key === 'PageUp') go(index - 1);
   }
@@ -230,6 +231,11 @@
     border-radius: var(--radius-lg);
     padding: var(--space-6);
     box-shadow: var(--shadow-lg);
+  }
+  /* A centred slide (no picture) keeps its points together: the list is centred, its lines are not. */
+  .lesson-root :global(.slide.text.wide .s-list) {
+    display: inline-block;
+    text-align: left;
   }
   .lesson-root :global(.win .go) {
     min-height: var(--tap);

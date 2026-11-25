@@ -49,7 +49,7 @@ jobs:
           pnpm start > "$RUNNER_TEMP/server.log" 2>&1 &
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:3000/health && break; sleep 1; done
           curl -sf http://127.0.0.1:3000/health | grep -q '"ok"'
-          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf</title>'
+          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf'
           curl -sf http://127.0.0.1:3000/api/courses | grep -q 'g10'
           curl -sf -H 'content-type: application/json' \
             -d '{"email":"demo@sinf.local","password":"demo1234"}' \
@@ -77,8 +77,15 @@ jobs:
             sinf:ci
           for i in $(seq 1 60); do curl -sf http://127.0.0.1:3000/health && break; sleep 1; done
           curl -sf http://127.0.0.1:3000/health | grep -q '"ok"'
-          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf</title>'
+          curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf'
           curl -sf http://127.0.0.1:3000/api/courses | grep -q 'g10'
+          # By plain http, as on a server reached by its IP: the login cookie must come back
+          # (review 2026-11-25: a production server used to set it Secure, and the browser dropped it).
+          curl -sf -c jar.txt -H 'content-type: application/json' \
+            -d '{"email":"demo@sinf.local","password":"demo1234"}' \
+            http://127.0.0.1:3000/api/auth/teacher | grep -q 'user-demo-teacher'
+          # curl keeps no Secure cookie from plain http, so /api/me answers only if it was not Secure.
+          curl -sf -b jar.txt http://127.0.0.1:3000/api/me | grep -q 'demo@sinf.local'
           echo "docker image works"
 
       - name: Container log
@@ -101,3 +108,9 @@ jobs:
 
       - name: The Windows app compiles
         run: dotnet build apps/desktop/Sinf.Desktop.csproj -c Release
+
+      - name: The updater compiles (B6)
+        run: dotnet build apps/updater/Sinf.Updater.csproj -c Release
+
+      - name: The agent compiles (B7)
+        run: dotnet build apps/agent/Sinf.Agent.csproj -c Release

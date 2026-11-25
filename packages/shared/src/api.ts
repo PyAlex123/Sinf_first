@@ -3,6 +3,7 @@ import { CourseSchema } from './lesson.js';
 import { LocaleSchema } from './locale.js';
 import { MAX_STUDENTS_PER_CLASS } from './roster.js';
 import { GradeThresholdsSchema } from './results.js';
+import { SchoolLicenseSchema } from './license.js';
 
 /** HTTP API contracts (`/api/…`). The server validates requests with these schemas; the web client uses the types. */
 
@@ -182,6 +183,8 @@ export const SchoolDetailsResponseSchema = z.strictObject({
   classes: z.array(SchoolClassSchema),
   /** Empty for a plain teacher: requests are the administrator's business. */
   requests: z.array(SchoolJoinRequestSchema),
+  /** The school's license (stage 6, B2): what it pays for and until when. */
+  license: SchoolLicenseSchema,
 });
 export type SchoolDetailsResponse = z.infer<typeof SchoolDetailsResponseSchema>;
 
@@ -212,6 +215,8 @@ export const AdminSchoolSchema = SchoolBriefSchema.extend({
   teachers: z.number().int().nonnegative(),
   classes: z.number().int().nonnegative(),
   admins: z.array(z.string().min(1)),
+  /** The school's license now (stage 6, B2). */
+  license: SchoolLicenseSchema,
 });
 export type AdminSchool = z.infer<typeof AdminSchoolSchema>;
 

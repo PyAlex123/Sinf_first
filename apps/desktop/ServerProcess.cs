@@ -14,15 +14,20 @@ internal sealed class ServerProcess : IAsyncDisposable
 {
     private const int PreferredPort = 3000;
 
+    /// <summary>How much of the log goes into the failure screen: enough for the error and its stack.</summary>
+    private const int TailLines = 12;
+
     private readonly Process process;
     private readonly JobObject job;
     private readonly StreamWriter log;
+    private readonly string logPath;
 
-    private ServerProcess(Process process, JobObject job, StreamWriter log, int port, string hostToken)
+    private ServerProcess(Process process, JobObject job, StreamWriter log, string logPath, int port, string hostToken)
     {
         this.process = process;
         this.job = job;
         this.log = log;
+        this.logPath = logPath;
         Port = port;
         HostToken = hostToken;
     }
@@ -87,6 +92,8 @@ internal sealed class ServerProcess : IAsyncDisposable
         {
             AutoFlush = true,
         };
+        // The first line says which program wrote the log: the author's log is often the only clue.
+        Write(writer, $"sinf {typeof(ServerProcess).Assembly.GetName().Version} · port {port} · data {paths.Data}");
         var started = Process.Start(start)
             ?? throw new InvalidOperationException("Не удалось запустить server\\node.exe.");
         var job = new JobObject();
@@ -96,7 +103,7 @@ internal sealed class ServerProcess : IAsyncDisposable
         started.BeginOutputReadLine();
         started.BeginErrorReadLine();
 
-        var server = new ServerProcess(started, job, writer, port, hostToken);
+        var server = new ServerProcess(started, job, writer, paths.LogFile, port, hostToken);
         try
         {
             await server.WaitUntilReadyAsync(report, token).ConfigureAwait(false);
@@ -120,8 +127,11 @@ internal sealed class ServerProcess : IAsyncDisposable
             token.ThrowIfCancellationRequested();
             if (process.HasExited)
             {
-                throw new InvalidOperationException(
-                    $"Сервер остановился сразу после запуска (код {process.ExitCode}). Журнал: logs\\server.log");
+                // Without a timeout this also waits for the last lines of output to reach the log.
+                process.WaitForExit();
+                throw new ServerStartException(
+                    $"Сервер остановился сразу после запуска (код {process.ExitCode}).",
+                    Tail());
             }
 
             try
@@ -146,7 +156,32 @@ internal sealed class ServerProcess : IAsyncDisposable
             await Task.Delay(250, token).ConfigureAwait(false);
         }
 
-        throw new TimeoutException("Сервер не ответил за минуту. Журнал: logs\\server.log");
+        throw new ServerStartException("Сервер не ответил за минуту.", Tail());
+    }
+
+    /// <summary>The last lines of the server's log, for the failure screen; empty when unreadable.</summary>
+    private string Tail()
+    {
+        try
+        {
+            lock (log)
+            {
+                log.Flush();
+            }
+
+            using var stream = new FileStream(logPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream);
+            var lines = reader.ReadToEnd()
+                .Split('\n')
+                .Select(line => line.TrimEnd('\r'))
+                .Where(line => line.Length > 0)
+                .TakeLast(TailLines);
+            return string.Join(Environment.NewLine, lines);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ObjectDisposedException)
+        {
+            return string.Empty;
+        }
     }
 
     private static void Write(StreamWriter writer, string? line)
@@ -219,4 +254,10 @@ internal sealed class ServerProcess : IAsyncDisposable
         job.Dispose();
         await log.DisposeAsync().ConfigureAwait(false);
     }
+}
+
+/// <summary>The lesson server did not come up; <see cref="LogTail"/> holds the end of its log.</summary>
+internal sealed class ServerStartException(string message, string logTail) : Exception(message)
+{
+    public string LogTail { get; } = logTail;
 }

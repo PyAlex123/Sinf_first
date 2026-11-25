@@ -14,11 +14,11 @@ public class DiscoveryTests
     public void A_request_carries_a_nonce_and_a_signed_answer_carries_the_address()
     {
         var nonce = Discovery.NewNonce();
-        Assert.Equal(nonce, Discovery.ReadRequest(Discovery.Request(nonce)));
+        Assert.Equal(new DiscoveryQuestion(nonce, null), Discovery.ReadRequest(Discovery.Request(nonce)));
         Assert.NotEqual(nonce, Discovery.NewNonce());
         var answer = Discovery.Answer(nonce, Url, "Учитель", null, Teacher);
         Assert.Null(Discovery.ReadRequest(answer));
-        Assert.Equal(new TeacherFound(Url, null, Teacher.PublicKey), Discovery.ReadAnswer(answer, nonce, null));
+        Assert.Equal(new TeacherFound(Url, null, Teacher.PublicKey, "Учитель", false), Discovery.ReadAnswer(answer, nonce, null));
         Assert.True(answer.Length < Discovery.MaxMessageBytes / 2);
     }
 
@@ -170,6 +170,61 @@ public class DiscoveryTests
             [new IPEndPoint(IPAddress.Loopback, beacon.Port)],
             TimeSpan.FromMilliseconds(400));
         Assert.Null(url);
+    }
+
+    // Review 2026-11-25: the signed answer says whether the asking computer stays locked.
+    [Fact]
+    public void A_question_names_its_computer_and_a_bad_name_is_dropped()
+    {
+        var nonce = Discovery.NewNonce();
+        Assert.Equal(new DiscoveryQuestion(nonce, "ПК-05"), Discovery.ReadRequest(Discovery.Request(nonce, " ПК-05 ")));
+        Assert.Equal(new DiscoveryQuestion(nonce, null), Discovery.ReadRequest(Discovery.Request(nonce, new string('x', 40))));
+    }
+
+    [Fact]
+    public void The_lock_is_signed_for_the_computer_that_asked()
+    {
+        var nonce = Discovery.NewNonce();
+        var answer = Discovery.Answer(nonce, Url, "Учитель", null, Teacher, "ПК-05", locked: true);
+        Assert.True(Discovery.ReadAnswer(answer, nonce, Teacher.PublicKey, "ПК-05")?.Locked);
+        // The same answer passed to another computer does not fit its question.
+        Assert.Null(Discovery.ReadAnswer(answer, nonce, Teacher.PublicKey, "ПК-06"));
+
+        var json = System.Text.Json.Nodes.JsonNode.Parse(answer)!.AsObject();
+        json["locked"] = false;
+        Assert.Null(Discovery.ReadAnswer(Encoding.UTF8.GetBytes(json.ToJsonString()), nonce, Teacher.PublicKey, "ПК-05"));
+        json.Remove("locked");
+        Assert.Null(Discovery.ReadAnswer(Encoding.UTF8.GetBytes(json.ToJsonString()), nonce, Teacher.PublicKey, "ПК-05"));
+    }
+
+    [Fact]
+    public async Task The_teacher_answers_each_computer_with_its_own_lock_over_udp()
+    {
+        using var beacon = new TeacherBeacon(
+            () => "http://192.168.1.15:3123",
+            "ПК учителя",
+            Teacher,
+            bind: new IPEndPoint(IPAddress.Loopback, 0),
+            isLocked: pc => pc == "ПК-05");
+        var target = new IPEndPoint(IPAddress.Loopback, beacon.Port);
+        var locked = await TeacherFinder.FindAsync([target], TimeSpan.FromSeconds(3), Teacher.PublicKey, pc: "ПК-05");
+        var free = await TeacherFinder.FindAsync([target], TimeSpan.FromSeconds(3), Teacher.PublicKey, pc: "ПК-06");
+        Assert.True(locked?.Locked);
+        Assert.False(free?.Locked);
+        Assert.Equal("ПК учителя", locked?.Name);
+    }
+
+    [Fact]
+    public async Task A_refused_teacher_is_passed_over_for_the_next_one()
+    {
+        using var stranger = TeacherIdentity.Create();
+        using var fake = new TeacherBeacon(() => "http://192.168.1.66:3000", "Ноутбук", stranger, bind: new IPEndPoint(IPAddress.Loopback, 0));
+        using var real = new TeacherBeacon(() => "http://192.168.1.15:3000", "ПК учителя", Teacher, bind: new IPEndPoint(IPAddress.Loopback, 0));
+        var found = await TeacherFinder.FindAsync(
+            [new IPEndPoint(IPAddress.Loopback, fake.Port), new IPEndPoint(IPAddress.Loopback, real.Port)],
+            TimeSpan.FromSeconds(3),
+            refused: new HashSet<string> { stranger.PublicKey });
+        Assert.Equal(Teacher.PublicKey, found?.TeacherKey);
     }
 
     [Fact]

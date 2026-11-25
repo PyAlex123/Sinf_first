@@ -174,7 +174,17 @@ export type DemoState = z.infer<typeof DemoStateSchema>;
  * Programs a classroom computer may open (H15): only ids travel, a student computer finds the
  * program itself and opens nothing else (apps/desktop-core/AppCatalog.cs).
  */
-export const LESSON_APPS = ['paint', 'notepad', 'word', 'excel', 'powerpoint'] as const;
+export const LESSON_APPS = [
+  'paint',
+  'notepad',
+  'word',
+  'excel',
+  'powerpoint',
+  // Stage 6, B5: shown only on a computer where they are installed.
+  'scratch',
+  'arduino',
+  'python',
+] as const;
 export const LessonAppSchema = z.enum(LESSON_APPS);
 export type LessonApp = z.infer<typeof LessonAppSchema>;
 

@@ -49,6 +49,18 @@ const LABELS: Record<Locale, Labels> = {
     legendGrades: 'Katakda — dars yulduzchalari bo‘yicha 2–5 baho; «yo‘q» — darsda bo‘lmagan.',
     file: 'jurnal',
   },
+  en: {
+    sheet: 'Gradebook',
+    number: 'No.',
+    student: 'Student',
+    topic: 'Lesson topic',
+    absent: 'abs.',
+    left: 'left',
+    virtual: 'virtual',
+    legendStars: 'A cell holds the stars of the lesson; “abs.” — not at the lesson.',
+    legendGrades: 'A cell holds the 2–5 grade by the lesson’s stars; “abs.” — not at the lesson.',
+    file: 'gradebook',
+  },
 };
 
 export function journalFileName(journal: Journal, locale: Locale): string {

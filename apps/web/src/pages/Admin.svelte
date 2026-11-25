@@ -1,5 +1,8 @@
 <script lang="ts">
+  import AdminLicense from './AdminLicense.svelte';
   import AdminReports from './AdminReports.svelte';
+  import AdminUpdates from './AdminUpdates.svelte';
+  import AdminPilots from './AdminPilots.svelte';
   import type { AdminSchool } from '@sinf/shared';
   import { onMount } from 'svelte';
   import type { ResetLinkResponse } from '@sinf/shared';
@@ -126,6 +129,12 @@
       {#if resetLink}<ResetLink link={resetLink} />{/if}
     </Card>
 
+    <!-- Schools that asked for a pilot on the landing page (B10). -->
+    <AdminPilots />
+
+    <!-- New versions of the Windows app for every school's computers (B6). -->
+    <AdminUpdates />
+
     <Card>
       <h2>{t('admin.list')}</h2>
       {#if schools.length === 0}
@@ -144,6 +153,8 @@
                     {t('school.classes', { count: school.classes })}
                     {#if school.admins.length > 0}· {school.admins.join(', ')}{/if}
                   </div>
+                  <!-- What the school has paid for (B2). -->
+                  <AdminLicense {school} onchange={() => void load()} />
                 </td>
                 <td class="actions">
                   <div>
