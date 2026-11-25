@@ -59,6 +59,8 @@ internal sealed class StudentForm : Form
     private MouseGuard? mouse;
     /// <summary>What the teacher asked for, so the lock comes back after the administrator's dialog.</summary>
     private bool lockedByTeacher;
+    /// <summary>Teacher computers an administrator said no to since Sinf started (review 2026-11-25).</summary>
+    private readonly HashSet<string> refusedTeachers = [];
     /// <summary>Thumbnails for the teacher's tiles, only while a teacher's panel is open (H5).</summary>
     private readonly System.Windows.Forms.Timer thumbs = new();
     private byte[] lastFingerprint = [];
@@ -301,17 +303,38 @@ internal sealed class StudentForm : Form
     /// choice). The exit password's hash comes with the answer (H3).
     /// </summary>
     private async Task<string?> FindTeacherAsync() =>
-        Accept(await TeacherFinder.FindAsync(pinnedKey: config.TeacherKey, token: life.Token).ConfigureAwait(true));
+        Accept(await TeacherFinder
+            .FindAsync(pinnedKey: config.TeacherKey, token: life.Token, pc: config.PcName, refused: refusedTeachers)
+            .ConfigureAwait(true));
 
     /// <summary>Is the computer at this address still our teacher's? Asked over UDP, signed (H9).</summary>
     private async Task<string?> ConfirmTeacherAsync(string url) =>
-        Accept(await TeacherFinder.ConfirmAsync(url, config.TeacherKey, token: life.Token).ConfigureAwait(true));
+        Accept(await TeacherFinder
+            .ConfirmAsync(url, config.TeacherKey, token: life.Token, pc: config.PcName, refused: refusedTeachers)
+            .ConfigureAwait(true));
+
+    /// <summary>The installer's exit password, which an administrator confirms a first teacher with.</summary>
+    private static string? InstallerHash() =>
+        MachinePassword.Read() is { } hash && ExitPassword.IsWellFormed(hash) ? hash : null;
 
     private string? Accept(TeacherFound? found)
     {
         if (found is null)
         {
             return null;
+        }
+
+        // The first teacher of a new computer: an administrator confirms it with the installer's exit
+        // password (author's decision 2026-11-25); without one, the first is trusted, as before (H9).
+        var installer = InstallerHash();
+        switch (TeacherTrustRule.Decide(config.TeacherKey, found.TeacherKey, installer is not null, refusedTeachers))
+        {
+            case TeacherTrust.Refuse:
+                return null;
+            case TeacherTrust.AskAdministrator when !AdministratorConfirms(found, installer!):
+                refusedTeachers.Add(found.TeacherKey);
+                status.Text = "Компьютер учителя не подтверждён — ищем дальше…";
+                return null;
         }
 
         var updated = config with
@@ -327,7 +350,62 @@ internal sealed class StudentForm : Form
 
         // The same eight characters stand in the teacher's window: an administrator can compare them.
         status.Text = $"Компьютер учителя найден · ключ {TeacherIdentity.Fingerprint(found.TeacherKey)}";
+        ApplySignedLock(found.Locked);
         return found.Url;
+    }
+
+    /// <summary>
+    /// "A teacher's computer was found — is it ours?" On the kiosk, over a lock if there is one: only
+    /// the installer's password of this computer counts here, never one the newcomer brought along.
+    /// </summary>
+    private bool AdministratorConfirms(TeacherFound found, string installerHash)
+    {
+        using var dialog = new ExitPasswordDialog(
+            [installerHash],
+            offerSetup: false,
+            $"Найден компьютер учителя «{found.Name ?? "без имени"}», ключ {TeacherIdentity.Fingerprint(found.TeacherKey)}. "
+            + "Сверьте ключ с синей полосой окна учителя и введите пароль выхода этого компьютера, чтобы ему доверять.");
+        SetLock(false);
+        dialogOpen = true;
+        var answer = dialog.ShowDialog(this);
+        dialogOpen = false;
+        SetLock(lockedByTeacher);
+        Activate();
+        return answer == DialogResult.OK;
+    }
+
+    /// <summary>
+    /// "Attention!" as the teacher's computer signed it for this computer (review 2026-11-25). The
+    /// lesson page may lock at once, but only this signed answer unlocks.
+    /// </summary>
+    private void ApplySignedLock(bool locked)
+    {
+        if (locked == lockedByTeacher)
+        {
+            return;
+        }
+
+        lockedByTeacher = locked;
+        SetLock(locked);
+        // The agent remembers it for a Sinf that dies and comes back (B7).
+        AgentPipe.Lock(locked);
+    }
+
+    /// <summary>The page says "unlocked": believed only when the teacher's computer signs the same.</summary>
+    private async Task ConfirmUnlockAsync()
+    {
+        if (teacherUrl is null || config.TeacherKey is null)
+        {
+            return;
+        }
+
+        var found = await TeacherFinder
+            .ConfirmAsync(teacherUrl, config.TeacherKey, token: life.Token, pc: config.PcName)
+            .ConfigureAwait(true);
+        if (found is { Locked: false })
+        {
+            ApplySignedLock(false);
+        }
     }
 
     private async Task<bool> IsAliveAsync(string url)
@@ -451,9 +529,18 @@ internal sealed class StudentForm : Form
             return;
         }
 
-        if (await IsAliveAsync(teacherUrl).ConfigureAwait(true))
+        // Alive and still ours: the web server answers and the teacher's key signs the answer, so
+        // nobody who took the teacher's address keeps the class (review 2026-11-25). The same answer
+        // carries this computer's lock.
+        var signed = await IsAliveAsync(teacherUrl).ConfigureAwait(true) && config.TeacherKey is not null
+            ? await TeacherFinder
+                .ConfirmAsync(teacherUrl, config.TeacherKey, token: life.Token, pc: config.PcName)
+                .ConfigureAwait(true)
+            : null;
+        if (signed is not null)
         {
             failedChecks = 0;
+            ApplySignedLock(signed.Locked);
             return;
         }
 
@@ -479,10 +566,17 @@ internal sealed class StudentForm : Form
             switch (type.GetString())
             {
                 case "lock":
-                    lockedByTeacher = root.TryGetProperty("on", out var on) && on.ValueKind == JsonValueKind.True;
-                    SetLock(lockedByTeacher);
-                    // The agent remembers it for a Sinf that dies and comes back (B7).
-                    AgentPipe.Lock(lockedByTeacher);
+                    // Locking is taken from the page at once; unlocking only from the teacher's
+                    // signed answer (review 2026-11-25), so a substituted page cannot free the class.
+                    if (root.TryGetProperty("on", out var on) && on.ValueKind == JsonValueKind.True)
+                    {
+                        ApplySignedLock(true);
+                    }
+                    else
+                    {
+                        _ = ConfirmUnlockAsync();
+                    }
+
                     break;
                 case "thumbs":
                     SetThumbs(root.TryGetProperty("on", out var wanted) && wanted.ValueKind == JsonValueKind.True);
@@ -858,9 +952,14 @@ internal sealed class StudentForm : Form
 
     private void BackToSearch(string reason)
     {
-        // No lesson, no "Attention!": a lost teacher must not leave the computer frozen.
-        lockedByTeacher = false;
-        SetLock(false);
+        // "Attention!" stays while the teacher's computer is away (author's decision 2026-11-25): a
+        // pupil who drops the connection must not free the class. The teacher, found again, lifts it
+        // with a signed answer; the administrator's exit password works as ever.
+        if (lockedByTeacher)
+        {
+            reason += " Экран закрыт, пока учитель не снимет «Внимание!».";
+        }
+
         SetThumbs(false);
         SetPip(false);
         _ = SetShareAsync(null, null);

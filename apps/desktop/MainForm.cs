@@ -69,6 +69,8 @@ internal sealed class MainForm : Form
     /// <summary>Answers student computers that look for this lesson on the network (ADR-014 §3).</summary>
     private TeacherBeacon? beacon;
     private TeacherIdentity? identity;
+    /// <summary>For the beacon's question to the lesson server; short, the student asks again in 5 s.</summary>
+    private readonly HttpClient lockClient = new() { Timeout = TimeSpan.FromMilliseconds(700) };
     private FormWindowState beforeFullScreen = FormWindowState.Maximized;
     private bool fullScreen;
 
@@ -297,6 +299,40 @@ internal sealed class MainForm : Form
     }
 
     /// <summary>
+    /// Whether a student computer is to stay locked, from this computer's own lesson server (review
+    /// 2026-11-25). The beacon signs the answer, so the kiosk takes an unlock only from here, never
+    /// from a page. Asked on the beacon's thread; a server that does not answer says "not locked".
+    /// </summary>
+    private bool LockedOnServer(string? pc)
+    {
+        var current = server;
+        if (current is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            var query = pc is null ? string.Empty : $"?pc={Uri.EscapeDataString(pc)}";
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"{current.LocalUrl}/api/join/room/locked{query}");
+            request.Headers.Add("x-host-token", current.HostToken);
+            using var answer = lockClient.Send(request);
+            if (!answer.IsSuccessStatusCode)
+            {
+                return false;
+            }
+
+            using var body = answer.Content.ReadAsStream();
+            using var document = JsonDocument.Parse(body);
+            return document.RootElement.TryGetProperty("locked", out var locked) && locked.ValueKind == JsonValueKind.True;
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or JsonException or IOException or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Student computers find this one by a broadcast question (ADR-014 §3). If the port is taken —
     /// another Sinf already answers on this machine — the lesson still runs; students type the address.
     /// </summary>
@@ -311,7 +347,12 @@ internal sealed class MainForm : Form
         {
             // The key that signs every answer (H9); student computers remember it at their first meeting.
             identity = TeacherIdentity.LoadOrCreate(paths.TeacherKeyFile);
-            beacon = new TeacherBeacon(() => lanUrl, Environment.MachineName, identity, () => config.ExitPasswordHash);
+            beacon = new TeacherBeacon(
+                () => lanUrl,
+                Environment.MachineName,
+                identity,
+                () => config.ExitPasswordHash,
+                isLocked: LockedOnServer);
         }
         catch (System.Net.Sockets.SocketException)
         {
@@ -635,6 +676,7 @@ internal sealed class MainForm : Form
         }
 
         beacon?.Dispose();
+        lockClient.Dispose();
         beacon = null;
         beat?.Dispose();
         beat = null;

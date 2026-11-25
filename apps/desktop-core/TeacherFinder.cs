@@ -19,15 +19,19 @@ public static class TeacherFinder
     /// </summary>
     /// <param name="targets">Where to ask; every local network by default, a loopback port in tests.</param>
     /// <param name="pinnedKey">The teacher this computer met first; null on a computer that has met none.</param>
+    /// <param name="pc">This computer's name: the teacher's answer says whether it stays locked.</param>
+    /// <param name="refused">Keys an administrator refused on this computer (review 2026-11-25): passed over.</param>
     public static async Task<TeacherFound?> FindAsync(
         IReadOnlyList<IPEndPoint>? targets = null,
         TimeSpan? wait = null,
         string? pinnedKey = null,
-        CancellationToken token = default)
+        CancellationToken token = default,
+        string? pc = null,
+        IReadOnlySet<string>? refused = null)
     {
         using var socket = new UdpClient(new IPEndPoint(IPAddress.Any, 0)) { EnableBroadcast = true };
         var nonce = Discovery.NewNonce();
-        var request = Discovery.Request(nonce);
+        var request = Discovery.Request(nonce, pc);
         foreach (var target in targets ?? BroadcastTargets())
         {
             try
@@ -58,8 +62,8 @@ public static class TeacherFinder
                 continue;
             }
 
-            var found = Discovery.ReadAnswer(received.Buffer, nonce, pinnedKey);
-            if (found is not null)
+            var found = Discovery.ReadAnswer(received.Buffer, nonce, pinnedKey, pc);
+            if (found is not null && refused?.Contains(found.TeacherKey) != true)
             {
                 return found;
             }
@@ -75,7 +79,9 @@ public static class TeacherFinder
         string url,
         string? pinnedKey,
         TimeSpan? wait = null,
-        CancellationToken token = default)
+        CancellationToken token = default,
+        string? pc = null,
+        IReadOnlySet<string>? refused = null)
     {
         if (!TeacherAddress.TryNormalize(url, out var normal)
             || !IPAddress.TryParse(new Uri(normal).Host, out var host))
@@ -83,7 +89,7 @@ public static class TeacherFinder
             return Task.FromResult<TeacherFound?>(null);
         }
 
-        return FindAsync([new IPEndPoint(host, Discovery.Port)], wait, pinnedKey, token);
+        return FindAsync([new IPEndPoint(host, Discovery.Port)], wait, pinnedKey, token, pc, refused);
     }
 
     /// <summary>The broadcast address of every working IPv4 network here, plus 255.255.255.255.</summary>
