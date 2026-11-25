@@ -477,7 +477,9 @@ begin
       Result := False;
     end;
   end;
-  if (ExitPage <> nil) and (CurPageID = ExitPage.ID) then
+  { Only in the wizard: Inno Setup calls this in a silent install too, where the password comes from
+    /EXITPASSWORD (optional) and an empty page would stop the install for good. }
+  if (ExitPage <> nil) and (CurPageID = ExitPage.ID) and not WizardSilent then
   begin
     if (ExitPage.Values[0] = '') and (ExitPage.Values[1] = '') and HasExitPassword then
       Exit;

@@ -178,12 +178,14 @@ jobs:
 
       # Installed, reinstalled as the teacher's and removed on the runner, silently, as on a school PC.
       - name: Silent install, reinstall, update over it and removal
+        timeout-minutes: 30
         shell: pwsh
         run: ./tools/installer/smoke.ps1
 
       # B6: an older install, a newer signed update on the classroom server, a lesson to wait out,
       # then the update itself — with a throwaway key, never the project's.
       - name: Update from start to end (test key)
+        timeout-minutes: 30
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -198,6 +200,7 @@ jobs:
 
       # B7: the agent switched on by the installer and off by removing Sinf; the computer as before.
       - name: The agent on and off
+        timeout-minutes: 30
         shell: pwsh
         run: ./tools/installer/agent-smoke.ps1
 

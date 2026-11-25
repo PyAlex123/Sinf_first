@@ -32,9 +32,17 @@ $runKey = 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Run'
 $logs = Join-Path (Get-Location) 'out/installer-logs'
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 
+# A silent install that stops to ask something never ends: ten minutes, then the log and a failure,
+# not six hours of a stuck runner (run 73).
 function Install([string[]]$Extra, [string]$Log) {
-    $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$(Join-Path $logs $Log)") + $Extra
-    $p = Start-Process -FilePath $Setup -ArgumentList $arguments -Wait -PassThru
+    $logFile = Join-Path $logs $Log
+    $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=$logFile") + $Extra
+    $p = Start-Process -FilePath $Setup -ArgumentList $arguments -PassThru
+    if (-not $p.WaitForExit(600000)) {
+        Get-Process -Name 'Sinf-setup*', 'Sinf-update*' -ErrorAction SilentlyContinue | Stop-Process -Force
+        if (Test-Path $logFile) { Get-Content $logFile -Tail 40 -Encoding UTF8 }
+        throw "Установка не закончилась за 10 минут: $Log"
+    }
     if ($p.ExitCode -ne 0) { throw "Установка: код $($p.ExitCode), журнал $Log" }
 }
 
