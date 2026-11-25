@@ -10,7 +10,7 @@ import {
 } from '@sinf/shared';
 import { schema as schemaRef } from '../src/db/index.js';
 import { rawDataToString } from '../src/realtime/ws.js';
-import { loginTeacher, testApp, type TestApp } from './helpers.js';
+import { loginTeacher, registerTeacher, testApp, type TestApp } from './helpers.js';
 
 let t: TestApp;
 let baseUrl: string;
@@ -353,6 +353,18 @@ describe('websocket room', () => {
     teacher.send({ v: 1, type: 'teacher.session.end' });
     await student.closed;
     await teacher.closed;
+  });
+
+  it("refuses another teacher's socket on a lesson of a class they cannot see", async () => {
+    const sessionId = await startSession('g11');
+    const stranger = await registerTeacher(t.app, 'stranger@example.com');
+    const foreign = new Client(wsUrl(sessionId, 'teacher'), { cookie: stranger });
+    expect(await foreign.until('error')).toMatchObject({ code: 'not_found' });
+    await t.app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sessionId}/end`,
+      headers: { cookie },
+    });
   });
 
   it('refuses a teacher socket without the cookie and a projector on a missing session', async () => {

@@ -4,6 +4,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { readTeacher } from './auth/teacher.js';
+import { teacherAllowedFrom } from './auth/local.js';
 import type { Config } from './config.js';
 import type { ContentStore } from './content/index.js';
 import type { Db } from './db/index.js';
@@ -95,7 +96,9 @@ export async function buildApp(
 
   await app.register(fastifyCookie, { secret: ctx.config.sessionSecret });
   app.addHook('onRequest', (request, _reply, done) => {
-    request.teacher = readTeacher(request, ctx.db);
+    // On a classroom server a teacher's cookie counts only on the teacher's own computer, so a
+    // pupil's phone on the network never acts as the teacher, whatever it got hold of.
+    request.teacher = teacherAllowedFrom(ctx.config, request) ? readTeacher(request, ctx.db) : null;
     done();
   });
 

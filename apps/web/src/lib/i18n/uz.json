@@ -23,6 +23,7 @@
   "login.password": "Parol",
   "login.submit": "Kirish",
   "login.failed": "Pochta yoki parol noto‘g‘ri",
+  "login.localOnly": "O‘qituvchi faqat o‘qituvchi kompyuterida kiradi: shu kompyuterdagi Sinf oynasida.",
   "register.title": "O‘qituvchi ro‘yxatdan o‘tishi",
   "register.hint": "Bepul: o‘z sinfingiz, darslar va jurnal.",
   "register.name": "Familiya va ism",

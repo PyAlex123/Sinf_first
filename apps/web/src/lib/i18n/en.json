@@ -23,6 +23,7 @@
   "login.password": "Password",
   "login.submit": "Sign in",
   "login.failed": "Wrong email or password",
+  "login.localOnly": "The teacher signs in only on the teacher's computer, in the Sinf window there.",
   "register.title": "Teacher sign-up",
   "register.hint": "Free: your own class, lessons and gradebook.",
   "register.name": "Full name",

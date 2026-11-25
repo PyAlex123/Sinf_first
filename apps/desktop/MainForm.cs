@@ -28,6 +28,8 @@ internal sealed class MainForm : Form
     private readonly Button schoolButton = new() { Text = "Школа", AutoSize = true };
     private readonly Button updateButton = new() { Text = "Обновить материалы", AutoSize = true };
     private readonly Button exitPasswordButton = new() { Text = "Пароль учеников", AutoSize = true };
+    /// <summary>The demo account's password, on request only: the bar is on the projector (review 2026-11-25).</summary>
+    private readonly Button demoPasswordButton = new() { Text = "Пароль демо", AutoSize = true };
     private readonly Label splash = new()
     {
         Dock = DockStyle.Fill,
@@ -123,7 +125,7 @@ internal sealed class MainForm : Form
             Padding = new Padding(8, 10, 12, 10),
             WrapContents = false,
         };
-        foreach (var button in new[] { reloadButton, fullScreenButton, updateButton, schoolButton, exitPasswordButton, copyButton })
+        foreach (var button in new[] { reloadButton, fullScreenButton, updateButton, schoolButton, exitPasswordButton, demoPasswordButton, copyButton })
         {
             button.FlatStyle = FlatStyle.Flat;
             button.BackColor = Color.White;
@@ -137,6 +139,12 @@ internal sealed class MainForm : Form
         fullScreenButton.Click += (_, _) => ToggleFullScreen();
         schoolButton.Click += (_, _) => PairWithSchool();
         exitPasswordButton.Click += (_, _) => SetExitPassword();
+        demoPasswordButton.Click += (_, _) => MessageBox.Show(
+            this,
+            $"Демо-учётка: demo@sinf.local\nПароль: {config.TeacherPassword}\n\nВойти ею можно только на этом компьютере.",
+            "Sinf",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
         updateButton.Click += async (_, _) => await UpdateContentAsync(manual: true).ConfigureAwait(true);
 
         bar.Controls.Add(left);
@@ -227,7 +235,9 @@ internal sealed class MainForm : Form
         addressLabel.Text = lanUrl is null
             ? "Сеть не найдена — ученики не смогут подключиться"
             : $"Ученики заходят: {lanUrl}";
-        accountLabel.Text = $"Учитель: demo@sinf.local · пароль: {config.TeacherPassword}";
+        // The password is not on the bar any more: the bar is on the projector, and pupils read it for
+        // the address. The teacher signs in only on this computer anyway (auth/local.ts).
+        accountLabel.Text = "Учитель: demo@sinf.local · пароль — кнопка «Пароль демо»";
         copyButton.Enabled = lanUrl is not null;
         StartBeacon(lanUrl);
         if (identity is not null)

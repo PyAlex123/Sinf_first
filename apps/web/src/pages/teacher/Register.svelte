@@ -24,7 +24,8 @@
       await api.register({ fullName, email, password });
       router.navigate(nextPath() ?? '/teacher', { replace: true });
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) error = t('register.emailTaken');
+      if (e instanceof ApiError && e.code === 'teacher_local_only') error = t('login.localOnly');
+      else if (e instanceof ApiError && e.status === 409) error = t('register.emailTaken');
       else if (e instanceof ApiError && e.status === 400) error = t('register.weakPassword');
       else error = t('common.error');
     } finally {
