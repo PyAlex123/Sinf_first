@@ -43,7 +43,10 @@
   let students = $state<Student[]>([]);
   let pics = $state<Pics>({});
   let showStudents = $state(false);
-  let error = $state<string | null>(null);
+  /** The page did not load: nothing to show but this and "Retry". */
+  let loadError = $state<string | null>(null);
+  /** An action failed (a lesson or a class not started): said on top, the page stays (review). */
+  let actionError = $state<string | null>(null);
   let busy = $state<string | null>(null);
 
   let selectedId = $state<string | null>(null);
@@ -66,7 +69,7 @@
     event.preventDefault();
     if (!newName.trim()) return;
     busy = 'class';
-    error = null;
+    actionError = null;
     try {
       const { class: created } = await api.createClass({
         name: newName.trim(),
@@ -75,7 +78,7 @@
       });
       router.navigate(`/teacher/class/${created.id}`);
     } catch (e) {
-      error = licenseError(e) ?? (e instanceof Error ? e.message : t('common.error'));
+      actionError = licenseError(e) ?? (e instanceof Error ? e.message : t('common.error'));
     } finally {
       busy = null;
     }
@@ -99,6 +102,7 @@
   });
 
   async function load(): Promise<void> {
+    loadError = null;
     try {
       const me = await api.me();
       teacher = me.teacher;
@@ -117,18 +121,19 @@
         router.navigate('/teacher/login', { replace: true });
         return;
       }
-      error = e instanceof Error ? e.message : t('common.error');
+      loadError = e instanceof Error ? e.message : t('common.error');
     }
   }
 
   async function start(lessonId: string): Promise<void> {
     if (!cls) return;
     busy = lessonId;
+    actionError = null;
     try {
       const { session } = await api.createSession({ classId: cls.id, lessonId });
       router.navigate(`/teacher/session/${session.id}`);
     } catch (e) {
-      error = licenseError(e) ?? (e instanceof Error ? e.message : t('common.error'));
+      actionError = licenseError(e) ?? (e instanceof Error ? e.message : t('common.error'));
       busy = null;
     }
   }
@@ -149,11 +154,22 @@
 </Header>
 
 <main class="page">
-  {#if error}
-    <Notice kind="error">{error}</Notice>
+  {#if loadError}
+    <Notice kind="error">{loadError}</Notice>
+    <div><Button variant="secondary" onclick={load}>{t('common.retry')}</Button></div>
   {:else if !teacher}
     <p aria-busy="true" class="muted">{t('common.loading')}</p>
   {:else}
+    {#if actionError}
+      <Notice kind="error">
+        <span class="action-error" data-dashboard-error>
+          {actionError}
+          <Button size="sm" variant="ghost" onclick={() => (actionError = null)}
+            >{t('common.close')}</Button
+          >
+        </span>
+      </Notice>
+    {/if}
     <!-- Grades waiting for eMaktab while it still takes them (PLAN.md 5.4, W12). -->
     <EmaktabReminder />
     <!-- Left: the class being taught. Right: the lessons to teach it. -->
@@ -587,5 +603,11 @@
       gap: var(--space-2);
       padding: var(--space-2);
     }
+  }
+  .action-error {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
   }
 </style>

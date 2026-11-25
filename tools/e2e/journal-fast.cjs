@@ -125,7 +125,27 @@ const cellText = (page, cell) =>
   const turned = await page.locator('text=/Экран \\d+ из \\d+/').first().innerText();
   check('стрелка вне поля листает', turned !== before, `${before} → ${turned}`);
 
-  // The one refused save above is staged on purpose.
+  // The main page: a lesson that does not start says so on top, and the page stays.
+  await page.goto(`${BASE}/teacher`);
+  await page.waitForSelector('text=Начать урок');
+  await page.route('**/api/sessions', (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'internal', message: 'Не удалось начать урок' }),
+        })
+      : route.continue(),
+  );
+  await page.click('text=Начать урок >> nth=0');
+  await page.waitForSelector('[data-dashboard-error]', { timeout: 5000 });
+  check(
+    'ошибка «Начать урок» не стирает главную',
+    (await page.locator('text=Начать урок').count()) > 0,
+  );
+  await page.unroute('**/api/sessions');
+
+  // The refused saves and starts above are staged on purpose.
   const real = errors.filter((e) => !e.includes('status of 500'));
   check(
     'ошибок в консоли нет (кроме подстроенной)',
