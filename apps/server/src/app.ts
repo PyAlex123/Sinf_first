@@ -89,7 +89,8 @@ export async function buildApp(
     ...given,
     content: withAuthoredLessons(given.content, given.db, given.config.dataDir),
   };
-  const app = Fastify({ logger: options.logger ?? false });
+  // Behind Caddy the client's address and protocol come in X-Forwarded-* (TRUST_PROXY, review).
+  const app = Fastify({ logger: options.logger ?? false, trustProxy: ctx.config.trustProxy });
   app.decorate('ctx', ctx);
   app.decorateRequest('teacher', null);
   app.setErrorHandler(errorHandler);

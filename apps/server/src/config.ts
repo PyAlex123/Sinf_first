@@ -50,6 +50,18 @@ const EnvSchema = z.object({
   PUBLIC_URL: z.string().optional(),
   CLASSROOM_MODE: z.enum(['0', '1']).default('0'),
   /**
+   * Whether login cookies carry `Secure` (review 2026-11-25). `auto` — when the request came over
+   * HTTPS, so the site works both by plain http://IP and behind Caddy's HTTPS; `1` — always; `0` —
+   * never. It used to follow NODE_ENV alone, and a production server by IP lost every login.
+   */
+  COOKIE_SECURE: z.enum(['auto', '1', '0']).default('auto'),
+  /**
+   * Behind a reverse proxy (Caddy in deploy/docker-compose.yml): believe its X-Forwarded-* headers
+   * for the client's address and the protocol. Off when the server faces the network itself, or
+   * anyone could claim another address and slip past the attempt limits.
+   */
+  TRUST_PROXY: z.enum(['0', '1']).default('0'),
+  /**
    * The public half of the update signing key (B6, ADR-023): base64 SPKI, as `tools/update-key.mjs`
    * prints it. With it the platform refuses an upload the computers would refuse anyway.
    */
@@ -76,6 +88,10 @@ export interface Config {
   updatePublicKey: string | null;
   /** The site's address for links in letters; null — taken from the request. */
   publicUrl: string | null;
+  /** `Secure` on login cookies: by the request's protocol, always or never. */
+  cookieSecure: 'auto' | 'always' | 'never';
+  /** Behind a reverse proxy: X-Forwarded-* headers are believed. */
+  trustProxy: boolean;
   /** Where to look for this computer's link to the platform; null on the platform itself. */
   platformConfigFile: string | null;
   platformLink: PlatformLink | null;
@@ -134,6 +150,8 @@ export function loadConfig(
         ? { url: normalizePlatformUrl(e.PLATFORM_URL), deviceToken: e.DEVICE_TOKEN }
         : null,
     classroom: e.CLASSROOM_MODE === '1',
+    cookieSecure: e.COOKIE_SECURE === '1' ? 'always' : e.COOKIE_SECURE === '0' ? 'never' : 'auto',
+    trustProxy: e.TRUST_PROXY === '1',
     mail: {
       smtpUrl: e.SMTP_URL?.trim() || null,
       from: e.MAIL_FROM?.trim() || 'Sinf <no-reply@localhost>',

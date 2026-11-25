@@ -79,6 +79,13 @@ jobs:
           curl -sf http://127.0.0.1:3000/health | grep -q '"ok"'
           curl -sf http://127.0.0.1:3000/ | grep -q '<title>Sinf'
           curl -sf http://127.0.0.1:3000/api/courses | grep -q 'g10'
+          # By plain http, as on a server reached by its IP: the login cookie must come back
+          # (review 2026-11-25: a production server used to set it Secure, and the browser dropped it).
+          curl -sf -c jar.txt -H 'content-type: application/json' \
+            -d '{"email":"demo@sinf.local","password":"demo1234"}' \
+            http://127.0.0.1:3000/api/auth/teacher | grep -q 'user-demo-teacher'
+          # curl keeps no Secure cookie from plain http, so /api/me answers only if it was not Secure.
+          curl -sf -b jar.txt http://127.0.0.1:3000/api/me | grep -q 'demo@sinf.local'
           echo "docker image works"
 
       - name: Container log

@@ -20,7 +20,7 @@ import {
 } from '@sinf/shared';
 import { requireClass, requireDevice, requireStudent } from '../auth/access.js';
 import { verifySecret } from '../auth/password.js';
-import { requireTeacher } from '../auth/teacher.js';
+import { cookieSecure, requireTeacher } from '../auth/teacher.js';
 import { schema } from '../db/index.js';
 import { ApiHttpError, notFound } from '../errors.js';
 import type { SessionStore } from '../realtime/session-store.js';
@@ -485,7 +485,7 @@ export const fileRoutes: FastifyPluginCallback<{ store: SessionStore }> = (app, 
         signed: true,
         httpOnly: true,
         sameSite: 'lax',
-        secure: config.env === 'production',
+        secure: cookieSecure(config, request),
         path: '/',
         maxAge: STUDENT_COOKIE_MAX_AGE_SECONDS,
       },

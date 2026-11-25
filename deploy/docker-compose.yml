@@ -1,7 +1,7 @@
-# Cloud server with a domain: the app behind Caddy (automatic HTTPS, WebSocket passes through).
+# Cloud server: the app behind Caddy (automatic HTTPS, WebSocket passes through).
 # Usage (from the repository root):
 #   cp .env.example .env            # set DEMO_TEACHER_PASSWORD and SESSION_SECRET
-#   export SINF_DOMAIN=lesson.example.uz
+#   export SINF_DOMAIN=lesson.example.uz   # or, with no domain: 1-2-3-4.sslip.io (the server's IP)
 #   docker compose -f deploy/docker-compose.yml up -d --build
 services:
   app:
@@ -18,6 +18,8 @@ services:
       WEB_DIR: /app/web
       HOST: 0.0.0.0
       PORT: '3000'
+      # Caddy is in front: the visitor's address and protocol come in X-Forwarded-* (review).
+      TRUST_PROXY: '1'
     volumes:
       - sinf-data:/data
     restart: unless-stopped
@@ -28,7 +30,8 @@ services:
       - '80:80'
       - '443:443'
     environment:
-      # Domain pointed at this server (A record). Without it Caddy serves plain HTTP on port 80.
+      # Domain pointed at this server (A record), or <ip-with-dashes>.sslip.io with no domain.
+      # Without it Caddy serves plain HTTP on port 80; logging in works there too (COOKIE_SECURE=auto).
       SINF_DOMAIN: ${SINF_DOMAIN:-:80}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

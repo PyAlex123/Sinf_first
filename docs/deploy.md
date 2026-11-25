@@ -52,9 +52,12 @@ netsh advfirewall firewall add rule name="Sinf" dir=in action=allow protocol=TCP
 
 ---
 
-## 2. Облачный сервер с доменом (Docker + Caddy)
+## 2. Облачный сервер (Docker + Caddy)
 
-Нужен сервер Linux с Docker и Docker Compose и домен, A-запись которого указывает на IP сервера. Порты 80 и 443 должны быть открыты. Caddy сам получает и продлевает сертификат Let's Encrypt.
+Нужен сервер Linux с Docker и Docker Compose. Порты 80 и 443 должны быть открыты. Caddy сам получает и продлевает сертификат Let's Encrypt — для этого нужно имя, которое указывает на IP сервера:
+
+- **свой домен** — A-запись на IP сервера, например `lesson.example.uz`;
+- **без домена** — бесплатное имя **sslip.io**: IP `203.0.113.7` превращается в `203-0-113-7.sslip.io`, оно само указывает на этот IP, ничего регистрировать не нужно. Сертификат Let's Encrypt для него Caddy получит так же.
 
 На сервере:
 
@@ -71,10 +74,21 @@ cp .env.example .env
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
+Что ещё задать в `.env` для сайта:
+
+| Переменная | Зачем | Пример |
+|---|---|---|
+| `SUPERADMIN_EMAIL`, `SUPERADMIN_PASSWORD` | ваша учётка суперадмина: школы, лицензии, заявки, обновления (`/admin`) | `you@example.com`, длинный пароль |
+| `PUBLIC_URL` | адрес сайта в письмах и ссылках сброса пароля | `https://203-0-113-7.sslip.io` |
+| `SMTP_URL`, `MAIL_FROM` | почта для «Забыли пароль?» и заявок; пусто — письмо в журнал сервера | `smtps://user:pass@smtp.example.com:465` |
+| `UPDATE_PUBLIC_KEY` | открытый ключ подписи обновлений: сайт не примет неподписанное обновление | из `node tools/update-key.mjs` |
+| `COOKIE_SECURE` | `auto` (по умолчанию): вход работает и по `http://IP`, и по HTTPS | `auto` |
+| `TRUST_PROXY` | верить заголовкам Caddy; в `docker-compose.yml` уже `1` | — |
+
 Запуск:
 
 ```bash
-export SINF_DOMAIN=lesson.example.uz
+export SINF_DOMAIN=lesson.example.uz        # или без домена: 203-0-113-7.sslip.io
 ```
 ```bash
 docker compose -f deploy/docker-compose.yml up -d --build
@@ -82,7 +96,7 @@ docker compose -f deploy/docker-compose.yml up -d --build
 
 Через минуту откройте `https://lesson.example.uz/health` — должно быть `{"status":"ok"}`. Логи: `docker compose -f deploy/docker-compose.yml logs -f app`.
 
-Без домена (например, по IP, временно): не задавайте `SINF_DOMAIN` — Caddy отдаст сайт по HTTP на порту 80. Функции экрана при этом не работают.
+Совсем без имени (временно, по IP): не задавайте `SINF_DOMAIN` — Caddy отдаст сайт по HTTP на порту 80, `http://203.0.113.7`. Вход работает (`COOKIE_SECURE=auto`), но пароли идут по сети открыто, а функции экрана браузера без HTTPS не работают — лучше sslip.io.
 
 **Обновление:**
 
